@@ -4,8 +4,8 @@ use sasa::AudioClip;
 
 const LANE_COUNT: usize = 6;
 const DEFAULT_CHART_PATH: &str = "songs/alamode/alamode3.spc";
-const DEFAULT_SKYAREA_MS: f32 = 800.0;
 const DEFAULT_AIR_WIDTH_NORM: f32 = 0.5;
+const DEFAULT_SKYAREA_WIDTH_NORM: f32 = 0.25;
 const DEFAULT_SCROLL_SPEED: f32 = 1.25;
 const MIN_SCROLL_SPEED: f32 = 0.2;
 const MAX_SCROLL_SPEED: f32 = 4.0;
@@ -415,6 +415,12 @@ struct PendingHoldPlacement {
     start_time_ms: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PendingSkyAreaPlacement {
+    start_time_ms: f32,
+    start_center_norm: f32,
+}
+
 #[derive(Debug, Clone)]
 struct TimelineEvent {
     time_ms: f32,
@@ -436,6 +442,7 @@ pub struct FallingGroundEditor {
     render_scope: RenderScope,
     place_note_type: Option<PlaceNoteType>,
     pending_hold: Option<PendingHoldPlacement>,
+    pending_skyarea: Option<PendingSkyAreaPlacement>,
     waveform: Option<Waveform>,
     waveform_error: Option<String>,
     waveform_seek_active: bool,
@@ -500,6 +507,7 @@ impl FallingGroundEditor {
             render_scope: RenderScope::Both,
             place_note_type: None,
             pending_hold: None,
+            pending_skyarea: None,
             waveform: None,
             waveform_error: None,
             waveform_seek_active: false,
@@ -519,12 +527,14 @@ impl FallingGroundEditor {
     pub fn set_render_scope(&mut self, scope: RenderScope) {
         self.render_scope = scope;
         self.pending_hold = None;
+        self.pending_skyarea = None;
         self.status = format!("render scope: {}", scope.label());
     }
 
     pub fn set_place_note_type(&mut self, note_type: Option<PlaceNoteType>) {
         self.place_note_type = note_type;
         self.pending_hold = None;
+        self.pending_skyarea = None;
         self.status = match note_type {
             Some(kind) => format!("place mode: {}", kind.label()),
             None => "place mode cleared".to_owned(),
@@ -544,6 +554,10 @@ impl FallingGroundEditor {
 
     pub fn pending_hold_head_time_ms(&self) -> Option<f32> {
         self.pending_hold.map(|pending| pending.start_time_ms)
+    }
+
+    pub fn pending_skyarea_head_time_ms(&self) -> Option<f32> {
+        self.pending_skyarea.map(|pending| pending.start_time_ms)
     }
 
     pub fn draw(
@@ -643,10 +657,13 @@ impl FallingGroundEditor {
         };
 
         if is_mouse_button_pressed(MouseButton::Right)
-            && (self.place_note_type.is_some() || self.pending_hold.is_some())
+            && (self.place_note_type.is_some()
+                || self.pending_hold.is_some()
+                || self.pending_skyarea.is_some())
         {
             self.place_note_type = None;
             self.pending_hold = None;
+            self.pending_skyarea = None;
             self.drag_state = None;
             self.status = "place mode cleared".to_owned();
         }
@@ -1482,7 +1499,7 @@ impl FallingGroundEditor {
             };
             let center_x = split_rect.x + center_norm * split_rect.w;
             let note_w = match place_type {
-                PlaceNoteType::SkyArea => split_rect.w * DEFAULT_AIR_WIDTH_NORM,
+                PlaceNoteType::SkyArea => split_rect.w * DEFAULT_SKYAREA_WIDTH_NORM,
                 _ => split_rect.w * DEFAULT_AIR_WIDTH_NORM,
             };
             let note_x = center_x - note_w * 0.5;
@@ -1499,11 +1516,58 @@ impl FallingGroundEditor {
             if place_type == PlaceNoteType::Flick {
                 draw_flick_curve_shape(&preview, note_x, note_w, preview_y);
             } else {
-                let color = match place_type {
-                    PlaceNoteType::SkyArea => AIR_SKYAREA_HEAD_COLOR,
-                    _ => WHITE,
-                };
-                draw_rectangle(note_x, preview_y - 8.0, note_w, 16.0, color);
+                if let Some(pending) = self.pending_skyarea {
+                    let half = DEFAULT_SKYAREA_WIDTH_NORM * 0.5;
+                    let (start_time_ms, end_time_ms, start_center_norm, end_center_norm) =
+                        if pending.start_time_ms <= preview_time {
+                            (
+                                pending.start_time_ms,
+                                preview_time,
+                                pending.start_center_norm,
+                                x_norm,
+                            )
+                        } else {
+                            (
+                                preview_time,
+                                pending.start_time_ms,
+                                x_norm,
+                                pending.start_center_norm,
+                            )
+                        };
+                    let start_left = (start_center_norm - half).clamp(0.0, 1.0);
+                    let start_right = (start_center_norm + half).clamp(0.0, 1.0);
+                    let end_left = (end_center_norm - half).clamp(0.0, 1.0);
+                    let end_right = (end_center_norm + half).clamp(0.0, 1.0);
+                    let shape = SkyAreaShape {
+                        start_left_norm: start_left,
+                        start_right_norm: start_right,
+                        end_left_norm: end_left,
+                        end_right_norm: end_right,
+                        left_ease: Ease::Linear,
+                        right_ease: Ease::Linear,
+                    };
+                    let preview_note = GroundNote {
+                        id: 0,
+                        kind: GroundNoteKind::SkyArea,
+                        lane: air_x_to_lane(((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0)),
+                        time_ms: start_time_ms,
+                        duration_ms: (end_time_ms - start_time_ms).max(0.0),
+                        width: DEFAULT_SKYAREA_WIDTH_NORM,
+                        flick_right: true,
+                        skyarea_shape: Some(shape),
+                    };
+                    self.draw_skyarea_shape(
+                        split_rect,
+                        current_ms,
+                        judge_y,
+                        rect.h,
+                        &preview_note,
+                        shape,
+                        false,
+                    );
+                } else {
+                    draw_rectangle(note_x, preview_y - 8.0, note_w, 16.0, AIR_SKYAREA_HEAD_COLOR);
+                }
             }
         }
     }
@@ -1795,28 +1859,54 @@ impl FallingGroundEditor {
                         self.status = "new flick created".to_owned();
                     }
                     PlaceNoteType::SkyArea => {
-                        let half = DEFAULT_AIR_WIDTH_NORM * 0.5;
-                        let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
-                        let left = (x_norm - half).clamp(0.0, 1.0);
-                        let right = (x_norm + half).clamp(0.0, 1.0);
-                        self.push_note(GroundNote {
-                            id: self.next_note_id,
-                            kind: GroundNoteKind::SkyArea,
-                            lane,
-                            time_ms,
-                            duration_ms: DEFAULT_SKYAREA_MS,
-                            width: DEFAULT_AIR_WIDTH_NORM,
-                            flick_right: true,
-                            skyarea_shape: Some(SkyAreaShape {
-                                start_left_norm: left,
-                                start_right_norm: right,
-                                end_left_norm: left,
-                                end_right_norm: right,
-                                left_ease: Ease::Linear,
-                                right_ease: Ease::Linear,
-                            }),
-                        });
-                        self.status = "new skyarea created".to_owned();
+                        let width_norm = DEFAULT_SKYAREA_WIDTH_NORM;
+                        let half = width_norm * 0.5;
+                        if let Some(pending) = self.pending_skyarea.take() {
+                            let (start_time_ms, end_time_ms, start_center_norm, end_center_norm) =
+                                if pending.start_time_ms <= time_ms {
+                                    (pending.start_time_ms, time_ms, pending.start_center_norm, x_norm)
+                                } else {
+                                    (time_ms, pending.start_time_ms, x_norm, pending.start_center_norm)
+                                };
+                            let start_left = (start_center_norm - half).clamp(0.0, 1.0);
+                            let start_right = (start_center_norm + half).clamp(0.0, 1.0);
+                            let end_left = (end_center_norm - half).clamp(0.0, 1.0);
+                            let end_right = (end_center_norm + half).clamp(0.0, 1.0);
+                            self.push_note(GroundNote {
+                                id: self.next_note_id,
+                                kind: GroundNoteKind::SkyArea,
+                                lane: air_x_to_lane(
+                                    ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0),
+                                ),
+                                time_ms: start_time_ms,
+                                duration_ms: (end_time_ms - start_time_ms).max(0.0),
+                                width: width_norm,
+                                flick_right: true,
+                                skyarea_shape: Some(SkyAreaShape {
+                                    start_left_norm: start_left,
+                                    start_right_norm: start_right,
+                                    end_left_norm: end_left,
+                                    end_right_norm: end_right,
+                                    left_ease: Ease::Linear,
+                                    right_ease: Ease::Linear,
+                                }),
+                            });
+                            self.status = format!(
+                                "new skyarea created {:.0}ms -> {:.0}ms",
+                                start_time_ms.round(),
+                                end_time_ms.round()
+                            );
+                        } else {
+                            self.pending_skyarea = Some(PendingSkyAreaPlacement {
+                                start_time_ms: time_ms,
+                                start_center_norm: x_norm,
+                            });
+                            self.status = format!(
+                                "skyarea head set x={:.3} time={:.0}ms",
+                                x_norm,
+                                time_ms.round()
+                            );
+                        }
                     }
                     _ => {}
                 }

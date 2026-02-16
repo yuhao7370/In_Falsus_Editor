@@ -10,7 +10,7 @@ fn tool_caption(tool: PlaceNoteType) -> &'static str {
         PlaceNoteType::Tap => "Tap (Ground)",
         PlaceNoteType::Hold => "Hold (Ground, 2 Clicks)",
         PlaceNoteType::Flick => "Flick (Air)",
-        PlaceNoteType::SkyArea => "SkyArea (Air)",
+        PlaceNoteType::SkyArea => "SkyArea (Air, 2 Clicks)",
     }
 }
 
@@ -114,6 +114,10 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
             ui.label(format!("Current: {mode_text}"));
             if let Some(head_time_ms) = editor.pending_hold_head_time_ms() {
                 ui.label(format!("Hold head: {:.0}ms", head_time_ms));
+                ui.label("Click again to set tail");
+            }
+            if let Some(head_time_ms) = editor.pending_skyarea_head_time_ms() {
+                ui.label(format!("SkyArea head: {:.0}ms", head_time_ms));
                 ui.label("Click again to set tail");
             }
         });
