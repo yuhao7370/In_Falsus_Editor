@@ -191,6 +191,24 @@ impl SongPlayer {
 
     pub fn play(&mut self) -> Result<(), PlayerError> {
         let music = self.music.as_mut().ok_or(PlayerError::NoTrackLoaded)?;
+
+        // Always re-seek to position_cache before resuming.
+        // This is critical because sasa processes commands asynchronously
+        // via a ring buffer. If a previous seek_to() hasn't been consumed
+        // by the audio thread yet, sending Resume could cause the renderer
+        // to run one cycle at the OLD index (possibly past the clip end)
+        // and immediately re-pause. By always issuing SeekTo right before
+        // Resume, we guarantee the FIFO order: SeekTo → Resume.
+        let target = if self.state == PlaybackState::Stopped {
+            0.0
+        } else {
+            self.position_cache
+        };
+        music
+            .seek_to(target)
+            .map_err(|err| PlayerError::Seek(err.to_string()))?;
+        self.position_cache = target;
+
         music
             .play()
             .map_err(|err| PlayerError::StartPlayback(err.to_string()))?;
@@ -299,7 +317,11 @@ impl SongPlayer {
                 let position = music.position().clamp(0.0, self.duration_sec.max(0.0));
                 let near_end = self.duration_sec > 0.0 && position >= (self.duration_sec - 0.02);
                 if near_end {
-                    self.state = PlaybackState::Paused;
+                    // Use Stopped (not Paused) so that play() knows to
+                    // seek back to 0 before resuming – the sasa renderer's
+                    // internal index is past the clip and would immediately
+                    // re-pause if we just sent Resume.
+                    self.state = PlaybackState::Stopped;
                     self.position_cache = self.duration_sec.max(0.0);
                     return Some(PlayerEvent::Stopped(StopReason::EndOfTrack));
                 } else {
@@ -310,6 +332,18 @@ impl SongPlayer {
             } else {
                 // Backend is actually playing now, clear the flag.
                 self.skip_pause_check = false;
+
+                // sasa may NOT auto-pause when the clip ends; it might
+                // just stop advancing position. Check for near-end here too.
+                let position = music.position().clamp(0.0, self.duration_sec.max(0.0));
+                let near_end = self.duration_sec > 0.0
+                    && position >= (self.duration_sec - 0.02);
+                if near_end {
+                    let _ = music.pause();
+                    self.state = PlaybackState::Stopped;
+                    self.position_cache = self.duration_sec.max(0.0);
+                    return Some(PlayerEvent::Stopped(StopReason::EndOfTrack));
+                }
             }
         }
 
