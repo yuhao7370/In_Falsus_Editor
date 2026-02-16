@@ -552,7 +552,6 @@ impl FallingGroundEditor {
         current_sec: f32,
         audio_duration_sec: f32,
         audio_path: Option<&str>,
-        is_playing: bool,
     ) -> Vec<FallingEditorAction> {
         self.sync_waveform(audio_path);
         let mut actions = Vec::new();
@@ -631,7 +630,7 @@ impl FallingGroundEditor {
         );
 
         self.draw_header(header_rect);
-        self.handle_scroll_speed_controls(header_rect, is_playing);
+        self.handle_scroll_speed_controls(header_rect);
         self.handle_vertical_progress_seek(progress_rect, audio_duration_sec, &mut actions);
         self.draw_vertical_progress(progress_rect, current_sec, audio_duration_sec);
 
@@ -858,7 +857,7 @@ impl FallingGroundEditor {
         );
     }
 
-    fn handle_scroll_speed_controls(&mut self, header_rect: Rect, is_playing: bool) {
+    fn handle_scroll_speed_controls(&mut self, header_rect: Rect) {
         let panel_w = 224.0;
         let panel_h = (header_rect.h - 8.0).max(24.0);
         let panel_rect = Rect::new(
@@ -898,13 +897,11 @@ impl FallingGroundEditor {
             self.adjust_scroll_speed(SCROLL_SPEED_STEP);
         }
 
-        if !is_playing {
-            let (mx, my) = mouse_position();
-            if point_in_rect(mx, my, panel_rect) {
-                let (_, wheel_y) = mouse_wheel();
-                if wheel_y.abs() > f32::EPSILON {
-                    self.adjust_scroll_speed(wheel_y * SCROLL_SPEED_STEP);
-                }
+        let (mx, my) = mouse_position();
+        if point_in_rect(mx, my, panel_rect) {
+            let (_, wheel_y) = mouse_wheel();
+            if wheel_y.abs() > f32::EPSILON {
+                self.adjust_scroll_speed(wheel_y * SCROLL_SPEED_STEP);
             }
         }
 

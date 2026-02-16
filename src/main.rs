@@ -166,7 +166,7 @@ async fn main() {
             (screen_height() - editor_y - 28.0).max(140.0),
         );
 
-        for action in editor.draw(editor_rect, current_sec, duration_sec, track_path.as_deref(), audio.is_playing()) {
+        for action in editor.draw(editor_rect, current_sec, duration_sec, track_path.as_deref()) {
             match action {
                 FallingEditorAction::SeekTo(sec) => audio.handle_editor_seek(sec, &i18n),
             }
