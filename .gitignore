@@ -1,0 +1,28 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Project temp/runtime data
+/.tmp_sasa_1/
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+
+music.ogg
+grievouslady2.*
+ifc_spc.md
+chart_example.txt
+/songs
