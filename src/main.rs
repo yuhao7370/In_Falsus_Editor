@@ -82,6 +82,14 @@ fn handle_top_menu_action(
                 i18n.t(TextKey::ActionDebugHitboxOff).to_owned()
             };
         }
+        TopMenuAction::SetMinimapVisible(enabled) => {
+            editor.set_show_minimap(enabled);
+            audio.status = if enabled {
+                i18n.t(TextKey::ActionMinimapOn).to_owned()
+            } else {
+                i18n.t(TextKey::ActionMinimapOff).to_owned()
+            };
+        }
     }
 }
 
@@ -131,6 +139,7 @@ async fn main() {
                 volume,
                 audio.has_player(),
                 editor.debug_show_hitboxes(),
+                editor.show_minimap(),
             );
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
@@ -189,7 +198,13 @@ async fn main() {
             (screen_height() - editor_y - 28.0 * ui_scale).max(140.0),
         );
 
-        for action in editor.draw(editor_rect, current_sec, duration_sec, track_path.as_deref()) {
+        for action in editor.draw(
+            editor_rect,
+            current_sec,
+            duration_sec,
+            track_path.as_deref(),
+            audio.is_playing(),
+        ) {
             match action {
                 FallingEditorAction::SeekTo(sec) => audio.handle_editor_seek(sec, &i18n),
             }

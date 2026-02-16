@@ -12,6 +12,7 @@
   "menu_settings": "Settings",
   "settings_language": "Language",
   "settings_debug_hitbox": "Hitbox Debug",
+  "settings_show_minimap": "Show Minimap",
   "language_chinese": "Chinese",
   "language_english": "English",
   "file_create_project": "Create Project",
@@ -46,5 +47,7 @@
   "action_set_language_zh": "Language switched to Chinese",
   "action_set_language_en": "Language switched to English",
   "action_debug_hitbox_on": "Hitbox debug enabled",
-  "action_debug_hitbox_off": "Hitbox debug disabled"
+  "action_debug_hitbox_off": "Hitbox debug disabled",
+  "action_minimap_on": "Minimap enabled",
+  "action_minimap_off": "Minimap disabled"
 }

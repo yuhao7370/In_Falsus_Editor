@@ -13,6 +13,7 @@ pub enum TopMenuAction {
     SetLanguage(Language),
     SetVolume(f32),
     SetDebugHitbox(bool),
+    SetMinimapVisible(bool),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
@@ -129,6 +130,7 @@ pub fn draw_top_menu(
     current_volume: f32,
     volume_enabled: bool,
     current_debug_hitbox: bool,
+    current_show_minimap: bool,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -225,6 +227,14 @@ pub fn draw_top_menu(
                             .clicked()
                         {
                             action = Some(TopMenuAction::SetDebugHitbox(!current_debug_hitbox));
+                            ui.memory_mut(|mem| mem.close_popup());
+                        }
+
+                        let minimap_selected = current_show_minimap;
+                        if draw_popup_row(ui, i18n.t(TextKey::SettingsShowMinimap), minimap_selected)
+                            .clicked()
+                        {
+                            action = Some(TopMenuAction::SetMinimapVisible(!current_show_minimap));
                             ui.memory_mut(|mem| mem.close_popup());
                         }
                     },

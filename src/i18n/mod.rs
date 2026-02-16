@@ -69,6 +69,7 @@ pub enum TextKey {
     MenuSettings,
     SettingsLanguage,
     SettingsDebugHitbox,
+    SettingsShowMinimap,
     LanguageChinese,
     LanguageEnglish,
     FileCreateProject,
@@ -104,6 +105,8 @@ pub enum TextKey {
     ActionSetLanguageEn,
     ActionDebugHitboxOn,
     ActionDebugHitboxOff,
+    ActionMinimapOn,
+    ActionMinimapOff,
 }
 
 impl TextKey {
@@ -122,6 +125,7 @@ impl TextKey {
             TextKey::MenuSettings => "menu_settings",
             TextKey::SettingsLanguage => "settings_language",
             TextKey::SettingsDebugHitbox => "settings_debug_hitbox",
+            TextKey::SettingsShowMinimap => "settings_show_minimap",
             TextKey::LanguageChinese => "language_chinese",
             TextKey::LanguageEnglish => "language_english",
             TextKey::FileCreateProject => "file_create_project",
@@ -157,6 +161,8 @@ impl TextKey {
             TextKey::ActionSetLanguageEn => "action_set_language_en",
             TextKey::ActionDebugHitboxOn => "action_debug_hitbox_on",
             TextKey::ActionDebugHitboxOff => "action_debug_hitbox_off",
+            TextKey::ActionMinimapOn => "action_minimap_on",
+            TextKey::ActionMinimapOff => "action_minimap_off",
         }
     }
 }

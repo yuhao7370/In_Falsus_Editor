@@ -26,6 +26,7 @@ const NOTE_HEAD_HIT_PAD_X: f32 = 2.0;
 const NOTE_BODY_HIT_PAD_X: f32 = 2.0;
 const NOTE_BODY_EDGE_GAP_Y: f32 = 8.0;
 const SELECTED_NOTE_DARKEN_ALPHA: u8 = 72;
+const MINIMAP_DRAG_EMIT_EPS_SEC: f32 = 0.002;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaceNoteType {
@@ -489,6 +490,27 @@ struct TimelineEvent {
     color: Color,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MinimapPageConfig {
+    measures_per_page: u32,
+    page_index: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TimeWindowMs {
+    start_ms: f32,
+    end_ms: f32,
+    current_ms: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MinimapRenderInfo {
+    content_rect: Rect,
+    highlight_rect: Rect,
+    seek_start_ms: f32,
+    seek_end_ms: f32,
+}
+
 pub struct FallingGroundEditor {
     chart_path: String,
     notes: Vec<GroundNote>,
@@ -507,10 +529,16 @@ pub struct FallingGroundEditor {
     overlap_cycle: Option<OverlapCycleState>,
     hover_overlap_hint: Option<HoverOverlapHint>,
     debug_show_hitboxes: bool,
+    show_minimap: bool,
     waveform: Option<Waveform>,
     waveform_error: Option<String>,
     waveform_seek_active: bool,
     waveform_seek_sec: f32,
+    minimap_drag_active: bool,
+    minimap_drag_offset_ms: f32,
+    minimap_last_emit_sec: Option<f32>,
+    minimap_drag_target_sec: Option<f32>,
+    minimap_page: Option<MinimapPageConfig>,
     status: String,
 }
 
@@ -575,10 +603,16 @@ impl FallingGroundEditor {
             overlap_cycle: None,
             hover_overlap_hint: None,
             debug_show_hitboxes: false,
+            show_minimap: false,
             waveform: None,
             waveform_error: None,
             waveform_seek_active: false,
             waveform_seek_sec: 0.0,
+            minimap_drag_active: false,
+            minimap_drag_offset_ms: 0.0,
+            minimap_last_emit_sec: None,
+            minimap_drag_target_sec: None,
+            minimap_page: None,
             status,
         }
     }
@@ -597,6 +631,9 @@ impl FallingGroundEditor {
         self.pending_skyarea = None;
         self.overlap_cycle = None;
         self.hover_overlap_hint = None;
+        self.minimap_drag_active = false;
+        self.minimap_drag_target_sec = None;
+        self.minimap_last_emit_sec = None;
         self.status = format!("render scope: {}", scope.label());
     }
 
@@ -640,12 +677,27 @@ impl FallingGroundEditor {
         self.status = format!("debug hitbox {}", if enabled { "on" } else { "off" });
     }
 
+    pub fn show_minimap(&self) -> bool {
+        self.show_minimap
+    }
+
+    pub fn set_show_minimap(&mut self, enabled: bool) {
+        self.show_minimap = enabled;
+        if !enabled {
+            self.minimap_drag_active = false;
+            self.minimap_drag_offset_ms = 0.0;
+            self.minimap_drag_target_sec = None;
+            self.minimap_last_emit_sec = None;
+        }
+    }
+
     pub fn draw(
         &mut self,
         area: Rect,
         current_sec: f32,
         audio_duration_sec: f32,
         audio_path: Option<&str>,
+        is_playing: bool,
     ) -> Vec<FallingEditorAction> {
         self.sync_waveform(audio_path);
         let mut actions = Vec::new();
@@ -660,19 +712,23 @@ impl FallingGroundEditor {
             (area.h - header_h - footer_h - 10.0).max(40.0),
         );
         let (left_screen, right_screen) = self.split_portrait_screens(content_rect);
+        let minimap_screen = if self.show_minimap {
+            self.minimap_screen_from_left_gap(content_rect, left_screen)
+        } else {
+            None
+        };
 
-        let left_inner = Rect::new(
-            left_screen.x + 8.0,
-            left_screen.y + 8.0,
-            (left_screen.w - 16.0).max(8.0),
-            (left_screen.h - 16.0).max(8.0),
-        );
-        let right_inner = Rect::new(
-            right_screen.x + 8.0,
-            right_screen.y + 8.0,
-            (right_screen.w - 16.0).max(8.0),
-            (right_screen.h - 16.0).max(8.0),
-        );
+        let inner_rect = |screen: Rect| {
+            Rect::new(
+                screen.x + 8.0,
+                screen.y + 8.0,
+                (screen.w - 16.0).max(8.0),
+                (screen.h - 16.0).max(8.0),
+            )
+        };
+        let minimap_inner = minimap_screen.map(inner_rect);
+        let left_inner = inner_rect(left_screen);
+        let right_inner = inner_rect(right_screen);
 
         let progress_w = (right_inner.w * 0.08).clamp(14.0, 24.0);
         let progress_rect = Rect::new(
@@ -691,100 +747,156 @@ impl FallingGroundEditor {
         draw_rectangle(area.x, area.y, area.w, area.h, Color::from_rgba(10, 10, 12, 255));
         draw_rectangle_lines(area.x, area.y, area.w, area.h, 1.0, Color::from_rgba(44, 44, 52, 255));
 
-        draw_rectangle(
-            left_screen.x,
-            left_screen.y,
-            left_screen.w,
-            left_screen.h,
-            Color::from_rgba(12, 12, 18, 255),
-        );
-        draw_rectangle_lines(
-            left_screen.x,
-            left_screen.y,
-            left_screen.w,
-            left_screen.h,
-            1.0,
-            Color::from_rgba(56, 62, 86, 255),
-        );
-        draw_rectangle(
-            right_screen.x,
-            right_screen.y,
-            right_screen.w,
-            right_screen.h,
-            Color::from_rgba(12, 12, 18, 255),
-        );
-        draw_rectangle_lines(
-            right_screen.x,
-            right_screen.y,
-            right_screen.w,
-            right_screen.h,
-            1.0,
-            Color::from_rgba(56, 62, 86, 255),
-        );
+        if let Some(screen) = minimap_screen {
+            draw_rectangle(
+                screen.x,
+                screen.y,
+                screen.w,
+                screen.h,
+                Color::from_rgba(12, 12, 18, 255),
+            );
+            draw_rectangle_lines(
+                screen.x,
+                screen.y,
+                screen.w,
+                screen.h,
+                1.0,
+                Color::from_rgba(56, 62, 86, 255),
+            );
+        }
+        for screen in [left_screen, right_screen] {
+            draw_rectangle(
+                screen.x,
+                screen.y,
+                screen.w,
+                screen.h,
+                Color::from_rgba(12, 12, 18, 255),
+            );
+            draw_rectangle_lines(
+                screen.x,
+                screen.y,
+                screen.w,
+                screen.h,
+                1.0,
+                Color::from_rgba(56, 62, 86, 255),
+            );
+        }
 
         self.draw_header(header_rect);
         self.handle_scroll_speed_controls(header_rect);
-        self.handle_vertical_progress_seek(progress_rect, audio_duration_sec, &mut actions);
-        let render_current_sec = if self.waveform_seek_active {
+        self.handle_vertical_progress_seek(progress_rect, audio_duration_sec, is_playing, &mut actions);
+        let duration_sec = self.estimate_duration(audio_duration_sec).max(0.001);
+        let mut render_current_sec = if self.waveform_seek_active {
             self.waveform_seek_sec
-                .clamp(0.0, self.estimate_duration(audio_duration_sec).max(0.0))
+                .clamp(0.0, duration_sec)
         } else {
             current_sec
         };
-        let current_ms = render_current_sec * 1000.0;
-        self.draw_vertical_progress(progress_rect, render_current_sec, audio_duration_sec);
+        if let Some(target_sec) = self.minimap_drag_target_sec {
+            render_current_sec = target_sec.clamp(0.0, duration_sec);
+        }
+        let mut current_ms = render_current_sec * 1000.0;
+
+        let visible_window = self.compute_visible_window_ms(lanes_rect, current_ms);
+        if let Some(minimap_inner) = minimap_inner {
+            let minimap_info = self.draw_minimap_view(minimap_inner, duration_sec, visible_window);
+            self.handle_minimap_seek_drag(
+                minimap_info,
+                current_ms,
+                duration_sec,
+                is_playing,
+                &mut actions,
+            );
+        } else {
+            self.minimap_drag_active = false;
+            self.minimap_drag_offset_ms = 0.0;
+            self.minimap_drag_target_sec = None;
+            self.minimap_last_emit_sec = None;
+        }
+        if let Some(target_sec) = self.minimap_drag_target_sec {
+            render_current_sec = target_sec.clamp(0.0, duration_sec);
+            current_ms = render_current_sec * 1000.0;
+        }
+        self.draw_vertical_progress(progress_rect, render_current_sec, duration_sec);
 
         let (ground_rect, air_rect) = match self.render_scope {
             RenderScope::Both => {
                 self.draw_event_view(left_inner, current_ms);
                 (Some(lanes_rect), Some(lanes_rect))
             }
-            RenderScope::Split => (Some(lanes_rect), Some(left_inner)),
+            RenderScope::Split => (Some(left_inner), Some(lanes_rect)),
         };
 
-        if is_mouse_button_pressed(MouseButton::Right)
-            && (self.place_note_type.is_some()
-                || self.pending_hold.is_some()
-                || self.pending_skyarea.is_some())
-        {
-            self.place_note_type = None;
-            self.pending_hold = None;
-            self.pending_skyarea = None;
+        let allow_editor_input = !self.minimap_drag_active;
+        if allow_editor_input {
+            if is_mouse_button_pressed(MouseButton::Right)
+                && (self.place_note_type.is_some()
+                    || self.pending_hold.is_some()
+                    || self.pending_skyarea.is_some())
+            {
+                self.place_note_type = None;
+                self.pending_hold = None;
+                self.pending_skyarea = None;
+                self.drag_state = None;
+                self.overlap_cycle = None;
+                self.hover_overlap_hint = None;
+                self.status = "place mode cleared".to_owned();
+            }
+
+            if self.place_note_type.is_none() {
+                self.handle_note_selection_click(ground_rect, air_rect, current_ms);
+                self.update_hover_overlap_hint(ground_rect, air_rect, current_ms);
+            } else {
+                self.overlap_cycle = None;
+                self.hover_overlap_hint = None;
+            }
+        } else {
             self.drag_state = None;
             self.overlap_cycle = None;
             self.hover_overlap_hint = None;
-            self.status = "place mode cleared".to_owned();
         }
 
-        if self.place_note_type.is_none() {
-            self.handle_note_selection_click(ground_rect, air_rect, current_ms);
-            self.update_hover_overlap_hint(ground_rect, air_rect, current_ms);
-        } else {
-            self.overlap_cycle = None;
-            self.hover_overlap_hint = None;
+        if allow_editor_input {
+            if let Some(rect) = ground_rect {
+                self.handle_ground_input(rect, current_ms);
+            }
+            if let Some(rect) = air_rect {
+                self.handle_air_input(rect, current_ms);
+            }
         }
 
-        if let Some(rect) = ground_rect {
-            self.handle_ground_input(rect, current_ms);
-            self.draw_ground_view(rect, current_ms, true);
-        }
-        if let Some(rect) = air_rect {
-            self.handle_air_input(rect, current_ms);
-            self.draw_air_view(
-                rect,
-                current_ms,
-                self.render_scope == RenderScope::Both,
-                self.render_scope != RenderScope::Both,
-            );
+        match self.render_scope {
+            RenderScope::Both => {
+                if let Some(rect) = ground_rect {
+                    self.draw_ground_view(rect, current_ms, true);
+                }
+                if let Some(rect) = air_rect {
+                    self.draw_air_view(rect, current_ms, true, false);
+                }
+            }
+            RenderScope::Split => {
+                if let Some(rect) = air_rect {
+                    self.draw_air_view(rect, current_ms, false, true);
+                }
+                if let Some(rect) = ground_rect {
+                    self.draw_ground_view(rect, current_ms, true);
+                }
+            }
         }
 
         let (mx, my) = mouse_position();
-        let using_note_cursor = match self.place_note_type {
-            Some(tool) if is_ground_tool(tool) => {
-                ground_rect.map(|r| point_in_rect(mx, my, r)).unwrap_or(false)
+        let using_note_cursor = if allow_editor_input {
+            match self.place_note_type {
+                Some(tool) if is_ground_tool(tool) => {
+                    ground_rect.map(|r| point_in_rect(mx, my, r)).unwrap_or(false)
+                }
+                Some(tool) if is_air_tool(tool) => {
+                    air_rect.map(|r| point_in_rect(mx, my, r)).unwrap_or(false)
+                }
+                _ => false,
             }
-            Some(tool) if is_air_tool(tool) => air_rect.map(|r| point_in_rect(mx, my, r)).unwrap_or(false),
-            _ => false,
+        } else {
+            false
         };
         show_mouse(!using_note_cursor);
         if using_note_cursor {
@@ -844,6 +956,715 @@ impl FallingGroundEditor {
             Rect::new(start_x, y, screen_w, screen_h),
             Rect::new(start_x + screen_w + gap, y, screen_w, screen_h),
         )
+    }
+
+    fn minimap_screen_from_left_gap(&self, content_rect: Rect, left_screen: Rect) -> Option<Rect> {
+        let gap = (content_rect.w * 0.008).clamp(2.0, 6.0);
+        let available_w = left_screen.x - content_rect.x - gap;
+        if available_w < 34.0 {
+            return None;
+        }
+        Some(Rect::new(
+            content_rect.x,
+            left_screen.y,
+            available_w,
+            left_screen.h,
+        ))
+    }
+
+    fn compute_visible_window_ms(&self, render_rect: Rect, current_ms: f32) -> TimeWindowMs {
+        if render_rect.h <= 1.0 {
+            return TimeWindowMs {
+                start_ms: current_ms.max(0.0),
+                end_ms: current_ms.max(0.0),
+                current_ms: current_ms.max(0.0),
+            };
+        }
+        let judge_y = render_rect.y + render_rect.h * 0.82;
+        let pixels_per_sec = (self.scroll_speed * render_rect.h).max(1.0);
+        let ahead_ms = ((judge_y - render_rect.y) / pixels_per_sec * 1000.0).max(0.0);
+        let behind_ms = (((render_rect.y + render_rect.h) - judge_y) / pixels_per_sec * 1000.0).max(0.0);
+        let start_ms = (current_ms - behind_ms).max(0.0);
+        let end_ms = (current_ms + ahead_ms).max(start_ms);
+        TimeWindowMs {
+            start_ms,
+            end_ms,
+            current_ms: current_ms.max(0.0),
+        }
+    }
+
+    fn minimap_segment_time_to_y(
+        &self,
+        time_ms: f32,
+        rect: Rect,
+        seg_start_ms: f32,
+        seg_end_ms: f32,
+    ) -> f32 {
+        let span = (seg_end_ms - seg_start_ms).max(0.001);
+        let t = ((time_ms - seg_start_ms) / span).clamp(0.0, 1.0);
+        rect.y + rect.h * (1.0 - t)
+    }
+
+    fn minimap_segment_y_to_time(
+        &self,
+        y: f32,
+        rect: Rect,
+        seg_start_ms: f32,
+        seg_end_ms: f32,
+    ) -> f32 {
+        let span = (seg_end_ms - seg_start_ms).max(0.001);
+        let t = ((y - rect.y) / rect.h.max(0.001)).clamp(0.0, 1.0);
+        (1.0 - t) * span + seg_start_ms
+    }
+
+    fn draw_minimap_view(
+        &self,
+        rect: Rect,
+        duration_sec: f32,
+        visible: TimeWindowMs,
+    ) -> MinimapRenderInfo {
+        let duration_ms = (duration_sec.max(0.001)) * 1000.0;
+        if rect.h <= 6.0 || rect.w <= 6.0 {
+            return MinimapRenderInfo {
+                content_rect: rect,
+                highlight_rect: rect,
+                seek_start_ms: 0.0,
+                seek_end_ms: duration_ms,
+            };
+        }
+
+        let ui = adaptive_ui_scale();
+        let title_h = 20.0 * ui;
+        let pad = 6.0 * ui;
+
+        draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::from_rgba(8, 10, 17, 255));
+        draw_rectangle_lines(
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            1.0,
+            Color::from_rgba(42, 58, 90, 255),
+        );
+        draw_text_ex(
+            "MINIMAP",
+            rect.x + 8.0 * ui,
+            rect.y + 16.0 * ui,
+            TextParams {
+                font_size: scaled_font_size(16.0, 11, 36),
+                color: Color::from_rgba(210, 222, 246, 255),
+                ..Default::default()
+            },
+        );
+
+        let content = Rect::new(
+            rect.x + pad,
+            rect.y + title_h,
+            (rect.w - pad * 2.0).max(4.0),
+            (rect.h - title_h - pad).max(4.0),
+        );
+        draw_rectangle(
+            content.x,
+            content.y,
+            content.w,
+            content.h,
+            Color::from_rgba(10, 14, 24, 255),
+        );
+        draw_rectangle_lines(
+            content.x,
+            content.y,
+            content.w,
+            content.h,
+            1.0,
+            Color::from_rgba(52, 72, 108, 255),
+        );
+
+        if content.h <= 2.0 || content.w <= 2.0 {
+            return MinimapRenderInfo {
+                content_rect: content,
+                highlight_rect: content,
+                seek_start_ms: 0.0,
+                seek_end_ms: duration_ms,
+            };
+        }
+
+        let half_ms = duration_ms * 0.5;
+        let pair_gap = (2.0 * ui).clamp(1.0, 5.0);
+        let group_gap = (5.0 * ui).clamp(3.0, 10.0);
+        let total_gap = pair_gap * 2.0 + group_gap;
+        let col_w = ((content.w - total_gap) / 4.0).max(2.0);
+
+        let ground_rect_1 = Rect::new(content.x, content.y, col_w, content.h);
+        let sky_rect_1 = Rect::new(ground_rect_1.x + col_w + pair_gap, content.y, col_w, content.h);
+        let ground_rect_2 = Rect::new(sky_rect_1.x + col_w + group_gap, content.y, col_w, content.h);
+        let sky_rect_2 = Rect::new(ground_rect_2.x + col_w + pair_gap, content.y, col_w, content.h);
+
+        let left_group_rect = Rect::new(
+            ground_rect_1.x,
+            ground_rect_1.y,
+            (sky_rect_1.x + sky_rect_1.w - ground_rect_1.x).max(1.0),
+            ground_rect_1.h,
+        );
+        let right_group_rect = Rect::new(
+            ground_rect_2.x,
+            ground_rect_2.y,
+            (sky_rect_2.x + sky_rect_2.w - ground_rect_2.x).max(1.0),
+            ground_rect_2.h,
+        );
+        let active_right = visible.current_ms >= half_ms;
+        let (active_group_rect, active_start_ms, active_end_ms) = if active_right {
+            (right_group_rect, half_ms, duration_ms)
+        } else {
+            (left_group_rect, 0.0, half_ms)
+        };
+
+        for (g_rect, a_rect, g_label, a_label) in [
+            (ground_rect_1, sky_rect_1, "G1", "A1"),
+            (ground_rect_2, sky_rect_2, "G2", "A2"),
+        ] {
+            draw_rectangle(
+                g_rect.x,
+                g_rect.y,
+                g_rect.w,
+                g_rect.h,
+                Color::from_rgba(12, 18, 28, 188),
+            );
+            draw_rectangle(
+                a_rect.x,
+                a_rect.y,
+                a_rect.w,
+                a_rect.h,
+                Color::from_rgba(18, 14, 30, 188),
+            );
+            draw_rectangle_lines(
+                g_rect.x,
+                g_rect.y,
+                g_rect.w,
+                g_rect.h,
+                1.0,
+                Color::from_rgba(62, 86, 118, 144),
+            );
+            draw_rectangle_lines(
+                a_rect.x,
+                a_rect.y,
+                a_rect.w,
+                a_rect.h,
+                1.0,
+                Color::from_rgba(94, 84, 138, 144),
+            );
+            draw_text_ex(
+                g_label,
+                g_rect.x + 2.0 * ui,
+                g_rect.y + 12.0 * ui,
+                TextParams {
+                    font_size: scaled_font_size(10.0, 8, 20),
+                    color: Color::from_rgba(186, 216, 245, 196),
+                    ..Default::default()
+                },
+            );
+            draw_text_ex(
+                a_label,
+                a_rect.x + 2.0 * ui,
+                a_rect.y + 12.0 * ui,
+                TextParams {
+                    font_size: scaled_font_size(10.0, 8, 20),
+                    color: Color::from_rgba(214, 188, 246, 196),
+                    ..Default::default()
+                },
+            );
+
+            let ground_lane_w = g_rect.w / LANE_COUNT as f32;
+            for lane in 1..LANE_COUNT {
+                let x = g_rect.x + lane as f32 * ground_lane_w;
+                draw_line(
+                    x,
+                    g_rect.y,
+                    x,
+                    g_rect.y + g_rect.h,
+                    1.0,
+                    Color::from_rgba(42, 56, 84, 132),
+                );
+            }
+            for lane in 1..4 {
+                let x = a_rect.x + lane as f32 * (a_rect.w / 4.0);
+                draw_line(
+                    x,
+                    a_rect.y,
+                    x,
+                    a_rect.y + a_rect.h,
+                    1.0,
+                    Color::from_rgba(72, 64, 108, 128),
+                );
+            }
+        }
+
+        // Measure / beat / subdivision lines per half page.
+        for (group_rect, page_start_ms, page_end_ms) in [
+            (left_group_rect, 0.0_f32, half_ms.max(0.001)),
+            (right_group_rect, half_ms, duration_ms.max(half_ms + 0.001)),
+        ] {
+            let center_ms = (page_start_ms + page_end_ms) * 0.5;
+            let ahead_ms = (page_end_ms - center_ms).max(0.0);
+            let behind_ms = (center_ms - page_start_ms).max(0.0);
+            for barline in self.timeline.visible_barlines(center_ms, ahead_ms, behind_ms, 16) {
+                if barline.time_ms < page_start_ms || barline.time_ms > page_end_ms {
+                    continue;
+                }
+                let y = self.minimap_segment_time_to_y(
+                    barline.time_ms,
+                    group_rect,
+                    page_start_ms,
+                    page_end_ms,
+                );
+                let (thickness, color) = match barline.kind {
+                    BarLineKind::Measure => (1.3 * ui, Color::from_rgba(168, 190, 236, 170)),
+                    BarLineKind::Beat => (1.0 * ui, Color::from_rgba(108, 128, 170, 124)),
+                    BarLineKind::Subdivision => (0.8 * ui, Color::from_rgba(76, 96, 132, 92)),
+                };
+                draw_line(
+                    group_rect.x,
+                    y,
+                    group_rect.x + group_rect.w,
+                    y,
+                    thickness.max(1.0),
+                    color,
+                );
+            }
+        }
+
+        // Notes compressed over full duration (rect/strip based, no circle markers).
+        let thin = (1.05 * ui).max(1.0);
+        let head_h = (2.8 * ui).clamp(1.0, 5.0);
+        let flick_tip_h = (head_h * 0.35).max(0.8);
+        for note in &self.notes {
+            let note_time = note.time_ms.max(0.0);
+            let on_right = note_time >= half_ms;
+            let (ground_rect, sky_rect, page_start_ms, page_end_ms) = if on_right {
+                (ground_rect_2, sky_rect_2, half_ms, duration_ms.max(half_ms + 0.001))
+            } else {
+                (ground_rect_1, sky_rect_1, 0.0_f32, half_ms.max(0.001))
+            };
+            let y_head = self.minimap_segment_time_to_y(
+                note_time,
+                ground_rect,
+                page_start_ms,
+                page_end_ms,
+            );
+            let lane_palette = lane_note_palette(note.lane.clamp(0, LANE_COUNT - 1));
+            let ground_lane_w = ground_rect.w / LANE_COUNT as f32;
+            let page_duration_ms = (page_end_ms - page_start_ms).max(0.001);
+            match note.kind {
+                GroundNoteKind::Tap => {
+                    let lane_x = ground_rect.x + ground_lane_w * note.lane as f32;
+                    let note_w = (ground_lane_w * 0.74).max(1.0);
+                    let note_x = lane_x + (ground_lane_w - note_w) * 0.5;
+                    draw_rectangle(note_x, y_head - head_h * 0.5, note_w, head_h, lane_palette.tap);
+                }
+                GroundNoteKind::Hold => {
+                    let note_end = note.end_time_ms();
+                    for (g_rect, start_ms, end_ms) in [
+                        (ground_rect_1, 0.0_f32, half_ms.max(0.001)),
+                        (ground_rect_2, half_ms, duration_ms.max(half_ms + 0.001)),
+                    ] {
+                        if note_end < start_ms || note_time > end_ms {
+                            continue;
+                        }
+                        let lane_w = g_rect.w / LANE_COUNT as f32;
+                        let lane_x = g_rect.x + lane_w * note.lane as f32;
+                        let head_w = (lane_w * 0.82).max(1.0);
+                        let head_x = lane_x + (lane_w - head_w) * 0.5;
+                        let body_start = note_time.max(start_ms);
+                        let body_end = note_end.min(end_ms);
+                        let y0 =
+                            self.minimap_segment_time_to_y(body_start, g_rect, start_ms, end_ms);
+                        let y1 =
+                            self.minimap_segment_time_to_y(body_end, g_rect, start_ms, end_ms);
+                        let body_w = (head_w * 0.56).max(1.0);
+                        let body_x = head_x + (head_w - body_w) * 0.5;
+                        draw_rectangle(body_x, y0.min(y1), body_w, (y1 - y0).abs().max(1.0), lane_palette.hold_body);
+
+                        if note_time >= start_ms && note_time <= end_ms {
+                            let y_head_local =
+                                self.minimap_segment_time_to_y(note_time, g_rect, start_ms, end_ms);
+                            draw_rectangle(
+                                head_x,
+                                y_head_local - head_h * 0.55,
+                                head_w,
+                                head_h * 1.1,
+                                lane_palette.hold_head,
+                            );
+                        }
+                        if note_end >= start_ms && note_end <= end_ms {
+                            let y_tail_local =
+                                self.minimap_segment_time_to_y(note_end, g_rect, start_ms, end_ms);
+                            draw_rectangle(
+                                head_x,
+                                y_tail_local - head_h * 0.45,
+                                head_w,
+                                head_h * 0.9,
+                                Color::from_rgba(
+                                    (lane_palette.hold_head.r * 255.0) as u8,
+                                    (lane_palette.hold_head.g * 255.0) as u8,
+                                    (lane_palette.hold_head.b * 255.0) as u8,
+                                    190,
+                                ),
+                            );
+                        }
+                    }
+                }
+                GroundNoteKind::Flick => {
+                    let center_x = sky_rect.x + lane_to_air_x_norm(note.lane.clamp(1, 4)) * sky_rect.w;
+                    let air_lane_w = sky_rect.w / 4.0;
+                    let note_w = air_note_width(note, sky_rect.w).clamp(air_lane_w * 0.22, air_lane_w * 0.98);
+                    let flick_color = if note.flick_right {
+                        Color::from_rgba(112, 228, 156, 230)
+                    } else {
+                        Color::from_rgba(246, 232, 122, 230)
+                    };
+                    let bpm = self.timeline.point_at_time(note_time).bpm.abs().max(0.001);
+                    let subdiv_ms = 60_000.0 / bpm / 16.0;
+                    let side_h = (subdiv_ms / page_duration_ms * sky_rect.h).max(head_h);
+                    let side_x = if note.flick_right {
+                        center_x + note_w * 0.46
+                    } else {
+                        center_x - note_w * 0.46
+                    };
+                    let tip_x = if note.flick_right {
+                        center_x - note_w * 0.52
+                    } else {
+                        center_x + note_w * 0.52
+                    };
+                    let y_bottom = self.minimap_segment_time_to_y(
+                        note_time,
+                        sky_rect,
+                        page_start_ms,
+                        page_end_ms,
+                    );
+                    let y_top = y_bottom - side_h;
+                    let y_tip_top = y_bottom - flick_tip_h;
+                    let mut top_curve = Vec::with_capacity(17);
+                    for i in 0..=16 {
+                        let t = i as f32 / 16.0;
+                        let eased = ease_progress(Ease::SineOut, t);
+                        let x = lerp(side_x, tip_x, t);
+                        let y = lerp(y_top, y_tip_top, eased);
+                        top_curve.push(Vec2::new(x, y));
+                    }
+                    let mut polygon = Vec::with_capacity(22);
+                    polygon.push(Vec2::new(side_x, y_bottom));
+                    polygon.extend_from_slice(&top_curve);
+                    polygon.push(Vec2::new(tip_x, y_bottom));
+                    for i in 1..(polygon.len() - 1) {
+                        draw_triangle(
+                            polygon[0],
+                            polygon[i],
+                            polygon[i + 1],
+                            Color::new(flick_color.r, flick_color.g, flick_color.b, 0.52),
+                        );
+                    }
+                    for i in 0..(top_curve.len() - 1) {
+                        let a = top_curve[i];
+                        let b = top_curve[i + 1];
+                        draw_line(a.x, a.y, b.x, b.y, thin, flick_color);
+                    }
+                    draw_line(side_x, y_bottom, tip_x, y_bottom, thin, flick_color);
+                    draw_line(side_x, y_bottom, side_x, y_top, thin, flick_color);
+                }
+                GroundNoteKind::SkyArea => {
+                    let note_end = note.end_time_ms();
+                    for (s_rect, start_ms, end_ms) in [
+                        (sky_rect_1, 0.0_f32, half_ms.max(0.001)),
+                        (sky_rect_2, half_ms, duration_ms.max(half_ms + 0.001)),
+                    ] {
+                        if note_end < start_ms || note_time > end_ms {
+                            continue;
+                        }
+                        if let Some(shape) = note.skyarea_shape {
+                            let inter_start = note_time.max(start_ms);
+                            let inter_end = note_end.min(end_ms);
+                            if inter_end > inter_start + 0.000_1 && note.duration_ms > 0.0 {
+                                let seg_count = 20;
+                                for i in 0..seg_count {
+                                    let s0 = i as f32 / seg_count as f32;
+                                    let s1 = (i + 1) as f32 / seg_count as f32;
+                                    let t0 = lerp(inter_start, inter_end, s0);
+                                    let t1 = lerp(inter_start, inter_end, s1);
+                                    let p0 = ((t0 - note_time) / note.duration_ms).clamp(0.0, 1.0);
+                                    let p1 = ((t1 - note_time) / note.duration_ms).clamp(0.0, 1.0);
+
+                                    let y0 =
+                                        self.minimap_segment_time_to_y(t0, s_rect, start_ms, end_ms);
+                                    let y1 =
+                                        self.minimap_segment_time_to_y(t1, s_rect, start_ms, end_ms);
+                                    let l0 = lerp(
+                                        shape.start_left_norm,
+                                        shape.end_left_norm,
+                                        ease_progress(shape.left_ease, p0),
+                                    )
+                                    .clamp(0.0, 1.0);
+                                    let r0 = lerp(
+                                        shape.start_right_norm,
+                                        shape.end_right_norm,
+                                        ease_progress(shape.right_ease, p0),
+                                    )
+                                    .clamp(0.0, 1.0);
+                                    let l1 = lerp(
+                                        shape.start_left_norm,
+                                        shape.end_left_norm,
+                                        ease_progress(shape.left_ease, p1),
+                                    )
+                                    .clamp(0.0, 1.0);
+                                    let r1 = lerp(
+                                        shape.start_right_norm,
+                                        shape.end_right_norm,
+                                        ease_progress(shape.right_ease, p1),
+                                    )
+                                    .clamp(0.0, 1.0);
+
+                                    let lx0 = s_rect.x + l0 * s_rect.w;
+                                    let rx0 = s_rect.x + r0 * s_rect.w;
+                                    let lx1 = s_rect.x + l1 * s_rect.w;
+                                    let rx1 = s_rect.x + r1 * s_rect.w;
+                                    draw_triangle(
+                                        Vec2::new(lx0, y0),
+                                        Vec2::new(rx0, y0),
+                                        Vec2::new(rx1, y1),
+                                        Color::new(
+                                            AIR_SKYAREA_BODY_COLOR.r,
+                                            AIR_SKYAREA_BODY_COLOR.g,
+                                            AIR_SKYAREA_BODY_COLOR.b,
+                                            0.30,
+                                        ),
+                                    );
+                                    draw_triangle(
+                                        Vec2::new(lx0, y0),
+                                        Vec2::new(rx1, y1),
+                                        Vec2::new(lx1, y1),
+                                        Color::new(
+                                            AIR_SKYAREA_BODY_COLOR.r,
+                                            AIR_SKYAREA_BODY_COLOR.g,
+                                            AIR_SKYAREA_BODY_COLOR.b,
+                                            0.30,
+                                        ),
+                                    );
+                                }
+                            }
+
+                            if note_time >= start_ms && note_time <= end_ms {
+                                let y_head_local =
+                                    self.minimap_segment_time_to_y(note_time, s_rect, start_ms, end_ms);
+                                let head_left =
+                                    s_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * s_rect.w;
+                                let head_right =
+                                    s_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * s_rect.w;
+                                draw_rectangle(
+                                    head_left,
+                                    y_head_local - head_h * 0.5,
+                                    (head_right - head_left).max(1.0),
+                                    head_h,
+                                    AIR_SKYAREA_HEAD_COLOR,
+                                );
+                            }
+                            if note_end >= start_ms && note_end <= end_ms {
+                                let y_tail_local =
+                                    self.minimap_segment_time_to_y(note_end, s_rect, start_ms, end_ms);
+                                let tail_left =
+                                    s_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * s_rect.w;
+                                let tail_right =
+                                    s_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * s_rect.w;
+                                draw_rectangle(
+                                    tail_left,
+                                    y_tail_local - head_h * 0.5,
+                                    (tail_right - tail_left).max(1.0),
+                                    head_h,
+                                    AIR_SKYAREA_TAIL_COLOR,
+                                );
+                            }
+                        } else {
+                            let x = s_rect.x + lane_to_air_x_norm(note.lane.clamp(1, 4)) * s_rect.w;
+                            let y_head_local =
+                                self.minimap_segment_time_to_y(note_time, s_rect, start_ms, end_ms);
+                            let y_tail_local =
+                                self.minimap_segment_time_to_y(note_end, s_rect, start_ms, end_ms);
+                            let head_w = (s_rect.w / 4.0 * 0.64).max(1.0);
+                            draw_rectangle(
+                                x - head_w * 0.5,
+                                y_head_local - head_h * 0.5,
+                                head_w,
+                                head_h,
+                                AIR_SKYAREA_HEAD_COLOR,
+                            );
+                            draw_rectangle(
+                                x - head_w * 0.5,
+                                y_tail_local - head_h * 0.5,
+                                head_w,
+                                head_h,
+                                AIR_SKYAREA_TAIL_COLOR,
+                            );
+                            draw_line(x, y_head_local, x, y_tail_local, thin, AIR_SKYAREA_BODY_COLOR);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Highlight current visible window on both halves.
+        let mut active_highlight = Rect::new(
+            active_group_rect.x,
+            active_group_rect.y,
+            active_group_rect.w,
+            (2.0 * ui).max(1.0),
+        );
+        for (group_rect, page_start_ms, page_end_ms) in [
+            (left_group_rect, 0.0_f32, half_ms.max(0.001)),
+            (right_group_rect, half_ms, duration_ms.max(half_ms + 0.001)),
+        ] {
+            let overlap_start = visible.start_ms.max(page_start_ms).min(page_end_ms);
+            let overlap_end = visible.end_ms.max(page_start_ms).min(page_end_ms);
+            if overlap_end < overlap_start {
+                continue;
+            }
+            let y_top =
+                self.minimap_segment_time_to_y(overlap_end, group_rect, page_start_ms, page_end_ms);
+            let y_bottom = self.minimap_segment_time_to_y(
+                overlap_start,
+                group_rect,
+                page_start_ms,
+                page_end_ms,
+            );
+            let highlight_h = (y_bottom - y_top).abs().max((2.0 * ui).max(1.0));
+            let highlight = Rect::new(group_rect.x, y_top.min(y_bottom), group_rect.w, highlight_h);
+            draw_rectangle(
+                highlight.x,
+                highlight.y,
+                highlight.w,
+                highlight.h,
+                Color::from_rgba(255, 255, 255, 28),
+            );
+            draw_rectangle_lines(
+                highlight.x,
+                highlight.y,
+                highlight.w,
+                highlight.h,
+                (1.2 * ui).max(1.0),
+                Color::from_rgba(255, 255, 255, 214),
+            );
+            if (page_start_ms - active_start_ms).abs() < 0.5 {
+                active_highlight = highlight;
+            }
+        }
+
+        let current_y = self.minimap_segment_time_to_y(
+            visible.current_ms.clamp(active_start_ms, active_end_ms),
+            active_group_rect,
+            active_start_ms,
+            active_end_ms,
+        );
+        draw_line(
+            active_group_rect.x,
+            current_y,
+            active_group_rect.x + active_group_rect.w,
+            current_y,
+            (1.0 * ui).max(1.0),
+            Color::from_rgba(255, 238, 204, 182),
+        );
+
+        MinimapRenderInfo {
+            content_rect: active_group_rect,
+            highlight_rect: active_highlight,
+            seek_start_ms: active_start_ms,
+            seek_end_ms: active_end_ms,
+        }
+    }
+
+    fn handle_minimap_seek_drag(
+        &mut self,
+        minimap: MinimapRenderInfo,
+        render_current_ms: f32,
+        duration_sec: f32,
+        is_playing: bool,
+        actions: &mut Vec<FallingEditorAction>,
+    ) {
+        let duration_ms = duration_sec.max(0.001) * 1000.0;
+        if minimap.content_rect.w <= 2.0 || minimap.content_rect.h <= 2.0 {
+            self.minimap_drag_active = false;
+            self.minimap_drag_target_sec = None;
+            self.minimap_last_emit_sec = None;
+            return;
+        }
+
+        let (mx, my) = mouse_position();
+        let ui = adaptive_ui_scale();
+        let min_hit_h = (26.0 * ui).max(minimap.highlight_rect.h);
+        let cy = minimap.highlight_rect.y + minimap.highlight_rect.h * 0.5;
+        let hit_top = (cy - min_hit_h * 0.5).max(minimap.content_rect.y);
+        let hit_bottom = (cy + min_hit_h * 0.5).min(minimap.content_rect.y + minimap.content_rect.h);
+        let hit_pad_x = (8.0 * ui).max(4.0);
+        let hit_rect = Rect::new(
+            minimap.content_rect.x - hit_pad_x,
+            hit_top,
+            minimap.content_rect.w + hit_pad_x * 2.0,
+            (hit_bottom - hit_top).max(1.0),
+        );
+        let inside_highlight = point_in_rect(mx, my, hit_rect);
+
+        if is_mouse_button_pressed(MouseButton::Left) && inside_highlight {
+            if is_playing {
+                self.status = "pause to scrub minimap".to_owned();
+                return;
+            }
+            self.drag_state = None;
+            self.waveform_seek_active = false;
+            self.minimap_drag_active = true;
+            let mouse_ms = self.minimap_segment_y_to_time(
+                my,
+                minimap.content_rect,
+                minimap.seek_start_ms,
+                minimap.seek_end_ms,
+            );
+            self.minimap_drag_offset_ms = render_current_ms - mouse_ms;
+            self.minimap_last_emit_sec = None;
+        }
+
+        if !self.minimap_drag_active {
+            return;
+        }
+
+        if is_playing {
+            self.minimap_drag_active = false;
+            self.minimap_drag_target_sec = None;
+            self.minimap_last_emit_sec = None;
+            self.status = "pause to scrub minimap".to_owned();
+            return;
+        }
+
+        if is_mouse_button_down(MouseButton::Left) {
+            let mouse_ms = self.minimap_segment_y_to_time(
+                my,
+                minimap.content_rect,
+                minimap.seek_start_ms,
+                minimap.seek_end_ms,
+            );
+            let target_ms = (mouse_ms + self.minimap_drag_offset_ms).clamp(0.0, duration_ms);
+            let target_sec = target_ms / 1000.0;
+            self.minimap_drag_target_sec = Some(target_sec);
+            self.waveform_seek_sec = target_sec;
+
+            let should_emit = self
+                .minimap_last_emit_sec
+                .map(|last| (last - target_sec).abs() >= MINIMAP_DRAG_EMIT_EPS_SEC)
+                .unwrap_or(true);
+            if should_emit {
+                actions.push(FallingEditorAction::SeekTo(target_sec));
+                self.minimap_last_emit_sec = Some(target_sec);
+                self.status = format!("minimap seek {:.2}s", target_sec);
+            }
+        } else {
+            self.minimap_drag_active = false;
+            self.minimap_drag_offset_ms = 0.0;
+            self.minimap_last_emit_sec = None;
+            self.minimap_drag_target_sec = None;
+        }
     }
 
     fn draw_event_view(&self, rect: Rect, current_ms: f32) {
@@ -1448,9 +2269,10 @@ impl FallingGroundEditor {
 
             if head_y >= rect.y - 24.0 && head_y <= rect.y + rect.h + 24.0 {
                 if note.kind == GroundNoteKind::Flick {
-                    draw_flick_curve_shape(note, note_x, note_w, head_y);
+                    let side_h = self.flick_side_height_px(note.time_ms, rect.h);
+                    draw_flick_curve_shape(note, note_x, note_w, head_y, side_h);
                     if selected {
-                        let bounds = flick_shape_bounds(note, note_x, note_w, head_y);
+                        let bounds = flick_shape_bounds(note, note_x, note_w, head_y, side_h);
                         draw_selected_note_darken_rect(bounds.x, bounds.y, bounds.w, bounds.h);
                         draw_selected_note_outline(bounds.x, bounds.y, bounds.w, bounds.h);
                     }
@@ -1543,8 +2365,9 @@ impl FallingGroundEditor {
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let side_h = self.flick_side_height_px(note.time_ms, rect.h);
             let mut label_rect = if note.kind == GroundNoteKind::Flick {
-                flick_rect_hitbox(note, note_x, note_w, head_y)
+                flick_rect_hitbox(note, note_x, note_w, head_y, side_h)
             } else {
                 note_end_hit_rect(note_x, note_w, head_y)
             };
@@ -1568,7 +2391,7 @@ impl FallingGroundEditor {
                 }
             } else {
                 let head_rect = if note.kind == GroundNoteKind::Flick {
-                    flick_rect_hitbox(note, note_x, note_w, head_y)
+                    flick_rect_hitbox(note, note_x, note_w, head_y, side_h)
                 } else {
                     note_end_hit_rect(note_x, note_w, head_y)
                 };
@@ -1707,14 +2530,15 @@ impl FallingGroundEditor {
                 id: 0,
                 kind: GroundNoteKind::Flick,
                 lane,
-                time_ms: 0.0,
+                time_ms: preview_time,
                 duration_ms: 0.0,
-                width: 1.0,
+                width: DEFAULT_AIR_WIDTH_NORM,
                 flick_right: true,
                 skyarea_shape: None,
             };
             if place_type == PlaceNoteType::Flick {
-                draw_flick_curve_shape(&preview, note_x, note_w, preview_y);
+                let side_h = self.flick_side_height_px(preview.time_ms, rect.h);
+                draw_flick_curve_shape(&preview, note_x, note_w, preview_y, side_h);
             } else {
                 if let Some(pending) = self.pending_skyarea {
                     let half = DEFAULT_SKYAREA_WIDTH_NORM * 0.5;
@@ -1889,11 +2713,23 @@ impl FallingGroundEditor {
         &mut self,
         rect: Rect,
         audio_duration_sec: f32,
+        is_playing: bool,
         actions: &mut Vec<FallingEditorAction>,
     ) {
         let (mx, my) = mouse_position();
         let inside = point_in_rect(mx, my, rect);
         let duration = self.estimate_duration(audio_duration_sec);
+
+        if is_playing {
+            self.waveform_seek_active = false;
+            // While playing: allow click-to-seek, but do not allow drag-to-seek.
+            if is_mouse_button_pressed(MouseButton::Left) && inside {
+                self.waveform_seek_sec = y_to_time_sec(my, rect, duration);
+                actions.push(FallingEditorAction::SeekTo(self.waveform_seek_sec));
+                self.status = format!("seek to {:.2}s", self.waveform_seek_sec);
+            }
+            return;
+        }
 
         if is_mouse_button_pressed(MouseButton::Left) && inside {
             self.waveform_seek_active = true;
@@ -2431,9 +3267,10 @@ impl FallingGroundEditor {
             let note_x = lane_x + (lane_w - note_w) * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
             let z_order = z as u32;
+            let side_h = self.flick_side_height_px(note.time_ms, rect.h);
 
             let head_rect = if note.kind == GroundNoteKind::Flick {
-                flick_rect_hitbox(note, note_x, note_w, head_y)
+                flick_rect_hitbox(note, note_x, note_w, head_y, side_h)
             } else {
                 note_end_hit_rect(note_x, note_w, head_y)
             };
@@ -2515,6 +3352,7 @@ impl FallingGroundEditor {
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let side_h = self.flick_side_height_px(note.time_ms, rect.h);
 
             if note.kind == GroundNoteKind::SkyArea {
                 if let Some(shape) = note.skyarea_shape {
@@ -2591,7 +3429,7 @@ impl FallingGroundEditor {
             }
 
             let head_rect = if note.kind == GroundNoteKind::Flick {
-                flick_rect_hitbox(note, note_x, note_w, head_y)
+                flick_rect_hitbox(note, note_x, note_w, head_y, side_h)
             } else {
                 note_end_hit_rect(note_x, note_w, head_y)
             };
@@ -2717,6 +3555,19 @@ impl FallingGroundEditor {
 
     fn time_to_y(&self, note_time_ms: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
         judge_y - (note_time_ms - current_ms) / 1000.0 * (self.scroll_speed * lane_h)
+    }
+
+    fn flick_side_height_px(&self, note_time_ms: f32, lane_h: f32) -> f32 {
+        let bpm = self
+            .timeline
+            .point_at_time(note_time_ms.max(0.0))
+            .bpm
+            .abs()
+            .max(0.001);
+        let beat_ms = 60_000.0 / bpm;
+        let subdivision_ms = beat_ms / 16.0;
+        let pixels_per_sec = (self.scroll_speed * lane_h).max(1.0);
+        subdivision_ms / 1000.0 * pixels_per_sec
     }
 
     fn apply_snap(&self, time_ms: f32) -> f32 {
@@ -2905,9 +3756,9 @@ fn note_body_hit_rect(x: f32, w: f32, y1: f32, y2: f32) -> Rect {
     )
 }
 
-fn flick_rect_hitbox(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) -> Rect {
+fn flick_rect_hitbox(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side_h: f32) -> Rect {
     // Rectangle hitbox aligned to the actual flick footprint.
-    flick_shape_bounds(note, note_x, note_w, head_y)
+    flick_shape_bounds(note, note_x, note_w, head_y, side_h)
 }
 
 fn skyarea_screen_x_range_at_progress(
@@ -3238,25 +4089,20 @@ struct FlickGeometry {
     stroke: f32,
 }
 
-fn flick_geometry(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) -> FlickGeometry {
+fn flick_geometry(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side_h: f32) -> FlickGeometry {
     let ui = adaptive_ui_scale();
     let stroke = (note_w * 0.05).clamp(1.0 * ui, 2.8 * ui);
-    // Keep side-height consistent across left/right flicks and independent of per-note width:
-    // derive a canonical width from split-width * DEFAULT_AIR_WIDTH_NORM.
-    let width_norm = note.width.clamp(0.05, 1.0);
-    let split_w = note_w / width_norm;
-    let canonical_w = split_w * DEFAULT_AIR_WIDTH_NORM;
-    let base_head_h = (canonical_w * 0.23).max(6.0 * ui);
-    let side_h = base_head_h * 2.0;
-    let y_bottom = head_y + 7.0 * ui;
+    let side_h = side_h.max(0.0);
+    // Align flick baseline with note/barline Y exactly.
+    let y_bottom = head_y;
     let y_top = y_bottom - side_h;
     let y_tip_bottom = y_bottom;
-    let y_tip_top = y_bottom - (base_head_h * 0.08).max(0.6 * ui);
+    let y_tip_top = y_bottom - (side_h * 0.04).max(0.6 * ui);
 
     let (x_start, x_tip) = if note.flick_right {
-        (note_x + note_w * 0.08, note_x + note_w * 0.98)
-    } else {
         (note_x + note_w * 0.92, note_x + note_w * 0.02)
+    } else {
+        (note_x + note_w * 0.08, note_x + note_w * 0.98)
     };
 
     FlickGeometry {
@@ -3270,9 +4116,9 @@ fn flick_geometry(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) -> F
     }
 }
 
-fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) {
+fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side_h: f32) {
     let (fill_color, edge_color) = flick_direction_shape_colors(note.flick_right);
-    let geom = flick_geometry(note, note_x, note_w, head_y);
+    let geom = flick_geometry(note, note_x, note_w, head_y, side_h);
 
     let mut top_curve = Vec::with_capacity(25);
     for i in 0..=24 {
@@ -3315,8 +4161,8 @@ fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f
     );
 }
 
-fn flick_shape_bounds(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) -> Rect {
-    let geom = flick_geometry(note, note_x, note_w, head_y);
+fn flick_shape_bounds(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side_h: f32) -> Rect {
+    let geom = flick_geometry(note, note_x, note_w, head_y, side_h);
     let x1 = geom.x_start.min(geom.x_tip);
     let x2 = geom.x_start.max(geom.x_tip);
     Rect::new(
