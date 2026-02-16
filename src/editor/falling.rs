@@ -649,7 +649,6 @@ impl FallingGroundEditor {
     ) -> Vec<FallingEditorAction> {
         self.sync_waveform(audio_path);
         let mut actions = Vec::new();
-        let current_ms = current_sec * 1000.0;
 
         let header_h = 34.0;
         let footer_h = 22.0;
@@ -726,7 +725,14 @@ impl FallingGroundEditor {
         self.draw_header(header_rect);
         self.handle_scroll_speed_controls(header_rect);
         self.handle_vertical_progress_seek(progress_rect, audio_duration_sec, &mut actions);
-        self.draw_vertical_progress(progress_rect, current_sec, audio_duration_sec);
+        let render_current_sec = if self.waveform_seek_active {
+            self.waveform_seek_sec
+                .clamp(0.0, self.estimate_duration(audio_duration_sec).max(0.0))
+        } else {
+            current_sec
+        };
+        let current_ms = render_current_sec * 1000.0;
+        self.draw_vertical_progress(progress_rect, render_current_sec, audio_duration_sec);
 
         let (ground_rect, air_rect) = match self.render_scope {
             RenderScope::Both => {
@@ -1048,14 +1054,14 @@ impl FallingGroundEditor {
         if fill_h > 0.5 {
             draw_rectangle(
                 rect.x + 2.0,
-                rect.y,
+                rect.y + rect.h - fill_h,
                 (rect.w - 4.0).max(1.0),
                 fill_h,
                 Color::from_rgba(74, 134, 210, 165),
             );
         }
 
-        let playhead_y = rect.y + progress * rect.h;
+        let playhead_y = rect.y + rect.h - progress * rect.h;
         draw_line(
             rect.x,
             playhead_y,
@@ -1066,7 +1072,7 @@ impl FallingGroundEditor {
         );
         if self.waveform_seek_active {
             let seek_progress = (self.waveform_seek_sec / duration).clamp(0.0, 1.0);
-            let seek_y = rect.y + seek_progress * rect.h;
+            let seek_y = rect.y + rect.h - seek_progress * rect.h;
             draw_line(
                 rect.x,
                 seek_y,
@@ -3336,7 +3342,7 @@ fn ease_progress(ease: Ease, t: f32) -> f32 {
 
 fn y_to_time_sec(y: f32, rect: Rect, duration_sec: f32) -> f32 {
     let t = ((y - rect.y) / rect.h).clamp(0.0, 1.0);
-    t * duration_sec
+    (1.0 - t) * duration_sec
 }
 
 fn point_in_rect(x: f32, y: f32, rect: Rect) -> bool {
