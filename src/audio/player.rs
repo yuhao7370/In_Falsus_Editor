@@ -16,6 +16,17 @@ pub enum PlaybackState {
     Error,
 }
 
+impl PlaybackState {
+    /// Whether the player is in a state that can transition to Playing.
+    pub fn can_play(self) -> bool {
+        matches!(self, Self::Ready | Self::Paused | Self::Stopped)
+    }
+
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Playing | Self::Paused)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopReason {
     User,
@@ -50,20 +61,19 @@ pub enum PlayerError {
 impl fmt::Display for PlayerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::BackendInit(message) => write!(f, "backend init failed: {message}"),
-            Self::BackendRecover(message) => write!(f, "backend recover failed: {message}"),
+            Self::BackendInit(msg) => write!(f, "backend init failed: {msg}"),
+            Self::BackendRecover(msg) => write!(f, "backend recover failed: {msg}"),
             Self::Io { path, message } => write!(f, "read '{path}' failed: {message}"),
-            Self::Decode(message) => write!(f, "decode failed: {message}"),
-            Self::CreateMusic(message) => write!(f, "create music failed: {message}"),
-            Self::StartPlayback(message) => write!(f, "start playback failed: {message}"),
-            Self::PausePlayback(message) => write!(f, "pause playback failed: {message}"),
-            Self::Seek(message) => write!(f, "seek failed: {message}"),
-            Self::SetVolume(message) => write!(f, "set volume failed: {message}"),
+            Self::Decode(msg) => write!(f, "decode failed: {msg}"),
+            Self::CreateMusic(msg) => write!(f, "create music failed: {msg}"),
+            Self::StartPlayback(msg) => write!(f, "start playback failed: {msg}"),
+            Self::PausePlayback(msg) => write!(f, "pause playback failed: {msg}"),
+            Self::Seek(msg) => write!(f, "seek failed: {msg}"),
+            Self::SetVolume(msg) => write!(f, "set volume failed: {msg}"),
             Self::NoTrackLoaded => write!(f, "no track loaded"),
-            Self::InvalidSeek {
-                requested,
-                duration,
-            } => write!(f, "invalid seek {requested:.3}s (duration {duration:.3}s)"),
+            Self::InvalidSeek { requested, duration } => {
+                write!(f, "invalid seek {requested:.3}s (duration {duration:.3}s)")
+            }
         }
     }
 }
@@ -78,10 +88,21 @@ pub struct PlayerSnapshot {
     pub position_sec: f32,
     pub progress: f32,
     pub volume: f32,
-    pub can_play: bool,
-    pub can_pause: bool,
-    pub can_stop: bool,
-    pub can_seek: bool,
+}
+
+impl PlayerSnapshot {
+    pub fn can_play(&self) -> bool {
+        self.state.can_play()
+    }
+    pub fn can_pause(&self) -> bool {
+        self.state == PlaybackState::Playing
+    }
+    pub fn can_stop(&self) -> bool {
+        self.state.is_active() || self.position_sec > 0.001
+    }
+    pub fn can_seek(&self) -> bool {
+        self.duration_sec > 0.0
+    }
 }
 
 pub struct SongPlayer {
@@ -91,10 +112,12 @@ pub struct SongPlayer {
     duration_sec: f32,
     state: PlaybackState,
     volume: f32,
-    // When backend is paused, renderer may not refresh shared position immediately.
-    // Keep a UI-side position override so seek is reflected right away.
-    paused_position_override_sec: Option<f32>,
+    /// Cached position for when backend can't report accurately (paused/seek).
+    position_cache: f32,
     pending_event: Option<PlayerEvent>,
+    /// After play(), sasa may briefly still report `music.paused() == true`.
+    /// Skip the end-of-track / unexpected-pause check for one update cycle.
+    skip_pause_check: bool,
 }
 
 impl SongPlayer {
@@ -109,9 +132,18 @@ impl SongPlayer {
             duration_sec: 0.0,
             state: PlaybackState::Empty,
             volume: 1.0,
-            paused_position_override_sec: Some(0.0),
+            position_cache: 0.0,
             pending_event: None,
+            skip_pause_check: false,
         })
+    }
+
+    pub fn state(&self) -> PlaybackState {
+        self.state
+    }
+
+    pub fn duration_sec(&self) -> f32 {
+        self.duration_sec
     }
 
     pub fn default_track_path() -> &'static str {
@@ -138,11 +170,13 @@ impl SongPlayer {
                 .play()
                 .map_err(|err| PlayerError::StartPlayback(err.to_string()))?;
             self.state = PlaybackState::Playing;
-            self.paused_position_override_sec = None;
+            self.position_cache = 0.0;
             self.pending_event = Some(PlayerEvent::Started);
         } else {
+            // sasa's Music may start playing by default; ensure it's paused.
+            let _ = music.pause();
             self.state = PlaybackState::Ready;
-            self.paused_position_override_sec = Some(0.0);
+            self.position_cache = 0.0;
             self.pending_event = Some(PlayerEvent::Loaded {
                 path: path_string.clone(),
                 duration_sec,
@@ -161,18 +195,19 @@ impl SongPlayer {
             .play()
             .map_err(|err| PlayerError::StartPlayback(err.to_string()))?;
         self.state = PlaybackState::Playing;
-        self.paused_position_override_sec = None;
+        self.skip_pause_check = true;
         self.pending_event = Some(PlayerEvent::Started);
         Ok(())
     }
 
     pub fn pause(&mut self) -> Result<(), PlayerError> {
+        let pos = self.current_position_sec();
         let music = self.music.as_mut().ok_or(PlayerError::NoTrackLoaded)?;
         music
             .pause()
             .map_err(|err| PlayerError::PausePlayback(err.to_string()))?;
+        self.position_cache = pos;
         self.state = PlaybackState::Paused;
-        self.paused_position_override_sec = Some(self.current_position_sec());
         self.pending_event = Some(PlayerEvent::Paused);
         Ok(())
     }
@@ -194,7 +229,7 @@ impl SongPlayer {
             .seek_to(0.0)
             .map_err(|err| PlayerError::Seek(err.to_string()))?;
         self.state = PlaybackState::Stopped;
-        self.paused_position_override_sec = Some(0.0);
+        self.position_cache = 0.0;
         self.pending_event = Some(PlayerEvent::Stopped(StopReason::User));
         Ok(())
     }
@@ -211,7 +246,7 @@ impl SongPlayer {
         music
             .seek_to(sec)
             .map_err(|err| PlayerError::Seek(err.to_string()))?;
-        self.paused_position_override_sec = Some(sec);
+        self.position_cache = sec;
 
         if matches!(self.state, PlaybackState::Ready | PlaybackState::Stopped) {
             self.state = PlaybackState::Paused;
@@ -254,17 +289,27 @@ impl SongPlayer {
             };
 
             if music.paused() {
+                // After play(), sasa may need one cycle before it actually
+                // starts; skip this check once to avoid a false Paused event.
+                if self.skip_pause_check {
+                    self.skip_pause_check = false;
+                    return None;
+                }
+
                 let position = music.position().clamp(0.0, self.duration_sec.max(0.0));
                 let near_end = self.duration_sec > 0.0 && position >= (self.duration_sec - 0.02);
                 if near_end {
-                    if let Err(err) = music.seek_to(0.0) {
-                        self.state = PlaybackState::Error;
-                        return Some(PlayerEvent::Error(PlayerError::Seek(err.to_string())));
-                    }
-                    self.state = PlaybackState::Stopped;
-                    self.paused_position_override_sec = Some(0.0);
+                    self.state = PlaybackState::Paused;
+                    self.position_cache = self.duration_sec.max(0.0);
                     return Some(PlayerEvent::Stopped(StopReason::EndOfTrack));
+                } else {
+                    self.state = PlaybackState::Paused;
+                    self.position_cache = position;
+                    return Some(PlayerEvent::Paused);
                 }
+            } else {
+                // Backend is actually playing now, clear the flag.
+                self.skip_pause_check = false;
             }
         }
 
@@ -272,14 +317,13 @@ impl SongPlayer {
     }
 
     pub fn snapshot(&mut self) -> PlayerSnapshot {
-        let backend_position = self.current_position_sec().clamp(0.0, self.duration_sec.max(0.0));
         let position_sec = if self.state == PlaybackState::Playing {
-            self.paused_position_override_sec = None;
-            backend_position
+            // Read live backend position during playback.
+            let pos = self.current_position_sec();
+            self.position_cache = pos;
+            pos.clamp(0.0, self.duration_sec.max(0.0))
         } else {
-            self.paused_position_override_sec
-                .unwrap_or(backend_position)
-                .clamp(0.0, self.duration_sec.max(0.0))
+            self.position_cache.clamp(0.0, self.duration_sec.max(0.0))
         };
         let progress = if self.duration_sec > 0.0 {
             (position_sec / self.duration_sec).clamp(0.0, 1.0)
@@ -294,17 +338,6 @@ impl SongPlayer {
             position_sec,
             progress,
             volume: self.volume,
-            can_play: self.music.is_some()
-                && matches!(
-                    self.state,
-                    PlaybackState::Ready | PlaybackState::Paused | PlaybackState::Stopped
-                ),
-            can_pause: self.music.is_some() && self.state == PlaybackState::Playing,
-            can_stop: self.music.is_some()
-                && (self.state == PlaybackState::Playing
-                    || self.state == PlaybackState::Paused
-                    || position_sec > 0.001),
-            can_seek: self.music.is_some() && self.duration_sec > 0.0,
         }
     }
 

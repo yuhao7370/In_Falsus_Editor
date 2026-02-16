@@ -10,8 +10,12 @@ const DEFAULT_SCROLL_SPEED: f32 = 1.25;
 const MIN_SCROLL_SPEED: f32 = 0.2;
 const MAX_SCROLL_SPEED: f32 = 4.0;
 const SCROLL_SPEED_STEP: f32 = 0.1;
+pub const SNAP_DIVISION_OPTIONS: [u32; 9] = [2, 3, 4, 6, 8, 12, 16, 24, 32];
 const AIR_SKYAREA_HEAD_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.84);
 const AIR_SKYAREA_BODY_COLOR: Color = Color::new(0.72, 0.60, 0.98, 0.42);
+const AIR_SKYAREA_TAIL_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.34);
+const DRAG_HOLD_TO_START_SEC: f64 = 0.22;
+const SKYAREA_VERTICAL_DRAG_THRESHOLD_PX: f32 = 4.0;
 const PORTRAIT_SCREEN_RATIO: f32 = 10.0 / 16.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,7 +95,7 @@ struct GroundNote {
 
 impl GroundNote {
     fn has_tail(&self) -> bool {
-        matches!(self.kind, GroundNoteKind::Hold | GroundNoteKind::SkyArea) && self.duration_ms > 1.0
+        matches!(self.kind, GroundNoteKind::Hold | GroundNoteKind::SkyArea) && self.duration_ms > 0.0
     }
 
     fn end_time_ms(&self) -> f32 {
@@ -121,7 +125,24 @@ struct BpmPoint {
 #[derive(Debug, Clone, Copy)]
 struct BarLine {
     time_ms: f32,
-    is_major: bool,
+    kind: BarLineKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BarLineKind {
+    Measure,
+    Beat,
+    Subdivision,
+}
+
+impl BarLineKind {
+    fn priority(self) -> u8 {
+        match self {
+            Self::Measure => 3,
+            Self::Beat => 2,
+            Self::Subdivision => 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -250,10 +271,18 @@ impl BpmTimeline {
         self.beat_to_time(snapped).max(0.0)
     }
 
-    fn visible_barlines(&self, current_ms: f32, ahead_ms: f32, behind_ms: f32) -> Vec<BarLine> {
+    fn visible_barlines(
+        &self,
+        current_ms: f32,
+        ahead_ms: f32,
+        behind_ms: f32,
+        subdivision: u32,
+    ) -> Vec<BarLine> {
         let start_ms = current_ms - behind_ms;
         let end_ms = current_ms + ahead_ms;
         let mut output = Vec::new();
+        let subdivision = subdivision.max(1);
+        let subdivision_i = subdivision as i32;
 
         for idx in 0..self.points.len() {
             let point = self.points[idx];
@@ -272,33 +301,56 @@ impl BpmTimeline {
 
             let bpm = point.bpm.abs().max(0.001);
             let beat_ms = 60_000.0 / bpm;
+            let sub_ms = beat_ms / subdivision as f32;
             let beats_per_measure = point.beats_per_measure.max(1.0);
 
-            let n_start = ((visible_start - segment_start) / beat_ms).floor() as i32 - 2;
-            let n_end = ((visible_end - segment_start) / beat_ms).ceil() as i32 + 2;
+            let n_start = ((visible_start - segment_start) / sub_ms).floor() as i32 - 2;
+            let n_end = ((visible_end - segment_start) / sub_ms).ceil() as i32 + 2;
 
             for n in n_start..=n_end {
                 if n < 0 {
                     continue;
                 }
-                let line_time_ms = segment_start + n as f32 * beat_ms;
+                let line_time_ms = segment_start + n as f32 * sub_ms;
                 if line_time_ms < visible_start - 0.001 || line_time_ms > visible_end + 0.001 {
                     continue;
                 }
 
-                let beat = point.start_beat + n as f32;
+                let beat = point.start_beat + n as f32 / subdivision as f32;
                 let measure_phase = beat / beats_per_measure;
-                let is_major = (measure_phase - measure_phase.round()).abs() < 0.001;
+                let is_measure = (measure_phase - measure_phase.round()).abs() < 0.001;
+                let is_beat = n % subdivision_i == 0;
+                let kind = if is_measure {
+                    BarLineKind::Measure
+                } else if is_beat {
+                    BarLineKind::Beat
+                } else {
+                    BarLineKind::Subdivision
+                };
 
-                output.push(BarLine {
-                    time_ms: line_time_ms,
-                    is_major,
-                });
+                output.push(BarLine { time_ms: line_time_ms, kind });
             }
         }
 
-        output.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
-        output
+        output.sort_by(|a, b| {
+            a.time_ms
+                .total_cmp(&b.time_ms)
+                .then_with(|| b.kind.priority().cmp(&a.kind.priority()))
+        });
+
+        let mut deduped: Vec<BarLine> = Vec::with_capacity(output.len());
+        for line in output {
+            if let Some(last) = deduped.last_mut() {
+                if (last.time_ms - line.time_ms).abs() < 0.001 {
+                    if line.kind.priority() > last.kind.priority() {
+                        last.kind = line.kind;
+                    }
+                    continue;
+                }
+            }
+            deduped.push(line);
+        }
+        deduped
     }
 }
 
@@ -340,6 +392,21 @@ impl Waveform {
 struct DragState {
     note_id: u64,
     time_offset_ms: f32,
+    start_time_sec: f64,
+    start_mouse_x: f32,
+    start_mouse_y: f32,
+    sky_start_center_norm: f32,
+    sky_end_center_norm: f32,
+    sky_start_half_norm: f32,
+    sky_end_half_norm: f32,
+    air_target: AirDragTarget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AirDragTarget {
+    Body,
+    SkyHead,
+    SkyTail,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -464,6 +531,17 @@ impl FallingGroundEditor {
         };
     }
 
+    pub fn snap_division(&self) -> u32 {
+        self.snap_division
+    }
+
+    pub fn set_snap_division(&mut self, division: u32) {
+        if SNAP_DIVISION_OPTIONS.contains(&division) {
+            self.snap_division = division;
+            self.status = format!("snap division: {}x", division);
+        }
+    }
+
     pub fn pending_hold_head_time_ms(&self) -> Option<f32> {
         self.pending_hold.map(|pending| pending.start_time_ms)
     }
@@ -474,6 +552,7 @@ impl FallingGroundEditor {
         current_sec: f32,
         audio_duration_sec: f32,
         audio_path: Option<&str>,
+        is_playing: bool,
     ) -> Vec<FallingEditorAction> {
         self.sync_waveform(audio_path);
         let mut actions = Vec::new();
@@ -552,7 +631,7 @@ impl FallingGroundEditor {
         );
 
         self.draw_header(header_rect);
-        self.handle_scroll_speed_controls(header_rect);
+        self.handle_scroll_speed_controls(header_rect, is_playing);
         self.handle_vertical_progress_seek(progress_rect, audio_duration_sec, &mut actions);
         self.draw_vertical_progress(progress_rect, current_sec, audio_duration_sec);
 
@@ -684,17 +763,19 @@ impl FallingGroundEditor {
         let ahead_ms = ((judge_y - rect.y) / pixels_per_sec * 1000.0).max(0.0);
         let behind_ms = (((rect.y + rect.h) - judge_y) / pixels_per_sec * 1000.0).max(0.0);
 
-        for barline in self.timeline.visible_barlines(current_ms, ahead_ms, behind_ms) {
+        for barline in self
+            .timeline
+            .visible_barlines(current_ms, ahead_ms, behind_ms, self.snap_division)
+        {
             let y = self.time_to_y(barline.time_ms, current_ms, judge_y, rect.h);
             if y < rect.y + 22.0 || y > rect.y + rect.h + 1.0 {
                 continue;
             }
-            let color = if barline.is_major {
-                Color::from_rgba(92, 122, 166, 170)
-            } else {
-                Color::from_rgba(62, 82, 118, 130)
+            let (thickness, color) = match barline.kind {
+                BarLineKind::Measure => (1.5, Color::from_rgba(102, 134, 180, 180)),
+                BarLineKind::Beat => (1.1, Color::from_rgba(78, 104, 146, 152)),
+                BarLineKind::Subdivision => (0.8, Color::from_rgba(58, 78, 112, 112)),
             };
-            let thickness = if barline.is_major { 1.4 } else { 1.0 };
             draw_line(rect.x + 6.0, y, rect.x + rect.w - 6.0, y, thickness, color);
         }
 
@@ -755,7 +836,7 @@ impl FallingGroundEditor {
             .count();
         draw_text_ex(
             &format!(
-                "Falling | chart={} | G:{} A:{} | view={} | tool={} | snap={} 1/{} | speed={:.2}H/s",
+                "Falling | chart={} | G:{} A:{} | view={} | tool={} | snap={} {}x | speed={:.2}H/s",
                 self.chart_path,
                 ground_count,
                 air_count,
@@ -777,7 +858,7 @@ impl FallingGroundEditor {
         );
     }
 
-    fn handle_scroll_speed_controls(&mut self, header_rect: Rect) {
+    fn handle_scroll_speed_controls(&mut self, header_rect: Rect, is_playing: bool) {
         let panel_w = 224.0;
         let panel_h = (header_rect.h - 8.0).max(24.0);
         let panel_rect = Rect::new(
@@ -817,11 +898,13 @@ impl FallingGroundEditor {
             self.adjust_scroll_speed(SCROLL_SPEED_STEP);
         }
 
-        let (mx, my) = mouse_position();
-        if point_in_rect(mx, my, panel_rect) {
-            let (_, wheel_y) = mouse_wheel();
-            if wheel_y.abs() > f32::EPSILON {
-                self.adjust_scroll_speed(wheel_y * SCROLL_SPEED_STEP);
+        if !is_playing {
+            let (mx, my) = mouse_position();
+            if point_in_rect(mx, my, panel_rect) {
+                let (_, wheel_y) = mouse_wheel();
+                if wheel_y.abs() > f32::EPSILON {
+                    self.adjust_scroll_speed(wheel_y * SCROLL_SPEED_STEP);
+                }
             }
         }
 
@@ -998,15 +1081,18 @@ impl FallingGroundEditor {
             );
         }
 
-        for barline in self.timeline.visible_barlines(current_ms, ahead_ms, behind_ms) {
+        for barline in self
+            .timeline
+            .visible_barlines(current_ms, ahead_ms, behind_ms, self.snap_division)
+        {
             let y = self.time_to_y(barline.time_ms, current_ms, judge_y, rect.h);
             if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
                 continue;
             }
-            let (thickness, color) = if barline.is_major {
-                (2.0, Color::from_rgba(170, 205, 255, 210))
-            } else {
-                (1.0, Color::from_rgba(90, 120, 150, 170))
+            let (thickness, color) = match barline.kind {
+                BarLineKind::Measure => (2.1, Color::from_rgba(170, 205, 255, 210)),
+                BarLineKind::Beat => (1.3, Color::from_rgba(112, 148, 192, 186)),
+                BarLineKind::Subdivision => (0.9, Color::from_rgba(80, 108, 142, 142)),
             };
             draw_line(rect.x, y, rect.x + rect.w, y, thickness, color);
         }
@@ -1156,15 +1242,18 @@ impl FallingGroundEditor {
             );
         }
 
-        for barline in self.timeline.visible_barlines(current_ms, ahead_ms, behind_ms) {
+        for barline in self
+            .timeline
+            .visible_barlines(current_ms, ahead_ms, behind_ms, self.snap_division)
+        {
             let y = self.time_to_y(barline.time_ms, current_ms, judge_y, rect.h);
             if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
                 continue;
             }
-            let (thickness, color) = if barline.is_major {
-                (2.0, Color::from_rgba(164, 198, 255, 210))
-            } else {
-                (1.0, Color::from_rgba(82, 112, 150, 170))
+            let (thickness, color) = match barline.kind {
+                BarLineKind::Measure => (2.1, Color::from_rgba(164, 198, 255, 210)),
+                BarLineKind::Beat => (1.3, Color::from_rgba(108, 140, 186, 182)),
+                BarLineKind::Subdivision => (0.9, Color::from_rgba(74, 102, 136, 140)),
             };
             draw_line(split_rect.x, y, split_rect.x + split_rect.w, y, thickness, color);
         }
@@ -1299,8 +1388,19 @@ impl FallingGroundEditor {
         if is_ground_tool(place_type) {
             let lane_w = rect.w / LANE_COUNT as f32;
             let judge_y = rect.y + rect.h * 0.82;
+            let preview_time =
+                self.apply_snap(self.pointer_to_time(my, current_ms, judge_y, rect.h).max(0.0));
+            let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
             let lane = lane_from_x(mx, rect.x, lane_w);
             let palette = lane_note_palette(lane);
+            draw_line(
+                rect.x,
+                preview_y,
+                rect.x + rect.w,
+                preview_y,
+                1.2,
+                Color::from_rgba(255, 230, 132, 190),
+            );
             match place_type {
                 PlaceNoteType::Hold => {
                     if let Some(pending) = self.pending_hold {
@@ -1308,8 +1408,8 @@ impl FallingGroundEditor {
                         let note_w = lane_w * 0.94;
                         let note_x = lane_x + (lane_w - note_w) * 0.5;
                         let start_y = self.time_to_y(pending.start_time_ms, current_ms, judge_y, rect.h);
-                        let y1 = start_y.min(my);
-                        let y2 = start_y.max(my);
+                        let y1 = start_y.min(preview_y);
+                        let y2 = start_y.max(preview_y);
 
                         draw_rectangle(
                             note_x + note_w * 0.04,
@@ -1327,7 +1427,7 @@ impl FallingGroundEditor {
                         );
                         draw_rectangle(
                             note_x,
-                            my - 8.0,
+                            preview_y - 8.0,
                             note_w,
                             16.0,
                             Color::from_rgba(255, 236, 170, 220),
@@ -1338,7 +1438,7 @@ impl FallingGroundEditor {
                         let note_x = lane_x + (lane_w - note_w) * 0.5;
                         draw_rectangle(
                             note_x,
-                            my - 8.0,
+                            preview_y - 8.0,
                             note_w,
                             16.0,
                             Color::from_rgba(255, 222, 140, 220),
@@ -1351,7 +1451,7 @@ impl FallingGroundEditor {
                     let note_x = lane_x + (lane_w - note_w) * 0.5;
                     draw_rectangle(
                         note_x,
-                        my - 8.0,
+                        preview_y - 8.0,
                         note_w,
                         16.0,
                         Color::new(palette.tap.r, palette.tap.g, palette.tap.b, 0.82),
@@ -1364,9 +1464,26 @@ impl FallingGroundEditor {
             if !point_in_rect(mx, my, split_rect) {
                 return;
             }
+            let judge_y = rect.y + rect.h * 0.82;
+            let preview_time =
+                self.apply_snap(self.pointer_to_time(my, current_ms, judge_y, rect.h).max(0.0));
+            let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
+            draw_line(
+                split_rect.x,
+                preview_y,
+                split_rect.x + split_rect.w,
+                preview_y,
+                1.2,
+                Color::from_rgba(216, 232, 255, 188),
+            );
             let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
             let lane = air_x_to_lane(x_norm);
-            let center_x = split_rect.x + x_norm * split_rect.w;
+            let center_norm = if place_type == PlaceNoteType::Flick {
+                lane_to_air_x_norm(lane)
+            } else {
+                x_norm
+            };
+            let center_x = split_rect.x + center_norm * split_rect.w;
             let note_w = match place_type {
                 PlaceNoteType::SkyArea => split_rect.w * DEFAULT_AIR_WIDTH_NORM,
                 _ => split_rect.w * DEFAULT_AIR_WIDTH_NORM,
@@ -1383,13 +1500,13 @@ impl FallingGroundEditor {
                 skyarea_shape: None,
             };
             if place_type == PlaceNoteType::Flick {
-                draw_flick_curve_shape(&preview, note_x, note_w, my);
+                draw_flick_curve_shape(&preview, note_x, note_w, preview_y);
             } else {
                 let color = match place_type {
                     PlaceNoteType::SkyArea => AIR_SKYAREA_HEAD_COLOR,
                     _ => WHITE,
                 };
-                draw_rectangle(note_x, my - 8.0, note_w, 16.0, color);
+                draw_rectangle(note_x, preview_y - 8.0, note_w, 16.0, color);
             }
         }
     }
@@ -1404,85 +1521,103 @@ impl FallingGroundEditor {
         shape: SkyAreaShape,
         selected: bool,
     ) {
-        if note.duration_ms <= 1.0 {
-            return;
-        }
         let clip_top = split_rect.y;
         let clip_bottom = split_rect.y + split_rect.h;
+        let has_tail = note.duration_ms > 0.0;
 
-        let seg_count = 20;
-        for i in 0..seg_count {
-            let p0 = i as f32 / seg_count as f32;
-            let p1 = (i + 1) as f32 / seg_count as f32;
-            let t0 = note.time_ms + note.duration_ms * p0;
-            let t1 = note.time_ms + note.duration_ms * p1;
-            let y0_raw = self.time_to_y(t0, current_ms, judge_y, lane_h);
-            let y1_raw = self.time_to_y(t1, current_ms, judge_y, lane_h);
-            if (y0_raw < clip_top && y1_raw < clip_top) || (y0_raw > clip_bottom && y1_raw > clip_bottom)
-            {
-                continue;
+        if has_tail {
+            let seg_count = 20;
+            for i in 0..seg_count {
+                let p0 = i as f32 / seg_count as f32;
+                let p1 = (i + 1) as f32 / seg_count as f32;
+                let t0 = note.time_ms + note.duration_ms * p0;
+                let t1 = note.time_ms + note.duration_ms * p1;
+                let y0_raw = self.time_to_y(t0, current_ms, judge_y, lane_h);
+                let y1_raw = self.time_to_y(t1, current_ms, judge_y, lane_h);
+                if (y0_raw < clip_top && y1_raw < clip_top)
+                    || (y0_raw > clip_bottom && y1_raw > clip_bottom)
+                {
+                    continue;
+                }
+                let y0 = y0_raw.clamp(clip_top, clip_bottom);
+                let y1 = y1_raw.clamp(clip_top, clip_bottom);
+
+                let left0 = lerp(
+                    shape.start_left_norm,
+                    shape.end_left_norm,
+                    ease_progress(shape.left_ease, p0),
+                );
+                let right0 = lerp(
+                    shape.start_right_norm,
+                    shape.end_right_norm,
+                    ease_progress(shape.right_ease, p0),
+                );
+                let left1 = lerp(
+                    shape.start_left_norm,
+                    shape.end_left_norm,
+                    ease_progress(shape.left_ease, p1),
+                );
+                let right1 = lerp(
+                    shape.start_right_norm,
+                    shape.end_right_norm,
+                    ease_progress(shape.right_ease, p1),
+                );
+
+                let lx0 = split_rect.x + left0.clamp(0.0, 1.0) * split_rect.w;
+                let rx0 = split_rect.x + right0.clamp(0.0, 1.0) * split_rect.w;
+                let lx1 = split_rect.x + left1.clamp(0.0, 1.0) * split_rect.w;
+                let rx1 = split_rect.x + right1.clamp(0.0, 1.0) * split_rect.w;
+
+                draw_triangle(
+                    Vec2::new(lx0, y0),
+                    Vec2::new(rx0, y0),
+                    Vec2::new(rx1, y1),
+                    AIR_SKYAREA_BODY_COLOR,
+                );
+                draw_triangle(
+                    Vec2::new(lx0, y0),
+                    Vec2::new(rx1, y1),
+                    Vec2::new(lx1, y1),
+                    AIR_SKYAREA_BODY_COLOR,
+                );
             }
-            let y0 = y0_raw.clamp(clip_top, clip_bottom);
-            let y1 = y1_raw.clamp(clip_top, clip_bottom);
-
-            let left0 = lerp(
-                shape.start_left_norm,
-                shape.end_left_norm,
-                ease_progress(shape.left_ease, p0),
-            );
-            let right0 = lerp(
-                shape.start_right_norm,
-                shape.end_right_norm,
-                ease_progress(shape.right_ease, p0),
-            );
-            let left1 = lerp(
-                shape.start_left_norm,
-                shape.end_left_norm,
-                ease_progress(shape.left_ease, p1),
-            );
-            let right1 = lerp(
-                shape.start_right_norm,
-                shape.end_right_norm,
-                ease_progress(shape.right_ease, p1),
-            );
-
-            let lx0 = split_rect.x + left0.clamp(0.0, 1.0) * split_rect.w;
-            let rx0 = split_rect.x + right0.clamp(0.0, 1.0) * split_rect.w;
-            let lx1 = split_rect.x + left1.clamp(0.0, 1.0) * split_rect.w;
-            let rx1 = split_rect.x + right1.clamp(0.0, 1.0) * split_rect.w;
-
-            draw_triangle(
-                Vec2::new(lx0, y0),
-                Vec2::new(rx0, y0),
-                Vec2::new(rx1, y1),
-                AIR_SKYAREA_BODY_COLOR,
-            );
-            draw_triangle(
-                Vec2::new(lx0, y0),
-                Vec2::new(rx1, y1),
-                Vec2::new(lx1, y1),
-                AIR_SKYAREA_BODY_COLOR,
-            );
         }
 
         let head_left = split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
         let head_right = split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
         let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, lane_h);
-        if head_y < clip_top - 18.0 || head_y > clip_bottom + 18.0 {
-            return;
-        }
-        let head_w = (head_right - head_left).max(2.0);
-        draw_rectangle(head_left, head_y - 8.0, head_w, 16.0, AIR_SKYAREA_HEAD_COLOR);
+        let tail_left = split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
+        let tail_right = split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
+        let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, lane_h);
 
-        if selected {
-            draw_rectangle_lines(
-                head_left - 1.0,
-                head_y - 9.0,
-                head_w + 2.0,
-                18.0,
-                2.0,
-                Color::from_rgba(255, 220, 96, 255),
-            );
+        let head_w = (head_right - head_left).max(2.0);
+        if head_y >= clip_top - 18.0 && head_y <= clip_bottom + 18.0 {
+            draw_rectangle(head_left, head_y - 8.0, head_w, 16.0, AIR_SKYAREA_HEAD_COLOR);
+            if selected {
+                draw_rectangle_lines(
+                    head_left - 1.0,
+                    head_y - 9.0,
+                    head_w + 2.0,
+                    18.0,
+                    2.0,
+                    Color::from_rgba(255, 220, 96, 255),
+                );
+            }
+        }
+
+        let tail_w = (tail_right - tail_left).max(2.0);
+        if has_tail && tail_y >= clip_top - 18.0 && tail_y <= clip_bottom + 18.0 {
+            draw_rectangle(tail_left, tail_y - 8.0, tail_w, 16.0, AIR_SKYAREA_TAIL_COLOR);
+            if selected {
+                draw_rectangle_lines(
+                    tail_left - 1.0,
+                    tail_y - 9.0,
+                    tail_w + 2.0,
+                    18.0,
+                    1.5,
+                    Color::from_rgba(206, 180, 255, 220),
+                );
+            }
         }
     }
 
@@ -1550,7 +1685,7 @@ impl FallingGroundEditor {
                         if let Some(pending) = self.pending_hold.take() {
                             let start = pending.start_time_ms.min(time_ms);
                             let end = pending.start_time_ms.max(time_ms);
-                            let duration = (end - start).max(30.0);
+                            let duration = (end - start).max(0.0);
                             self.push_note(GroundNote {
                                 id: self.next_note_id,
                                 kind: GroundNoteKind::Hold,
@@ -1584,6 +1719,14 @@ impl FallingGroundEditor {
                     self.drag_state = Some(DragState {
                         note_id,
                         time_offset_ms: note.time_ms - time_ms,
+                        start_time_sec: get_time(),
+                        start_mouse_x: mx,
+                        start_mouse_y: my,
+                        sky_start_center_norm: 0.0,
+                        sky_end_center_norm: 0.0,
+                        sky_start_half_norm: 0.0,
+                        sky_end_half_norm: 0.0,
+                        air_target: AirDragTarget::Body,
                     });
                 }
             }
@@ -1596,6 +1739,9 @@ impl FallingGroundEditor {
 
         if let Some(drag) = self.drag_state {
             if is_mouse_button_down(MouseButton::Left) {
+                if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {
+                    return;
+                }
                 let lane = lane_from_x(mx, rect.x, lane_w);
                 let new_time =
                     self.pointer_to_time(my, current_ms, judge_y, rect.h) + drag.time_offset_ms;
@@ -1677,13 +1823,47 @@ impl FallingGroundEditor {
                     }
                     _ => {}
                 }
-            } else if let Some(note_id) = self.hit_test_air(mx, my, rect, current_ms) {
+            } else if let Some((note_id, air_target)) = self.hit_test_air(mx, my, rect, current_ms) {
                 self.selected_note_id = Some(note_id);
                 let time_ms = self.pointer_to_time(my, current_ms, judge_y, rect.h);
                 if let Some(note) = self.notes.iter().find(|note| note.id == note_id) {
+                    let (sky_start_center_norm, sky_end_center_norm, sky_start_half_norm, sky_end_half_norm) =
+                        if note.kind == GroundNoteKind::SkyArea {
+                            if let Some(shape) = note.skyarea_shape {
+                                let start_left = shape.start_left_norm.clamp(0.0, 1.0);
+                                let start_right = shape.start_right_norm.clamp(0.0, 1.0);
+                                let end_left = shape.end_left_norm.clamp(0.0, 1.0);
+                                let end_right = shape.end_right_norm.clamp(0.0, 1.0);
+                                (
+                                    (start_left + start_right) * 0.5,
+                                    (end_left + end_right) * 0.5,
+                                    ((start_right - start_left).abs() * 0.5).clamp(0.01, 0.5),
+                                    ((end_right - end_left).abs() * 0.5).clamp(0.01, 0.5),
+                                )
+                            } else {
+                                let center = lane_to_air_x_norm(note.lane);
+                                (center, center, 0.25, 0.25)
+                            }
+                        } else {
+                            (0.0, 0.0, 0.0, 0.0)
+                        };
+                    let drag_anchor_time_ms =
+                        if note.kind == GroundNoteKind::SkyArea && air_target == AirDragTarget::SkyTail {
+                            note.end_time_ms()
+                        } else {
+                            note.time_ms
+                        };
                     self.drag_state = Some(DragState {
                         note_id,
-                        time_offset_ms: note.time_ms - time_ms,
+                        time_offset_ms: drag_anchor_time_ms - time_ms,
+                        start_time_sec: get_time(),
+                        start_mouse_x: mx,
+                        start_mouse_y: my,
+                        sky_start_center_norm,
+                        sky_end_center_norm,
+                        sky_start_half_norm,
+                        sky_end_half_norm,
+                        air_target,
                     });
                 }
             }
@@ -1696,35 +1876,96 @@ impl FallingGroundEditor {
 
         if let Some(drag) = self.drag_state {
             if is_mouse_button_down(MouseButton::Left) {
+                if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {
+                    return;
+                }
                 let new_time =
                     self.pointer_to_time(my, current_ms, judge_y, rect.h) + drag.time_offset_ms;
                 let snapped_time = self.apply_snap(new_time.max(0.0));
                 let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
+                let dx = mx - drag.start_mouse_x;
+                let dy = my - drag.start_mouse_y;
+                let vertical_drag =
+                    dy.abs() >= SKYAREA_VERTICAL_DRAG_THRESHOLD_PX && dy.abs() > dx.abs();
                 if let Some(note) = self
                     .notes
                     .iter_mut()
                     .find(|note| note.id == drag.note_id && is_air_kind(note.kind))
                 {
-                    note.lane = air_x_to_lane(x_norm);
                     if note.kind == GroundNoteKind::SkyArea {
+                        let old_tail = note.time_ms + note.duration_ms;
                         if let Some(shape) = note.skyarea_shape.as_mut() {
-                            let start_w = (shape.start_right_norm - shape.start_left_norm)
-                                .abs()
-                                .clamp(0.02, 1.0);
-                            let end_w = (shape.end_right_norm - shape.end_left_norm)
-                                .abs()
-                                .clamp(0.02, 1.0);
-                            let start_half = start_w * 0.5;
-                            let end_half = end_w * 0.5;
-                            let start_center = x_norm.clamp(start_half, 1.0 - start_half);
-                            let end_center = x_norm.clamp(end_half, 1.0 - end_half);
-                            shape.start_left_norm = start_center - start_half;
-                            shape.start_right_norm = start_center + start_half;
-                            shape.end_left_norm = end_center - end_half;
-                            shape.end_right_norm = end_center + end_half;
+                            let start_half_now = ((shape.start_right_norm - shape.start_left_norm).abs() * 0.5)
+                                .clamp(0.01, 0.5);
+                            let end_half_now = ((shape.end_right_norm - shape.end_left_norm).abs() * 0.5)
+                                .clamp(0.01, 0.5);
+
+                            match drag.air_target {
+                                AirDragTarget::Body => {
+                                    // Body drag keeps skyarea easing shape, only translating start/end X together.
+                                    // Use one shared delta and edge-based limits, so:
+                                    // 1) head/tail widths stay unchanged
+                                    // 2) head-tail X gap stays unchanged
+                                    // 3) both head and tail stay in [0, 1]
+                                    let start_half = drag.sky_start_half_norm.clamp(0.01, 0.5);
+                                    let end_half = drag.sky_end_half_norm.clamp(0.01, 0.5);
+                                    let start_left_0 = drag.sky_start_center_norm - start_half;
+                                    let start_right_0 = drag.sky_start_center_norm + start_half;
+                                    let end_left_0 = drag.sky_end_center_norm - end_half;
+                                    let end_right_0 = drag.sky_end_center_norm + end_half;
+                                    let delta_norm = (mx - drag.start_mouse_x) / split_rect.w.max(1.0);
+                                    let delta_min = (-start_left_0).max(-end_left_0);
+                                    let delta_max = (1.0 - start_right_0).min(1.0 - end_right_0);
+                                    let delta = if delta_min <= delta_max {
+                                        delta_norm.clamp(delta_min, delta_max)
+                                    } else {
+                                        0.0
+                                    };
+                                    shape.start_left_norm = start_left_0 + delta;
+                                    shape.start_right_norm = start_right_0 + delta;
+                                    shape.end_left_norm = end_left_0 + delta;
+                                    shape.end_right_norm = end_right_0 + delta;
+
+                                    note.time_ms = snapped_time;
+                                }
+                                AirDragTarget::SkyHead => {
+                                    let start_center = x_norm.clamp(start_half_now, 1.0 - start_half_now);
+                                    shape.start_left_norm = (start_center - start_half_now).clamp(0.0, 1.0);
+                                    shape.start_right_norm = (start_center + start_half_now).clamp(0.0, 1.0);
+
+                                    if vertical_drag {
+                                        let new_start = snapped_time.min(old_tail);
+                                        note.time_ms = new_start.max(0.0);
+                                        note.duration_ms = (old_tail - note.time_ms).max(0.0);
+                                    }
+                                }
+                                AirDragTarget::SkyTail => {
+                                    let end_center = x_norm.clamp(end_half_now, 1.0 - end_half_now);
+                                    shape.end_left_norm = (end_center - end_half_now).clamp(0.0, 1.0);
+                                    shape.end_right_norm = (end_center + end_half_now).clamp(0.0, 1.0);
+
+                                    if vertical_drag {
+                                        let tail_time = snapped_time.max(note.time_ms);
+                                        note.duration_ms = (tail_time - note.time_ms).max(0.0);
+                                    }
+                                }
+                            }
+
+                            let center_norm = ((shape.start_left_norm
+                                + shape.start_right_norm
+                                + shape.end_left_norm
+                                + shape.end_right_norm)
+                                * 0.25)
+                                .clamp(0.0, 1.0);
+                            let start_w = (shape.start_right_norm - shape.start_left_norm).abs().clamp(0.02, 1.0);
+                            let end_w = (shape.end_right_norm - shape.end_left_norm).abs().clamp(0.02, 1.0);
+                            note.lane = air_x_to_lane(center_norm);
+                            note.width = ((start_w + end_w) * 0.5).clamp(0.05, 1.0);
                         }
+                    } else {
+                        note.lane = air_x_to_lane(x_norm);
+                        note.time_ms = snapped_time;
                     }
-                    note.time_ms = snapped_time;
                     self.status = format!("air drag lane={} time={:.0}ms", note.lane, note.time_ms);
                 }
             } else {
@@ -1734,7 +1975,7 @@ impl FallingGroundEditor {
         }
     }
 
-    fn hit_test_air(&self, mx: f32, my: f32, rect: Rect, current_ms: f32) -> Option<u64> {
+    fn hit_test_air(&self, mx: f32, my: f32, rect: Rect, current_ms: f32) -> Option<(u64, AirDragTarget)> {
         let judge_y = rect.y + rect.h * 0.82;
         let split_rect = air_split_rect(rect);
         if !point_in_rect(mx, my, split_rect) {
@@ -1751,6 +1992,32 @@ impl FallingGroundEditor {
 
             if note.kind == GroundNoteKind::SkyArea {
                 if let Some(shape) = note.skyarea_shape {
+                    let head_left = split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let head_right = split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_left = split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_right = split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+
+                    let head_rect = Rect::new(
+                        head_left - 2.0,
+                        head_y - 10.0,
+                        (head_right - head_left).max(2.0) + 4.0,
+                        20.0,
+                    );
+                    if point_in_rect(mx, my, head_rect) {
+                        return Some((note.id, AirDragTarget::SkyHead));
+                    }
+
+                    let tail_rect = Rect::new(
+                        tail_left - 2.0,
+                        tail_y - 10.0,
+                        (tail_right - tail_left).max(2.0) + 4.0,
+                        20.0,
+                    );
+                    if point_in_rect(mx, my, tail_rect) {
+                        return Some((note.id, AirDragTarget::SkyTail));
+                    }
+
                     let min_left = shape
                         .start_left_norm
                         .min(shape.end_left_norm)
@@ -1766,13 +2033,13 @@ impl FallingGroundEditor {
                     let y2 = head_y.max(tail_y);
                     if point_in_rect(mx, my, Rect::new(x1, y1, (x2 - x1).max(1.0), (y2 - y1).max(1.0)))
                     {
-                        return Some(note.id);
+                        return Some((note.id, AirDragTarget::Body));
                     }
                     continue;
                 }
             }
             if point_in_rect(mx, my, Rect::new(note_x, head_y - 10.0, note_w, 20.0)) {
-                return Some(note.id);
+                return Some((note.id, AirDragTarget::Body));
             }
 
             if note.has_tail() {
@@ -1780,7 +2047,7 @@ impl FallingGroundEditor {
                 let y1 = head_y.min(tail_y);
                 let y2 = head_y.max(tail_y);
                 if point_in_rect(mx, my, Rect::new(note_x, y1, note_w, (y2 - y1).max(1.0))) {
-                    return Some(note.id);
+                    return Some((note.id, AirDragTarget::Body));
                 }
             }
         }
@@ -2181,7 +2448,7 @@ fn extract_ground_notes(chart: &Chart) -> Vec<GroundNote> {
                         kind: GroundNoteKind::Hold,
                         lane: *lane as usize,
                         time_ms: *time as f32,
-                        duration_ms: (*duration as f32).max(1.0),
+                        duration_ms: (*duration as f32).max(0.0),
                         width: (*width as f32).max(0.4),
                         flick_right: true,
                         skyarea_shape: None,
@@ -2243,7 +2510,7 @@ fn extract_ground_notes(chart: &Chart) -> Vec<GroundNote> {
                     kind: GroundNoteKind::SkyArea,
                     lane: lane_from_normalized_x((start_center + end_center) * 0.5),
                     time_ms: *time as f32,
-                    duration_ms: (*duration as f32).max(30.0),
+                    duration_ms: (*duration as f32).max(0.0),
                     width: normalized_width_to_air_ratio(avg_width_norm),
                     flick_right: true,
                     skyarea_shape: Some(SkyAreaShape {

@@ -1,4 +1,6 @@
-use crate::editor::falling::{FallingGroundEditor, PlaceNoteType, RenderScope};
+use crate::editor::falling::{
+    FallingGroundEditor, PlaceNoteType, RenderScope, SNAP_DIVISION_OPTIONS,
+};
 use egui_macroquad::egui;
 
 pub const NOTE_PANEL_BASE_WIDTH_POINTS: f32 = 280.0;
@@ -68,6 +70,25 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
                     editor.set_render_scope(s);
                 }
             }
+
+            ui.separator();
+            ui.label("Barline Snap");
+            ui.horizontal_wrapped(|ui| {
+                let current = editor.snap_division();
+                for division in SNAP_DIVISION_OPTIONS {
+                    let selected = current == division;
+                    let button = egui::Button::new(format!("{division}x"))
+                        .min_size(egui::vec2(48.0, 26.0))
+                        .fill(if selected {
+                            egui::Color32::from_rgba_unmultiplied(106, 168, 255, 76)
+                        } else {
+                            egui::Color32::from_rgba_unmultiplied(255, 255, 255, 8)
+                        });
+                    if ui.add(button).clicked() {
+                        editor.set_snap_division(division);
+                    }
+                }
+            });
 
             ui.separator();
             ui.label("Place");
