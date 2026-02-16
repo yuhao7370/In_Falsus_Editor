@@ -11,6 +11,7 @@
   "menu_select": "选择",
   "menu_settings": "设置",
   "settings_language": "语言",
+  "settings_debug_hitbox": "命中框调试",
   "language_chinese": "中文",
   "language_english": "English",
   "file_create_project": "创建项目",
@@ -43,5 +44,7 @@
   "action_copy": "点击了：复制",
   "action_paste": "点击了：粘贴",
   "action_set_language_zh": "语言已切换为中文",
-  "action_set_language_en": "语言已切换为 English"
+  "action_set_language_en": "语言已切换为 English",
+  "action_debug_hitbox_on": "命中框调试已开启",
+  "action_debug_hitbox_off": "命中框调试已关闭"
 }

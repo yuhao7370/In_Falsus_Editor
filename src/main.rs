@@ -36,7 +36,12 @@ fn format_time(seconds: f32) -> String {
     format!("{minutes:02}:{sec:05.2}")
 }
 
-fn handle_top_menu_action(action: TopMenuAction, audio: &mut AudioController, i18n: &mut I18n) {
+fn handle_top_menu_action(
+    action: TopMenuAction,
+    editor: &mut FallingGroundEditor,
+    audio: &mut AudioController,
+    i18n: &mut I18n,
+) {
     match action {
         TopMenuAction::CreateProject => {
             audio.status = i18n.t(TextKey::ActionCreateProject).to_owned();
@@ -69,13 +74,21 @@ fn handle_top_menu_action(action: TopMenuAction, audio: &mut AudioController, i1
         TopMenuAction::SetVolume(volume) => {
             audio.set_volume(volume, i18n);
         }
+        TopMenuAction::SetDebugHitbox(enabled) => {
+            editor.set_debug_show_hitboxes(enabled);
+            audio.status = if enabled {
+                i18n.t(TextKey::ActionDebugHitboxOn).to_owned()
+            } else {
+                i18n.t(TextKey::ActionDebugHitboxOff).to_owned()
+            };
+        }
     }
 }
 
 fn ui_scale_factor() -> f32 {
     (screen_width() / BASE_WIDTH)
         .min(screen_height() / BASE_HEIGHT)
-        .clamp(0.75, 2.0)
+        .clamp(0.75, 3.5)
 }
 
 #[macroquad::main(window_conf)]
@@ -99,6 +112,10 @@ async fn main() {
         let menu_height = EGUI_MENU_BASE_HEIGHT * ui_scale;
         let mut note_panel_width_px = NOTE_PANEL_BASE_WIDTH_POINTS * ui_scale;
         let mut egui_wheel_y = 0.0_f32;
+        let top_bar_height = TOP_BAR_HEIGHT * ui_scale;
+        let panel_pad = 10.0 * ui_scale;
+        let editor_gap = 12.0 * ui_scale;
+        let status_bottom_pad = 8.0 * ui_scale;
 
         let mut top_menu_action = None;
         egui_macroquad::ui(|ctx| {
@@ -108,13 +125,19 @@ async fn main() {
             }
             ctx.set_pixels_per_point(ui_scale);
             let volume = audio.volume();
-            top_menu_action = draw_top_menu(ctx, &i18n, volume, audio.has_player());
+            top_menu_action = draw_top_menu(
+                ctx,
+                &i18n,
+                volume,
+                audio.has_player(),
+                editor.debug_show_hitboxes(),
+            );
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
         });
 
         if let Some(action) = top_menu_action {
-            handle_top_menu_action(action, &mut audio, &mut i18n);
+            handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n);
         }
 
         // 4. Wheel seek
@@ -127,21 +150,21 @@ async fn main() {
         let track_path = audio.track_path().map(|s| s.to_owned());
 
         // 5. Top bar
-        let top_bar = Rect::new(0.0, menu_height, screen_width(), TOP_BAR_HEIGHT);
+        let top_bar = Rect::new(0.0, menu_height, screen_width(), top_bar_height);
         draw_rectangle(
             top_bar.x, top_bar.y, top_bar.w, top_bar.h,
             Color::from_rgba(15, 15, 20, 255),
         );
         draw_line(
             0.0, top_bar.y + top_bar.h, screen_width(), top_bar.y + top_bar.h,
-            1.0, Color::from_rgba(40, 40, 50, 255),
+            (1.0 * ui_scale).max(1.0), Color::from_rgba(40, 40, 50, 255),
         );
 
         draw_text_ex(
             &format!("{} / {}", format_time(current_sec), format_time(duration_sec)),
-            10.0, menu_height + 33.0,
+            panel_pad, menu_height + 33.0 * ui_scale,
             TextParams {
-                font_size: 22,
+                font_size: (22.0 * ui_scale).round().clamp(14.0, 84.0) as u16,
                 color: Color::from_rgba(236, 236, 242, 255),
                 ..Default::default()
             },
@@ -149,21 +172,21 @@ async fn main() {
 
         draw_text_ex(
             "Keys: Space Play/Pause | <- -> seek 1s | Up/Down seek 0.1s | Wheel seek | Ctrl=finer",
-            10.0, menu_height + 52.0,
+            panel_pad, menu_height + 52.0 * ui_scale,
             TextParams {
-                font_size: 16,
+                font_size: (16.0 * ui_scale).round().clamp(11.0, 60.0) as u16,
                 color: Color::from_rgba(170, 170, 185, 255),
                 ..Default::default()
             },
         );
 
         // 6. Editor
-        let editor_y = menu_height + TOP_BAR_HEIGHT + 8.0;
-        let editor_gap = 12.0;
-        let editor_width = (screen_width() - 20.0 - note_panel_width_px - editor_gap).max(360.0);
+        let editor_y = menu_height + top_bar_height + 8.0 * ui_scale;
+        let editor_width = (screen_width() - panel_pad * 2.0 - note_panel_width_px - editor_gap)
+            .max(360.0);
         let editor_rect = Rect::new(
-            10.0, editor_y, editor_width,
-            (screen_height() - editor_y - 28.0).max(140.0),
+            panel_pad, editor_y, editor_width,
+            (screen_height() - editor_y - 28.0 * ui_scale).max(140.0),
         );
 
         for action in editor.draw(editor_rect, current_sec, duration_sec, track_path.as_deref()) {
@@ -175,9 +198,9 @@ async fn main() {
         // 7. Status bar
         draw_text_ex(
             &audio.status,
-            10.0, screen_height() - 8.0,
+            panel_pad, screen_height() - status_bottom_pad,
             TextParams {
-                font_size: 18,
+                font_size: (18.0 * ui_scale).round().clamp(12.0, 64.0) as u16,
                 color: Color::from_rgba(170, 205, 255, 255),
                 ..Default::default()
             },

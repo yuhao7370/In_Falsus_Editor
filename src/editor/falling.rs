@@ -3,6 +3,8 @@ use macroquad::prelude::*;
 use sasa::AudioClip;
 
 const LANE_COUNT: usize = 6;
+const REFERENCE_WIDTH: f32 = 1366.0;
+const REFERENCE_HEIGHT: f32 = 768.0;
 const DEFAULT_CHART_PATH: &str = "songs/alamode/alamode3.spc";
 const DEFAULT_AIR_WIDTH_NORM: f32 = 0.5;
 const DEFAULT_SKYAREA_WIDTH_NORM: f32 = 0.25;
@@ -17,6 +19,13 @@ const AIR_SKYAREA_TAIL_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.34);
 const DRAG_HOLD_TO_START_SEC: f64 = 0.22;
 const SKYAREA_VERTICAL_DRAG_THRESHOLD_PX: f32 = 4.0;
 const PORTRAIT_SCREEN_RATIO: f32 = 10.0 / 16.0;
+const OVERLAP_CYCLE_ANCHOR_PX: f32 = 14.0;
+const OVERLAP_DOUBLE_CLICK_SEC: f64 = 0.20;
+const NOTE_HEAD_HIT_HALF_H: f32 = 9.0;
+const NOTE_HEAD_HIT_PAD_X: f32 = 2.0;
+const NOTE_BODY_HIT_PAD_X: f32 = 2.0;
+const NOTE_BODY_EDGE_GAP_Y: f32 = 8.0;
+const SELECTED_NOTE_DARKEN_ALPHA: u8 = 72;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaceNoteType {
@@ -409,6 +418,58 @@ enum AirDragTarget {
     SkyTail,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HitScope {
+    Ground,
+    Air,
+    Mixed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HitPart {
+    Head,
+    Tail,
+    Body,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HitCandidate {
+    note_id: u64,
+    scope: HitScope,
+    air_target: AirDragTarget,
+    part: HitPart,
+    distance_sq: f32,
+    z_order: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct HitSignatureItem {
+    note_id: u64,
+    scope: HitScope,
+    air_target: AirDragTarget,
+    part: HitPart,
+}
+
+#[derive(Debug, Clone)]
+struct OverlapCycleState {
+    signature: Vec<HitSignatureItem>,
+    current_index: usize,
+    selected_item: HitSignatureItem,
+    anchor_x: i32,
+    anchor_y: i32,
+    scope: HitScope,
+    last_click_time_sec: f64,
+    double_click_armed: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HoverOverlapHint {
+    mouse_x: f32,
+    mouse_y: f32,
+    current_index: usize,
+    total: usize,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct PendingHoldPlacement {
     lane: usize,
@@ -443,6 +504,9 @@ pub struct FallingGroundEditor {
     place_note_type: Option<PlaceNoteType>,
     pending_hold: Option<PendingHoldPlacement>,
     pending_skyarea: Option<PendingSkyAreaPlacement>,
+    overlap_cycle: Option<OverlapCycleState>,
+    hover_overlap_hint: Option<HoverOverlapHint>,
+    debug_show_hitboxes: bool,
     waveform: Option<Waveform>,
     waveform_error: Option<String>,
     waveform_seek_active: bool,
@@ -508,6 +572,9 @@ impl FallingGroundEditor {
             place_note_type: None,
             pending_hold: None,
             pending_skyarea: None,
+            overlap_cycle: None,
+            hover_overlap_hint: None,
+            debug_show_hitboxes: false,
             waveform: None,
             waveform_error: None,
             waveform_seek_active: false,
@@ -528,6 +595,8 @@ impl FallingGroundEditor {
         self.render_scope = scope;
         self.pending_hold = None;
         self.pending_skyarea = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
         self.status = format!("render scope: {}", scope.label());
     }
 
@@ -535,6 +604,8 @@ impl FallingGroundEditor {
         self.place_note_type = note_type;
         self.pending_hold = None;
         self.pending_skyarea = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
         self.status = match note_type {
             Some(kind) => format!("place mode: {}", kind.label()),
             None => "place mode cleared".to_owned(),
@@ -558,6 +629,15 @@ impl FallingGroundEditor {
 
     pub fn pending_skyarea_head_time_ms(&self) -> Option<f32> {
         self.pending_skyarea.map(|pending| pending.start_time_ms)
+    }
+
+    pub fn debug_show_hitboxes(&self) -> bool {
+        self.debug_show_hitboxes
+    }
+
+    pub fn set_debug_show_hitboxes(&mut self, enabled: bool) {
+        self.debug_show_hitboxes = enabled;
+        self.status = format!("debug hitbox {}", if enabled { "on" } else { "off" });
     }
 
     pub fn draw(
@@ -665,7 +745,17 @@ impl FallingGroundEditor {
             self.pending_hold = None;
             self.pending_skyarea = None;
             self.drag_state = None;
+            self.overlap_cycle = None;
+            self.hover_overlap_hint = None;
             self.status = "place mode cleared".to_owned();
+        }
+
+        if self.place_note_type.is_none() {
+            self.handle_note_selection_click(ground_rect, air_rect, current_ms);
+            self.update_hover_overlap_hint(ground_rect, air_rect, current_ms);
+        } else {
+            self.overlap_cycle = None;
+            self.hover_overlap_hint = None;
         }
 
         if let Some(rect) = ground_rect {
@@ -706,6 +796,8 @@ impl FallingGroundEditor {
                 _ => {}
             }
         }
+
+        self.draw_overlap_hint();
 
         if let Some(error) = &self.waveform_error {
             draw_text_ex(
@@ -852,7 +944,7 @@ impl FallingGroundEditor {
             .count();
         draw_text_ex(
             &format!(
-                "Falling | chart={} | G:{} A:{} | view={} | tool={} | snap={} {}x | speed={:.2}H/s",
+                "Falling | chart={} | G:{} A:{} | view={} | tool={} | snap={} {}x | speed={:.2}H/s | hitbox={}",
                 self.chart_path,
                 ground_count,
                 air_count,
@@ -862,7 +954,8 @@ impl FallingGroundEditor {
                     .unwrap_or("None"),
                 if self.snap_enabled { "on" } else { "off" },
                 self.snap_division,
-                self.scroll_speed
+                self.scroll_speed,
+                if self.debug_show_hitboxes { "on" } else { "off" }
             ),
             rect.x + 10.0,
             rect.y + 24.0,
@@ -1176,6 +1269,9 @@ impl FallingGroundEditor {
                     let body_y = y1.max(rect.y);
                     let body_h = (y2.min(rect.y + rect.h) - body_y).max(1.0);
                     draw_rectangle(body_x, body_y, body_w, body_h, body_color);
+                    if selected {
+                        draw_selected_note_darken_rect(body_x, body_y, body_w, body_h);
+                    }
                 }
             }
 
@@ -1196,16 +1292,14 @@ impl FallingGroundEditor {
                 );
 
                 if selected {
-                    draw_rectangle_lines(
-                        note_x - 1.0,
-                        head_y - 9.0,
-                        note_w + 2.0,
-                        18.0,
-                        2.0,
-                        Color::from_rgba(255, 220, 96, 255),
-                    );
+                    draw_selected_note_darken_rect(note_x, head_y - 8.0, note_w, 16.0);
+                    draw_selected_note_outline(note_x, head_y - 8.0, note_w, 16.0);
                 }
             }
+        }
+
+        if self.debug_show_hitboxes {
+            self.draw_ground_hitbox_overlay(rect, current_ms);
         }
 
     }
@@ -1340,6 +1434,9 @@ impl FallingGroundEditor {
                         _ => palette.hold_body,
                     };
                     draw_rectangle(note_x, body_y, note_w, body_h, body_color);
+                    if selected {
+                        draw_selected_note_darken_rect(note_x, body_y, note_w, body_h);
+                    }
                 }
             }
 
@@ -1348,14 +1445,8 @@ impl FallingGroundEditor {
                     draw_flick_curve_shape(note, note_x, note_w, head_y);
                     if selected {
                         let bounds = flick_shape_bounds(note, note_x, note_w, head_y);
-                        draw_rectangle_lines(
-                            bounds.x - 1.0,
-                            bounds.y - 1.0,
-                            bounds.w + 2.0,
-                            bounds.h + 2.0,
-                            2.0,
-                            Color::from_rgba(255, 220, 96, 255),
-                        );
+                        draw_selected_note_darken_rect(bounds.x, bounds.y, bounds.w, bounds.h);
+                        draw_selected_note_outline(bounds.x, bounds.y, bounds.w, bounds.h);
                     }
                 } else {
                     let head_color = match note.kind {
@@ -1372,17 +1463,120 @@ impl FallingGroundEditor {
                     );
 
                     if selected {
-                    draw_rectangle_lines(
-                        note_x - 1.0,
-                        head_y - 9.0,
-                        note_w + 2.0,
-                        18.0,
-                        2.0,
-                        Color::from_rgba(255, 220, 96, 255),
-                    );
+                    draw_selected_note_darken_rect(note_x, head_y - 8.0, note_w, 16.0);
+                    draw_selected_note_outline(note_x, head_y - 8.0, note_w, 16.0);
                     }
                 }
             }
+        }
+
+        if self.debug_show_hitboxes {
+            self.draw_air_hitbox_overlay(rect, current_ms);
+        }
+    }
+
+    fn draw_ground_hitbox_overlay(&self, rect: Rect, current_ms: f32) {
+        if rect.h <= 4.0 || rect.w <= 4.0 {
+            return;
+        }
+        let lane_w = rect.w / LANE_COUNT as f32;
+        let judge_y = rect.y + rect.h * 0.82;
+        let head_color = Color::from_rgba(84, 230, 255, 232);
+        let tail_color = Color::from_rgba(255, 164, 88, 228);
+        let body_color = Color::from_rgba(138, 255, 152, 218);
+
+        for note in &self.notes {
+            if !is_ground_kind(note.kind) {
+                continue;
+            }
+            let lane_x = rect.x + lane_w * note.lane as f32;
+            let note_w = note_head_width(note, lane_w);
+            let note_x = lane_x + (lane_w - note_w) * 0.5;
+            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let head_rect = note_end_hit_rect(note_x, note_w, head_y);
+            draw_debug_hitbox_rect(head_rect, rect, head_color, 1.3);
+
+            if note.has_tail() {
+                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                let tail_rect = note_end_hit_rect(note_x, note_w, tail_y);
+                draw_debug_hitbox_rect(tail_rect, rect, tail_color, 1.3);
+
+                let y1 = head_y.min(tail_y);
+                let y2 = head_y.max(tail_y);
+                let (body_x, body_w) = match note.kind {
+                    GroundNoteKind::Hold => (note_x + note_w * 0.04, note_w * 0.92),
+                    GroundNoteKind::SkyArea => (note_x + note_w * 0.02, note_w * 0.96),
+                    _ => (note_x + note_w * 0.34, note_w * 0.32),
+                };
+                let body_rect = note_body_hit_rect(body_x, body_w, y1, y2);
+                draw_debug_hitbox_rect(body_rect, rect, body_color, 1.2);
+            }
+
+            let label = format!("#{}", note.id);
+            draw_debug_hitbox_label(head_rect, rect, &label, head_color);
+        }
+    }
+
+    fn draw_air_hitbox_overlay(&self, rect: Rect, current_ms: f32) {
+        if rect.h <= 4.0 || rect.w <= 4.0 {
+            return;
+        }
+        let split_rect = air_split_rect(rect);
+        let clip_rect = rect;
+        let judge_y = rect.y + rect.h * 0.82;
+        let head_color = Color::from_rgba(116, 234, 255, 232);
+        let tail_color = Color::from_rgba(246, 186, 114, 228);
+        let body_color = Color::from_rgba(176, 144, 255, 214);
+
+        for note in &self.notes {
+            if !is_air_kind(note.kind) {
+                continue;
+            }
+
+            let center_x = split_rect.x + lane_to_air_x_norm(note.lane) * split_rect.w;
+            let note_w = air_note_width(note, split_rect.w);
+            let note_x = center_x - note_w * 0.5;
+            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let mut label_rect = if note.kind == GroundNoteKind::Flick {
+                flick_rect_hitbox(note, note_x, note_w, head_y)
+            } else {
+                note_end_hit_rect(note_x, note_w, head_y)
+            };
+
+            if note.kind == GroundNoteKind::SkyArea {
+                if let Some(shape) = note.skyarea_shape {
+                    let head_left = split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let head_right = split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_left = split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_right = split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+
+                    let head_rect =
+                        note_end_hit_rect(head_left, (head_right - head_left).max(2.0), head_y);
+                    let tail_rect =
+                        note_end_hit_rect(tail_left, (tail_right - tail_left).max(2.0), tail_y);
+                    draw_debug_hitbox_rect(head_rect, clip_rect, head_color, 1.3);
+                    draw_debug_hitbox_rect(tail_rect, clip_rect, tail_color, 1.3);
+                    draw_debug_skyarea_body_hit_overlay(split_rect, shape, head_y, tail_y, body_color);
+                    label_rect = head_rect;
+                }
+            } else {
+                let head_rect = if note.kind == GroundNoteKind::Flick {
+                    flick_rect_hitbox(note, note_x, note_w, head_y)
+                } else {
+                    note_end_hit_rect(note_x, note_w, head_y)
+                };
+                draw_debug_hitbox_rect(head_rect, clip_rect, head_color, 1.3);
+                label_rect = head_rect;
+                if note.has_tail() {
+                    let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                    let body_rect = note_body_hit_rect(note_x, note_w, head_y.min(tail_y), head_y.max(tail_y));
+                    draw_debug_hitbox_rect(body_rect, clip_rect, body_color, 1.2);
+                }
+            }
+
+            let label = format!("#{}", note.id);
+            draw_debug_hitbox_label(label_rect, clip_rect, &label, head_color);
         }
     }
 
@@ -1641,6 +1835,21 @@ impl FallingGroundEditor {
                     Vec2::new(lx1, y1),
                     AIR_SKYAREA_BODY_COLOR,
                 );
+                if selected {
+                    let dark = Color::from_rgba(0, 0, 0, SELECTED_NOTE_DARKEN_ALPHA);
+                    draw_triangle(
+                        Vec2::new(lx0, y0),
+                        Vec2::new(rx0, y0),
+                        Vec2::new(rx1, y1),
+                        dark,
+                    );
+                    draw_triangle(
+                        Vec2::new(lx0, y0),
+                        Vec2::new(rx1, y1),
+                        Vec2::new(lx1, y1),
+                        dark,
+                    );
+                }
             }
         }
 
@@ -1655,14 +1864,8 @@ impl FallingGroundEditor {
         if head_y >= clip_top - 18.0 && head_y <= clip_bottom + 18.0 {
             draw_rectangle(head_left, head_y - 8.0, head_w, 16.0, AIR_SKYAREA_HEAD_COLOR);
             if selected {
-                draw_rectangle_lines(
-                    head_left - 1.0,
-                    head_y - 9.0,
-                    head_w + 2.0,
-                    18.0,
-                    2.0,
-                    Color::from_rgba(255, 220, 96, 255),
-                );
+                draw_selected_note_darken_rect(head_left, head_y - 8.0, head_w, 16.0);
+                draw_selected_note_outline(head_left, head_y - 8.0, head_w, 16.0);
             }
         }
 
@@ -1670,14 +1873,8 @@ impl FallingGroundEditor {
         if has_tail && tail_y >= clip_top - 18.0 && tail_y <= clip_bottom + 18.0 {
             draw_rectangle(tail_left, tail_y - 8.0, tail_w, 16.0, AIR_SKYAREA_TAIL_COLOR);
             if selected {
-                draw_rectangle_lines(
-                    tail_left - 1.0,
-                    tail_y - 9.0,
-                    tail_w + 2.0,
-                    18.0,
-                    1.5,
-                    Color::from_rgba(206, 180, 255, 220),
-                );
+                draw_selected_note_darken_rect(tail_left, tail_y - 8.0, tail_w, 16.0);
+                draw_selected_note_outline(tail_left, tail_y - 8.0, tail_w, 16.0);
             }
         }
     }
@@ -1773,29 +1970,7 @@ impl FallingGroundEditor {
                     }
                     _ => {}
                 }
-            } else if let Some(note_id) = self.hit_test_ground(mx, my, rect, current_ms) {
-                self.selected_note_id = Some(note_id);
-                let time_ms = self.pointer_to_time(my, current_ms, judge_y, rect.h);
-                if let Some(note) = self.notes.iter().find(|note| note.id == note_id) {
-                    self.drag_state = Some(DragState {
-                        note_id,
-                        time_offset_ms: note.time_ms - time_ms,
-                        start_time_sec: get_time(),
-                        start_mouse_x: mx,
-                        start_mouse_y: my,
-                        sky_start_center_norm: 0.0,
-                        sky_end_center_norm: 0.0,
-                        sky_start_half_norm: 0.0,
-                        sky_end_half_norm: 0.0,
-                        air_target: AirDragTarget::Body,
-                    });
-                }
             }
-        }
-
-        if is_mouse_button_pressed(MouseButton::Right) && inside && self.place_note_type.is_none() {
-            self.selected_note_id = None;
-            self.drag_state = None;
         }
 
         if let Some(drag) = self.drag_state {
@@ -1910,55 +2085,7 @@ impl FallingGroundEditor {
                     }
                     _ => {}
                 }
-            } else if let Some((note_id, air_target)) = self.hit_test_air(mx, my, rect, current_ms) {
-                self.selected_note_id = Some(note_id);
-                let time_ms = self.pointer_to_time(my, current_ms, judge_y, rect.h);
-                if let Some(note) = self.notes.iter().find(|note| note.id == note_id) {
-                    let (sky_start_center_norm, sky_end_center_norm, sky_start_half_norm, sky_end_half_norm) =
-                        if note.kind == GroundNoteKind::SkyArea {
-                            if let Some(shape) = note.skyarea_shape {
-                                let start_left = shape.start_left_norm.clamp(0.0, 1.0);
-                                let start_right = shape.start_right_norm.clamp(0.0, 1.0);
-                                let end_left = shape.end_left_norm.clamp(0.0, 1.0);
-                                let end_right = shape.end_right_norm.clamp(0.0, 1.0);
-                                (
-                                    (start_left + start_right) * 0.5,
-                                    (end_left + end_right) * 0.5,
-                                    ((start_right - start_left).abs() * 0.5).clamp(0.01, 0.5),
-                                    ((end_right - end_left).abs() * 0.5).clamp(0.01, 0.5),
-                                )
-                            } else {
-                                let center = lane_to_air_x_norm(note.lane);
-                                (center, center, 0.25, 0.25)
-                            }
-                        } else {
-                            (0.0, 0.0, 0.0, 0.0)
-                        };
-                    let drag_anchor_time_ms =
-                        if note.kind == GroundNoteKind::SkyArea && air_target == AirDragTarget::SkyTail {
-                            note.end_time_ms()
-                        } else {
-                            note.time_ms
-                        };
-                    self.drag_state = Some(DragState {
-                        note_id,
-                        time_offset_ms: drag_anchor_time_ms - time_ms,
-                        start_time_sec: get_time(),
-                        start_mouse_x: mx,
-                        start_mouse_y: my,
-                        sky_start_center_norm,
-                        sky_end_center_norm,
-                        sky_start_half_norm,
-                        sky_end_half_norm,
-                        air_target,
-                    });
-                }
             }
-        }
-
-        if is_mouse_button_pressed(MouseButton::Right) && inside && self.place_note_type.is_none() {
-            self.selected_note_id = None;
-            self.drag_state = None;
         }
 
         if let Some(drag) = self.drag_state {
@@ -1972,8 +2099,8 @@ impl FallingGroundEditor {
                 let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
                 let dx = mx - drag.start_mouse_x;
                 let dy = my - drag.start_mouse_y;
-                let vertical_drag =
-                    dy.abs() >= SKYAREA_VERTICAL_DRAG_THRESHOLD_PX && dy.abs() > dx.abs();
+                let vertical_drag = dy.abs() >= scaled_px(SKYAREA_VERTICAL_DRAG_THRESHOLD_PX)
+                    && dy.abs() > dx.abs();
                 if let Some(note) = self
                     .notes
                     .iter_mut()
@@ -2062,16 +2189,322 @@ impl FallingGroundEditor {
         }
     }
 
-    fn hit_test_air(&self, mx: f32, my: f32, rect: Rect, current_ms: f32) -> Option<(u64, AirDragTarget)> {
+    fn handle_note_selection_click(
+        &mut self,
+        ground_rect: Option<Rect>,
+        air_rect: Option<Rect>,
+        current_ms: f32,
+    ) {
+        let (mx, my) = mouse_position();
+
+        if is_mouse_button_pressed(MouseButton::Right) {
+            self.selected_note_id = None;
+            self.drag_state = None;
+            self.overlap_cycle = None;
+            self.hover_overlap_hint = None;
+            self.status = "selection cleared".to_owned();
+            return;
+        }
+
+        if !is_mouse_button_pressed(MouseButton::Left) {
+            return;
+        }
+
+        let (scope, candidates) = self.collect_hit_candidates(mx, my, ground_rect, air_rect, current_ms);
+        if candidates.is_empty() {
+            // Blank click or out-of-surface click should reset click-cycle + drag latch.
+            // Keep selected_note_id unchanged so user can inspect last selection.
+            self.overlap_cycle = None;
+            self.hover_overlap_hint = None;
+            self.drag_state = None;
+            return;
+        }
+
+        let ordered_items: Vec<HitSignatureItem> = candidates.iter().map(hit_signature_item).collect();
+        let signature = canonical_hit_signature(&ordered_items);
+        let (anchor_x, anchor_y) = quantize_overlap_anchor(mx, my);
+        let now_sec = get_time();
+        let mut did_cycle = false;
+        let selected_note_index = self
+            .selected_note_id
+            .and_then(|selected_id| candidates.iter().position(|c| c.note_id == selected_id));
+
+        let selected_index = if candidates.len() > 1 {
+            // In overlap region, prefer keeping current selected note on single click.
+            // Cycling to another overlapped note is only via overlap double-click.
+            let mut index = selected_note_index.unwrap_or(0);
+            let mut double_click_armed = selected_note_index.is_some();
+            if let Some(prev) = &self.overlap_cycle {
+                if prev.scope == scope
+                    && prev.anchor_x == anchor_x
+                    && prev.anchor_y == anchor_y
+                    && prev.signature == signature
+                {
+                    let previous_in_current = ordered_items
+                        .iter()
+                        .position(|item| *item == prev.selected_item)
+                        .unwrap_or_else(|| prev.current_index.min(candidates.len().saturating_sub(1)));
+                    if prev.double_click_armed {
+                        let elapsed = now_sec - prev.last_click_time_sec;
+                        if elapsed <= OVERLAP_DOUBLE_CLICK_SEC {
+                            index = (previous_in_current + 1) % candidates.len();
+                            did_cycle = true;
+                            double_click_armed = false;
+                        } else {
+                            // Prior pair expired; this click becomes the new first click.
+                            index = selected_note_index.unwrap_or(previous_in_current);
+                            double_click_armed = true;
+                        }
+                    } else {
+                        index = selected_note_index.unwrap_or(previous_in_current);
+                        double_click_armed = true;
+                    }
+                }
+            }
+            let selected_item = ordered_items[index];
+            self.overlap_cycle = Some(OverlapCycleState {
+                signature,
+                current_index: index,
+                selected_item,
+                anchor_x,
+                anchor_y,
+                scope,
+                last_click_time_sec: now_sec,
+                double_click_armed,
+            });
+            index
+        } else {
+            self.overlap_cycle = None;
+            0
+        };
+
+        let selected = candidates[selected_index];
+        self.selected_note_id = Some(selected.note_id);
+        self.start_drag_for_candidate(selected, mx, my, current_ms, ground_rect, air_rect);
+        if candidates.len() > 1 && did_cycle {
+            self.status = format!(
+                "overlap select {}/{} (note={})",
+                selected_index + 1,
+                candidates.len(),
+                selected.note_id
+            );
+        }
+    }
+
+    fn update_hover_overlap_hint(
+        &mut self,
+        ground_rect: Option<Rect>,
+        air_rect: Option<Rect>,
+        current_ms: f32,
+    ) {
+        let (mx, my) = mouse_position();
+        let (scope, candidates) = self.collect_hit_candidates(mx, my, ground_rect, air_rect, current_ms);
+        if candidates.len() <= 1 {
+            self.hover_overlap_hint = None;
+            return;
+        }
+
+        let ordered_items: Vec<HitSignatureItem> = candidates.iter().map(hit_signature_item).collect();
+        let signature = canonical_hit_signature(&ordered_items);
+        let (anchor_x, anchor_y) = quantize_overlap_anchor(mx, my);
+        let mut current_index = 0_usize;
+        if let Some(cycle) = &self.overlap_cycle {
+            if cycle.scope == scope
+                && cycle.anchor_x == anchor_x
+                && cycle.anchor_y == anchor_y
+                && cycle.signature == signature
+            {
+                current_index = ordered_items
+                    .iter()
+                    .position(|item| *item == cycle.selected_item)
+                    .unwrap_or_else(|| cycle.current_index.min(candidates.len().saturating_sub(1)));
+            }
+        }
+
+        self.hover_overlap_hint = Some(HoverOverlapHint {
+            mouse_x: mx,
+            mouse_y: my,
+            current_index,
+            total: candidates.len(),
+        });
+    }
+
+    fn draw_overlap_hint(&self) {
+        let Some(hint) = self.hover_overlap_hint else {
+            return;
+        };
+        if hint.total <= 1 {
+            return;
+        }
+
+        let text = format!("{}/{}", hint.current_index + 1, hint.total);
+        let ui = adaptive_ui_scale();
+        let font_size = scaled_font_size(18.0, 12, 42);
+        let metrics = measure_text(&text, None, font_size, 1.0);
+        let box_w = metrics.width + 14.0 * ui;
+        let box_h = 24.0 * ui;
+        let x = (hint.mouse_x + 14.0 * ui).clamp(4.0 * ui, screen_width() - box_w - 4.0 * ui);
+        let y = (hint.mouse_y - box_h - 10.0 * ui).clamp(4.0 * ui, screen_height() - box_h - 4.0 * ui);
+
+        draw_rectangle(x, y, box_w, box_h, Color::from_rgba(20, 24, 34, 214));
+        draw_rectangle_lines(x, y, box_w, box_h, 1.0, Color::from_rgba(140, 156, 198, 220));
+        draw_text_ex(
+            &text,
+            x + 7.0 * ui,
+            y + 17.0 * ui,
+            TextParams {
+                font_size,
+                color: Color::from_rgba(228, 234, 248, 255),
+                ..Default::default()
+            },
+        );
+    }
+
+    fn collect_hit_candidates(
+        &self,
+        mx: f32,
+        my: f32,
+        ground_rect: Option<Rect>,
+        air_rect: Option<Rect>,
+        current_ms: f32,
+    ) -> (HitScope, Vec<HitCandidate>) {
+        let mut candidates = Vec::new();
+
+        if self.render_scope == RenderScope::Both {
+            let Some(ground_rect) = ground_rect else {
+                return (HitScope::Mixed, candidates);
+            };
+            candidates.extend(self.collect_hit_candidates_ground(mx, my, ground_rect, current_ms));
+            if let Some(air_rect) = air_rect {
+                candidates.extend(self.collect_hit_candidates_air(mx, my, air_rect, current_ms));
+            }
+            sort_hit_candidates(&mut candidates);
+            return (HitScope::Mixed, candidates);
+        }
+
+        if let Some(rect) = ground_rect {
+            candidates.extend(self.collect_hit_candidates_ground(mx, my, rect, current_ms));
+        }
+
+        if let Some(rect) = air_rect {
+            candidates.extend(self.collect_hit_candidates_air(mx, my, rect, current_ms));
+        }
+
+        if candidates.is_empty() {
+            return (HitScope::Ground, Vec::new());
+        }
+
+        sort_hit_candidates(&mut candidates);
+        let has_ground = candidates.iter().any(|c| c.scope == HitScope::Ground);
+        let has_air = candidates.iter().any(|c| c.scope == HitScope::Air);
+        let scope = match (has_ground, has_air) {
+            (true, true) => HitScope::Mixed,
+            (false, true) => HitScope::Air,
+            _ => HitScope::Ground,
+        };
+        (scope, candidates)
+    }
+
+    fn collect_hit_candidates_ground(
+        &self,
+        mx: f32,
+        my: f32,
+        rect: Rect,
+        current_ms: f32,
+    ) -> Vec<HitCandidate> {
+        let lane_w = rect.w / LANE_COUNT as f32;
+        let judge_y = rect.y + rect.h * 0.82;
+        let mut candidates = Vec::new();
+
+        for (z, note) in self.notes.iter().enumerate() {
+            if !is_ground_kind(note.kind) {
+                continue;
+            }
+            let lane_x = rect.x + lane_w * note.lane as f32;
+            let note_w = note_head_width(note, lane_w);
+            let note_x = lane_x + (lane_w - note_w) * 0.5;
+            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let z_order = z as u32;
+
+            let head_rect = if note.kind == GroundNoteKind::Flick {
+                flick_rect_hitbox(note, note_x, note_w, head_y)
+            } else {
+                note_end_hit_rect(note_x, note_w, head_y)
+            };
+            if point_in_rect(mx, my, head_rect) {
+                push_best_hit_candidate(
+                    &mut candidates,
+                    HitCandidate {
+                        note_id: note.id,
+                        scope: HitScope::Ground,
+                        air_target: AirDragTarget::Body,
+                        part: HitPart::Head,
+                        distance_sq: distance_sq_to_rect(mx, my, head_rect),
+                        z_order,
+                    },
+                );
+            }
+
+            if note.has_tail() {
+                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                let tail_rect = note_end_hit_rect(note_x, note_w, tail_y);
+                if point_in_rect(mx, my, tail_rect) {
+                    push_best_hit_candidate(
+                        &mut candidates,
+                        HitCandidate {
+                            note_id: note.id,
+                            scope: HitScope::Ground,
+                            air_target: AirDragTarget::Body,
+                            part: HitPart::Tail,
+                            distance_sq: distance_sq_to_rect(mx, my, tail_rect),
+                            z_order,
+                        },
+                    );
+                }
+
+                let y1 = head_y.min(tail_y);
+                let y2 = head_y.max(tail_y);
+                let (body_x, body_w) = match note.kind {
+                    GroundNoteKind::Hold => (note_x + note_w * 0.04, note_w * 0.92),
+                    GroundNoteKind::SkyArea => (note_x + note_w * 0.02, note_w * 0.96),
+                    _ => (note_x + note_w * 0.34, note_w * 0.32),
+                };
+                let body_rect = note_body_hit_rect(body_x, body_w, y1, y2);
+                if point_in_rect(mx, my, body_rect) {
+                    push_best_hit_candidate(
+                        &mut candidates,
+                        HitCandidate {
+                            note_id: note.id,
+                            scope: HitScope::Ground,
+                            air_target: AirDragTarget::Body,
+                            part: HitPart::Body,
+                            distance_sq: distance_sq_to_rect(mx, my, body_rect),
+                            z_order,
+                        },
+                    );
+                }
+            }
+        }
+
+        candidates
+    }
+
+    fn collect_hit_candidates_air(
+        &self,
+        mx: f32,
+        my: f32,
+        rect: Rect,
+        current_ms: f32,
+    ) -> Vec<HitCandidate> {
         let judge_y = rect.y + rect.h * 0.82;
         let split_rect = air_split_rect(rect);
-        if !point_in_rect(mx, my, split_rect) {
-            return None;
-        }
-        for note in self.notes.iter().rev() {
+
+        let mut candidates = Vec::new();
+        for (z, note) in self.notes.iter().enumerate() {
             if !is_air_kind(note.kind) {
                 continue;
             }
+            let z_order = z as u32;
             let center_x = split_rect.x + lane_to_air_x_norm(note.lane) * split_rect.w;
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
@@ -2085,94 +2518,191 @@ impl FallingGroundEditor {
                     let tail_right = split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
                     let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
 
-                    let head_rect = Rect::new(
-                        head_left - 2.0,
-                        head_y - 10.0,
-                        (head_right - head_left).max(2.0) + 4.0,
-                        20.0,
+                    let head_rect = note_end_hit_rect(
+                        head_left,
+                        (head_right - head_left).max(2.0),
+                        head_y,
                     );
                     if point_in_rect(mx, my, head_rect) {
-                        return Some((note.id, AirDragTarget::SkyHead));
+                        push_best_hit_candidate(
+                            &mut candidates,
+                            HitCandidate {
+                                note_id: note.id,
+                                scope: HitScope::Air,
+                                air_target: AirDragTarget::SkyHead,
+                                part: HitPart::Head,
+                                distance_sq: distance_sq_to_rect(mx, my, head_rect),
+                                z_order,
+                            },
+                        );
                     }
 
-                    let tail_rect = Rect::new(
-                        tail_left - 2.0,
-                        tail_y - 10.0,
-                        (tail_right - tail_left).max(2.0) + 4.0,
-                        20.0,
+                    let tail_rect = note_end_hit_rect(
+                        tail_left,
+                        (tail_right - tail_left).max(2.0),
+                        tail_y,
                     );
                     if point_in_rect(mx, my, tail_rect) {
-                        return Some((note.id, AirDragTarget::SkyTail));
+                        push_best_hit_candidate(
+                            &mut candidates,
+                            HitCandidate {
+                                note_id: note.id,
+                                scope: HitScope::Air,
+                                air_target: AirDragTarget::SkyTail,
+                                part: HitPart::Tail,
+                                distance_sq: distance_sq_to_rect(mx, my, tail_rect),
+                                z_order,
+                            },
+                        );
                     }
 
-                    let min_left = shape
-                        .start_left_norm
-                        .min(shape.end_left_norm)
-                        .clamp(0.0, 1.0);
-                    let max_right = shape
-                        .start_right_norm
-                        .max(shape.end_right_norm)
-                        .clamp(0.0, 1.0);
+                    let min_left = shape.start_left_norm.min(shape.end_left_norm).clamp(0.0, 1.0);
+                    let max_right = shape.start_right_norm.max(shape.end_right_norm).clamp(0.0, 1.0);
                     let x1 = split_rect.x + min_left * split_rect.w;
                     let x2 = split_rect.x + max_right * split_rect.w;
-                    let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
                     let y1 = head_y.min(tail_y);
                     let y2 = head_y.max(tail_y);
-                    if point_in_rect(mx, my, Rect::new(x1, y1, (x2 - x1).max(1.0), (y2 - y1).max(1.0)))
-                    {
-                        return Some((note.id, AirDragTarget::Body));
+                    let body_rect = note_body_hit_rect(x1, (x2 - x1).max(1.0), y1, y2);
+                    if point_in_rect(mx, my, body_rect) {
+                        let body_distance_sq =
+                            skyarea_body_hit_distance_sq(mx, my, split_rect, shape, head_y, tail_y);
+                        if let Some(distance_sq) = body_distance_sq {
+                        push_best_hit_candidate(
+                            &mut candidates,
+                            HitCandidate {
+                                note_id: note.id,
+                                scope: HitScope::Air,
+                                air_target: AirDragTarget::Body,
+                                part: HitPart::Body,
+                                distance_sq,
+                                z_order,
+                            },
+                        );
+                        }
                     }
                     continue;
                 }
             }
-            if point_in_rect(mx, my, Rect::new(note_x, head_y - 10.0, note_w, 20.0)) {
-                return Some((note.id, AirDragTarget::Body));
+
+            let head_rect = if note.kind == GroundNoteKind::Flick {
+                flick_rect_hitbox(note, note_x, note_w, head_y)
+            } else {
+                note_end_hit_rect(note_x, note_w, head_y)
+            };
+            if point_in_rect(mx, my, head_rect) {
+                push_best_hit_candidate(
+                    &mut candidates,
+                    HitCandidate {
+                        note_id: note.id,
+                        scope: HitScope::Air,
+                        air_target: AirDragTarget::Body,
+                        part: HitPart::Head,
+                        distance_sq: distance_sq_to_rect(mx, my, head_rect),
+                        z_order,
+                    },
+                );
             }
 
             if note.has_tail() {
                 let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
                 let y1 = head_y.min(tail_y);
                 let y2 = head_y.max(tail_y);
-                if point_in_rect(mx, my, Rect::new(note_x, y1, note_w, (y2 - y1).max(1.0))) {
-                    return Some((note.id, AirDragTarget::Body));
+                let body_rect = note_body_hit_rect(note_x, note_w, y1, y2);
+                if point_in_rect(mx, my, body_rect) {
+                    push_best_hit_candidate(
+                        &mut candidates,
+                        HitCandidate {
+                            note_id: note.id,
+                            scope: HitScope::Air,
+                            air_target: AirDragTarget::Body,
+                            part: HitPart::Body,
+                            distance_sq: distance_sq_to_rect(mx, my, body_rect),
+                            z_order,
+                        },
+                    );
                 }
             }
         }
-        None
+
+        candidates
     }
 
-    fn hit_test_ground(&self, mx: f32, my: f32, rect: Rect, current_ms: f32) -> Option<u64> {
-        let lane_w = rect.w / LANE_COUNT as f32;
-        let judge_y = rect.y + rect.h * 0.82;
+    fn start_drag_for_candidate(
+        &mut self,
+        candidate: HitCandidate,
+        mx: f32,
+        my: f32,
+        current_ms: f32,
+        ground_rect: Option<Rect>,
+        air_rect: Option<Rect>,
+    ) {
+        let Some(note) = self.notes.iter().find(|note| note.id == candidate.note_id) else {
+            self.drag_state = None;
+            return;
+        };
 
-        for note in self.notes.iter().rev() {
-            if !is_ground_kind(note.kind) {
-                continue;
-            }
-            let lane_x = rect.x + lane_w * note.lane as f32;
-            let note_w = note_head_width(note, lane_w);
-            let note_x = lane_x + (lane_w - note_w) * 0.5;
-            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-
-            if point_in_rect(mx, my, Rect::new(note_x, head_y - 10.0, note_w, 20.0)) {
-                return Some(note.id);
-            }
-
-            if note.has_tail() {
-                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
-                let y1 = head_y.min(tail_y);
-                let y2 = head_y.max(tail_y);
-                let (body_x, body_w) = match note.kind {
-                    GroundNoteKind::Hold => (note_x + note_w * 0.04, note_w * 0.92),
-                    GroundNoteKind::SkyArea => (note_x + note_w * 0.02, note_w * 0.96),
-                    _ => (note_x + note_w * 0.34, note_w * 0.32),
+        let (judge_y, lane_h) = match candidate.scope {
+            HitScope::Ground => {
+                let Some(rect) = ground_rect else {
+                    self.drag_state = None;
+                    return;
                 };
-                if point_in_rect(mx, my, Rect::new(body_x, y1, body_w, (y2 - y1).max(1.0))) {
-                    return Some(note.id);
-                }
+                (rect.y + rect.h * 0.82, rect.h)
             }
-        }
-        None
+            HitScope::Air => {
+                let Some(rect) = air_rect else {
+                    self.drag_state = None;
+                    return;
+                };
+                (rect.y + rect.h * 0.82, rect.h)
+            }
+            HitScope::Mixed => {
+                self.drag_state = None;
+                return;
+            }
+        };
+
+        let pointer_time_ms = self.pointer_to_time(my, current_ms, judge_y, lane_h);
+        let (sky_start_center_norm, sky_end_center_norm, sky_start_half_norm, sky_end_half_norm) =
+            if note.kind == GroundNoteKind::SkyArea {
+                if let Some(shape) = note.skyarea_shape {
+                    let start_left = shape.start_left_norm.clamp(0.0, 1.0);
+                    let start_right = shape.start_right_norm.clamp(0.0, 1.0);
+                    let end_left = shape.end_left_norm.clamp(0.0, 1.0);
+                    let end_right = shape.end_right_norm.clamp(0.0, 1.0);
+                    (
+                        (start_left + start_right) * 0.5,
+                        (end_left + end_right) * 0.5,
+                        ((start_right - start_left).abs() * 0.5).clamp(0.01, 0.5),
+                        ((end_right - end_left).abs() * 0.5).clamp(0.01, 0.5),
+                    )
+                } else {
+                    let center = lane_to_air_x_norm(note.lane);
+                    (center, center, 0.25, 0.25)
+                }
+            } else {
+                (0.0, 0.0, 0.0, 0.0)
+            };
+
+        let drag_anchor_time_ms =
+            if note.kind == GroundNoteKind::SkyArea && candidate.air_target == AirDragTarget::SkyTail {
+                note.end_time_ms()
+            } else {
+                note.time_ms
+            };
+
+        self.drag_state = Some(DragState {
+            note_id: candidate.note_id,
+            time_offset_ms: drag_anchor_time_ms - pointer_time_ms,
+            start_time_sec: get_time(),
+            start_mouse_x: mx,
+            start_mouse_y: my,
+            sky_start_center_norm,
+            sky_end_center_norm,
+            sky_start_half_norm,
+            sky_end_half_norm,
+            air_target: candidate.air_target,
+        });
     }
 
     fn pointer_to_time(&self, mouse_y: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
@@ -2256,6 +2786,348 @@ impl FallingGroundEditor {
 
 fn lane_from_x(x: f32, lanes_x: f32, lane_w: f32) -> usize {
     ((x - lanes_x) / lane_w).floor().clamp(0.0, (LANE_COUNT as f32) - 1.0) as usize
+}
+
+fn adaptive_ui_scale() -> f32 {
+    (screen_width() / REFERENCE_WIDTH)
+        .min(screen_height() / REFERENCE_HEIGHT)
+        .clamp(0.75, 3.5)
+}
+
+fn scaled_px(px: f32) -> f32 {
+    px * adaptive_ui_scale()
+}
+
+fn scaled_font_size(base: f32, min: u16, max: u16) -> u16 {
+    let size = (base * adaptive_ui_scale()).round();
+    size.clamp(min as f32, max as f32) as u16
+}
+
+fn push_best_hit_candidate(candidates: &mut Vec<HitCandidate>, candidate: HitCandidate) {
+    if let Some(existing) = candidates
+        .iter_mut()
+        .find(|item| {
+            item.note_id == candidate.note_id
+                && item.scope == candidate.scope
+                && item.air_target == candidate.air_target
+                && item.part == candidate.part
+        })
+    {
+        if should_replace_hit_candidate(*existing, candidate) {
+            *existing = candidate;
+        }
+    } else {
+        candidates.push(candidate);
+    }
+}
+
+fn should_replace_hit_candidate(current: HitCandidate, incoming: HitCandidate) -> bool {
+    if (incoming.distance_sq - current.distance_sq).abs() > 0.01 {
+        return incoming.distance_sq < current.distance_sq;
+    }
+
+    let current_rank = hit_part_rank(current.part);
+    let incoming_rank = hit_part_rank(incoming.part);
+    if incoming_rank != current_rank {
+        return incoming_rank > current_rank;
+    }
+    incoming.z_order > current.z_order
+}
+
+fn sort_hit_candidates(candidates: &mut Vec<HitCandidate>) {
+    candidates.sort_by(|a, b| {
+        hit_part_rank(b.part)
+            .cmp(&hit_part_rank(a.part))
+            .then_with(|| a.distance_sq.total_cmp(&b.distance_sq))
+            .then_with(|| b.z_order.cmp(&a.z_order))
+            .then_with(|| a.note_id.cmp(&b.note_id))
+    });
+}
+
+fn hit_part_rank(part: HitPart) -> u8 {
+    match part {
+        HitPart::Head | HitPart::Tail => 2,
+        HitPart::Body => 1,
+    }
+}
+
+fn distance_sq(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+    let dx = ax - bx;
+    let dy = ay - by;
+    dx * dx + dy * dy
+}
+
+fn distance_sq_to_rect(px: f32, py: f32, rect: Rect) -> f32 {
+    let rx1 = rect.x;
+    let ry1 = rect.y;
+    let rx2 = rect.x + rect.w;
+    let ry2 = rect.y + rect.h;
+    let cx = px.clamp(rx1, rx2);
+    let cy = py.clamp(ry1, ry2);
+    distance_sq(px, py, cx, cy)
+}
+
+fn note_end_hit_rect(x: f32, w: f32, center_y: f32) -> Rect {
+    let pad_x = scaled_px(NOTE_HEAD_HIT_PAD_X);
+    let half_h = scaled_px(NOTE_HEAD_HIT_HALF_H);
+    Rect::new(
+        x - pad_x,
+        center_y - half_h,
+        (w + pad_x * 2.0).max(1.0),
+        (half_h * 2.0).max(1.0),
+    )
+}
+
+fn note_body_hit_rect(x: f32, w: f32, y1: f32, y2: f32) -> Rect {
+    let edge_gap = scaled_px(NOTE_BODY_EDGE_GAP_Y);
+    let pad_x = scaled_px(NOTE_BODY_HIT_PAD_X);
+    let top_raw = y1.min(y2);
+    let bottom_raw = y1.max(y2);
+    let top = (top_raw + edge_gap).min(bottom_raw);
+    let bottom = (bottom_raw - edge_gap).max(top);
+    let body_w = (w + pad_x * 2.0).max(1.0);
+    let thin_h = scaled_px(2.0);
+    if bottom - top < thin_h {
+        let center_y = (top_raw + bottom_raw) * 0.5;
+        return Rect::new(x - pad_x, center_y - thin_h, body_w, thin_h * 2.0);
+    }
+    Rect::new(
+        x - pad_x,
+        top,
+        body_w,
+        (bottom - top).max(1.0),
+    )
+}
+
+fn flick_rect_hitbox(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) -> Rect {
+    // Rectangle hitbox aligned to the actual flick footprint.
+    flick_shape_bounds(note, note_x, note_w, head_y)
+}
+
+fn skyarea_screen_x_range_at_progress(
+    split_rect: Rect,
+    shape: SkyAreaShape,
+    p: f32,
+) -> (f32, f32) {
+    let p = p.clamp(0.0, 1.0);
+    let left_norm = lerp(
+        shape.start_left_norm,
+        shape.end_left_norm,
+        ease_progress(shape.left_ease, p),
+    )
+    .clamp(0.0, 1.0);
+    let right_norm = lerp(
+        shape.start_right_norm,
+        shape.end_right_norm,
+        ease_progress(shape.right_ease, p),
+    )
+    .clamp(0.0, 1.0);
+    (
+        split_rect.x + left_norm * split_rect.w,
+        split_rect.x + right_norm * split_rect.w,
+    )
+}
+
+fn skyarea_body_vertical_range(head_y: f32, tail_y: f32) -> (f32, f32) {
+    let edge_gap = scaled_px(NOTE_BODY_EDGE_GAP_Y);
+    let min_y = head_y.min(tail_y);
+    let max_y = head_y.max(tail_y);
+    if max_y - min_y <= edge_gap * 2.0 {
+        let mid = (min_y + max_y) * 0.5;
+        let thin_h = scaled_px(2.0);
+        return (mid - thin_h, mid + thin_h);
+    }
+    (min_y + edge_gap, max_y - edge_gap)
+}
+
+fn skyarea_body_hit_distance_sq(
+    mx: f32,
+    my: f32,
+    split_rect: Rect,
+    shape: SkyAreaShape,
+    head_y: f32,
+    tail_y: f32,
+) -> Option<f32> {
+    let dy = tail_y - head_y;
+    if dy.abs() <= 0.000_1 {
+        return None;
+    }
+
+    let (body_top, body_bottom) = skyarea_body_vertical_range(head_y, tail_y);
+    if my < body_top || my > body_bottom {
+        return None;
+    }
+
+    let p = ((my - head_y) / dy).clamp(0.0, 1.0);
+    let (left_x, right_x) = skyarea_screen_x_range_at_progress(split_rect, shape, p);
+    let pad_x = scaled_px(NOTE_BODY_HIT_PAD_X);
+    let x1 = left_x.min(right_x) - pad_x;
+    let x2 = left_x.max(right_x) + pad_x;
+    if mx < x1 || mx > x2 {
+        return None;
+    }
+
+    let center_x = (x1 + x2) * 0.5;
+    let dist = mx - center_x;
+    Some(dist * dist)
+}
+
+fn quantize_overlap_anchor(x: f32, y: f32) -> (i32, i32) {
+    let anchor_px = scaled_px(OVERLAP_CYCLE_ANCHOR_PX).max(1.0);
+    (
+        (x / anchor_px).round() as i32,
+        (y / anchor_px).round() as i32,
+    )
+}
+
+fn hit_signature_item(candidate: &HitCandidate) -> HitSignatureItem {
+    HitSignatureItem {
+        note_id: candidate.note_id,
+        scope: candidate.scope,
+        air_target: candidate.air_target,
+        part: candidate.part,
+    }
+}
+
+fn canonical_hit_signature(items: &[HitSignatureItem]) -> Vec<HitSignatureItem> {
+    let mut signature = items.to_vec();
+    signature.sort_by(|a, b| {
+        hit_scope_rank(a.scope)
+            .cmp(&hit_scope_rank(b.scope))
+            .then_with(|| hit_part_rank(b.part).cmp(&hit_part_rank(a.part)))
+            .then_with(|| air_target_rank(a.air_target).cmp(&air_target_rank(b.air_target)))
+            .then_with(|| a.note_id.cmp(&b.note_id))
+    });
+    signature
+}
+
+fn hit_scope_rank(scope: HitScope) -> u8 {
+    match scope {
+        HitScope::Ground => 0,
+        HitScope::Air => 1,
+        HitScope::Mixed => 2,
+    }
+}
+
+fn air_target_rank(target: AirDragTarget) -> u8 {
+    match target {
+        AirDragTarget::Body => 0,
+        AirDragTarget::SkyHead => 1,
+        AirDragTarget::SkyTail => 2,
+    }
+}
+
+fn draw_selected_note_darken_rect(x: f32, y: f32, w: f32, h: f32) {
+    draw_rectangle(
+        x,
+        y,
+        w.max(1.0),
+        h.max(1.0),
+        Color::from_rgba(0, 0, 0, SELECTED_NOTE_DARKEN_ALPHA),
+    );
+}
+
+fn draw_selected_note_outline(x: f32, y: f32, w: f32, h: f32) {
+    draw_rectangle_lines(
+        x - 1.4,
+        y - 1.4,
+        (w + 2.8).max(1.0),
+        (h + 2.8).max(1.0),
+        2.4,
+        Color::from_rgba(255, 212, 102, 255),
+    );
+    draw_rectangle_lines(
+        x + 0.8,
+        y + 0.8,
+        (w - 1.6).max(1.0),
+        (h - 1.6).max(1.0),
+        1.2,
+        Color::from_rgba(255, 244, 170, 236),
+    );
+}
+
+fn draw_debug_hitbox_rect(hit: Rect, clip: Rect, color: Color, thickness: f32) {
+    let x1 = hit.x.max(clip.x);
+    let y1 = hit.y.max(clip.y);
+    let x2 = (hit.x + hit.w).min(clip.x + clip.w);
+    let y2 = (hit.y + hit.h).min(clip.y + clip.h);
+    if x2 <= x1 || y2 <= y1 {
+        return;
+    }
+    draw_rectangle_lines(x1, y1, x2 - x1, y2 - y1, thickness, color);
+}
+
+fn draw_debug_hitbox_label(hit: Rect, clip: Rect, label: &str, color: Color) {
+    let ui = adaptive_ui_scale();
+    let x = hit.x.max(clip.x + 2.0 * ui);
+    let y = (hit.y - 3.0 * ui).clamp(clip.y + 10.0 * ui, clip.y + clip.h - 2.0 * ui);
+    draw_text_ex(
+        label,
+        x,
+        y,
+        TextParams {
+            font_size: scaled_font_size(14.0, 10, 34),
+            color,
+            ..Default::default()
+        },
+    );
+}
+
+fn draw_debug_skyarea_body_hit_overlay(
+    split_rect: Rect,
+    shape: SkyAreaShape,
+    head_y: f32,
+    tail_y: f32,
+    color: Color,
+) {
+    let dy = tail_y - head_y;
+    if dy.abs() <= 0.000_1 {
+        return;
+    }
+
+    let (body_top, body_bottom) = skyarea_body_vertical_range(head_y, tail_y);
+    if body_bottom <= body_top {
+        return;
+    }
+
+    let steps = 24;
+    for i in 0..steps {
+        let p0 = i as f32 / steps as f32;
+        let p1 = (i + 1) as f32 / steps as f32;
+        let y0 = lerp(head_y, tail_y, p0);
+        let y1 = lerp(head_y, tail_y, p1);
+        if (y0 < body_top && y1 < body_top) || (y0 > body_bottom && y1 > body_bottom) {
+            continue;
+        }
+
+        let (l0, r0) = skyarea_screen_x_range_at_progress(split_rect, shape, p0);
+        let (l1, r1) = skyarea_screen_x_range_at_progress(split_rect, shape, p1);
+        let pad_x = scaled_px(NOTE_BODY_HIT_PAD_X);
+        let x0l = l0.min(r0) - pad_x;
+        let x0r = l0.max(r0) + pad_x;
+        let x1l = l1.min(r1) - pad_x;
+        let x1r = l1.max(r1) + pad_x;
+        let yy0 = y0.clamp(body_top, body_bottom);
+        let yy1 = y1.clamp(body_top, body_bottom);
+        if (yy1 - yy0).abs() < 0.001 {
+            continue;
+        }
+
+        draw_triangle(
+            Vec2::new(x0l, yy0),
+            Vec2::new(x0r, yy0),
+            Vec2::new(x1r, yy1),
+            Color::new(color.r, color.g, color.b, 0.12),
+        );
+        draw_triangle(
+            Vec2::new(x0l, yy0),
+            Vec2::new(x1r, yy1),
+            Vec2::new(x1l, yy1),
+            Color::new(color.r, color.g, color.b, 0.12),
+        );
+        draw_line(x0l, yy0, x1l, yy1, 1.1, color);
+        draw_line(x0r, yy0, x1r, yy1, 1.1, color);
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2349,15 +3221,31 @@ fn flick_direction_shape_colors(flick_right: bool) -> (Color, Color) {
     }
 }
 
-fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) {
-    let (fill_color, edge_color) = flick_direction_shape_colors(note.flick_right);
-    let stroke = (note_w * 0.05).clamp(1.0, 2.2);
-    let base_head_h = (note_w * 0.23).clamp(6.0, 13.0);
-    let side_h = base_head_h * 3.0;
-    let y_bottom = head_y + 7.0;
+#[derive(Debug, Clone, Copy)]
+struct FlickGeometry {
+    x_start: f32,
+    x_tip: f32,
+    y_top: f32,
+    y_bottom: f32,
+    y_tip_top: f32,
+    y_tip_bottom: f32,
+    stroke: f32,
+}
+
+fn flick_geometry(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) -> FlickGeometry {
+    let ui = adaptive_ui_scale();
+    let stroke = (note_w * 0.05).clamp(1.0 * ui, 2.8 * ui);
+    // Keep side-height consistent across left/right flicks and independent of per-note width:
+    // derive a canonical width from split-width * DEFAULT_AIR_WIDTH_NORM.
+    let width_norm = note.width.clamp(0.05, 1.0);
+    let split_w = note_w / width_norm;
+    let canonical_w = split_w * DEFAULT_AIR_WIDTH_NORM;
+    let base_head_h = (canonical_w * 0.23).max(6.0 * ui);
+    let side_h = base_head_h * 2.0;
+    let y_bottom = head_y + 7.0 * ui;
     let y_top = y_bottom - side_h;
     let y_tip_bottom = y_bottom;
-    let y_tip_top = y_bottom - (base_head_h * 0.08).clamp(0.6, 1.8);
+    let y_tip_top = y_bottom - (base_head_h * 0.08).max(0.6 * ui);
 
     let (x_start, x_tip) = if note.flick_right {
         (note_x + note_w * 0.08, note_x + note_w * 0.98)
@@ -2365,19 +3253,34 @@ fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f
         (note_x + note_w * 0.92, note_x + note_w * 0.02)
     };
 
+    FlickGeometry {
+        x_start,
+        x_tip,
+        y_top,
+        y_bottom,
+        y_tip_top,
+        y_tip_bottom,
+        stroke,
+    }
+}
+
+fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) {
+    let (fill_color, edge_color) = flick_direction_shape_colors(note.flick_right);
+    let geom = flick_geometry(note, note_x, note_w, head_y);
+
     let mut top_curve = Vec::with_capacity(25);
     for i in 0..=24 {
         let t = i as f32 / 24.0;
-        let x = lerp(x_start, x_tip, t);
+        let x = lerp(geom.x_start, geom.x_tip, t);
         let eased = ease_progress(Ease::SineOut, t);
-        let y = lerp(y_top, y_tip_top, eased);
+        let y = lerp(geom.y_top, geom.y_tip_top, eased);
         top_curve.push(Vec2::new(x, y));
     }
 
     let mut polygon = Vec::with_capacity(28);
-    polygon.push(Vec2::new(x_start, y_bottom));
+    polygon.push(Vec2::new(geom.x_start, geom.y_bottom));
     polygon.extend_from_slice(&top_curve);
-    polygon.push(Vec2::new(x_tip, y_tip_bottom));
+    polygon.push(Vec2::new(geom.x_tip, geom.y_tip_bottom));
 
     for i in 1..(polygon.len() - 1) {
         draw_triangle(polygon[0], polygon[i], polygon[i + 1], fill_color);
@@ -2386,25 +3289,36 @@ fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f
     for i in 0..(top_curve.len() - 1) {
         let a = top_curve[i];
         let b = top_curve[i + 1];
-        draw_line(a.x, a.y, b.x, b.y, stroke, edge_color);
+        draw_line(a.x, a.y, b.x, b.y, geom.stroke, edge_color);
     }
-    draw_line(x_start, y_bottom, x_tip, y_tip_bottom, stroke, edge_color);
-    draw_line(x_start, y_bottom, x_start, y_top, stroke, edge_color);
+    draw_line(
+        geom.x_start,
+        geom.y_bottom,
+        geom.x_tip,
+        geom.y_tip_bottom,
+        geom.stroke,
+        edge_color,
+    );
+    draw_line(
+        geom.x_start,
+        geom.y_bottom,
+        geom.x_start,
+        geom.y_top,
+        geom.stroke,
+        edge_color,
+    );
 }
 
 fn flick_shape_bounds(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32) -> Rect {
-    let base_head_h = (note_w * 0.23).clamp(6.0, 13.0);
-    let side_h = base_head_h * 3.0;
-    let y_bottom = head_y + 7.0;
-    let y_top = y_bottom - side_h;
-    let (x_start, x_tip) = if note.flick_right {
-        (note_x + note_w * 0.08, note_x + note_w * 0.98)
-    } else {
-        (note_x + note_w * 0.92, note_x + note_w * 0.02)
-    };
-    let x1 = x_start.min(x_tip);
-    let x2 = x_start.max(x_tip);
-    Rect::new(x1, y_top, (x2 - x1).max(1.0), (y_bottom - y_top).max(1.0))
+    let geom = flick_geometry(note, note_x, note_w, head_y);
+    let x1 = geom.x_start.min(geom.x_tip);
+    let x2 = geom.x_start.max(geom.x_tip);
+    Rect::new(
+        x1,
+        geom.y_top,
+        (x2 - x1).max(1.0),
+        (geom.y_bottom - geom.y_top).max(1.0),
+    )
 }
 
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
@@ -2430,6 +3344,7 @@ fn point_in_rect(x: f32, y: f32, rect: Rect) -> bool {
 }
 
 fn draw_small_button(rect: Rect, text: &str) -> bool {
+    let ui = adaptive_ui_scale();
     let (mx, my) = mouse_position();
     let hovered = point_in_rect(mx, my, rect);
     let bg = if hovered {
@@ -2447,13 +3362,14 @@ fn draw_small_button(rect: Rect, text: &str) -> bool {
         Color::from_rgba(150, 154, 186, 255),
     );
 
-    let metrics = measure_text(text, None, 24, 1.0);
+    let font_size = scaled_font_size(24.0, 12, 52);
+    let metrics = measure_text(text, None, font_size, 1.0);
     draw_text_ex(
         text,
         rect.x + (rect.w - metrics.width) * 0.5,
-        rect.y + rect.h * 0.72,
+        rect.y + rect.h * (0.68 + 0.04 / ui),
         TextParams {
-            font_size: 24,
+            font_size,
             color: Color::from_rgba(235, 238, 255, 255),
             ..Default::default()
         },

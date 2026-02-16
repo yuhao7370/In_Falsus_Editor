@@ -12,6 +12,7 @@ pub enum TopMenuAction {
     Paste,
     SetLanguage(Language),
     SetVolume(f32),
+    SetDebugHitbox(bool),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
@@ -127,6 +128,7 @@ pub fn draw_top_menu(
     i18n: &I18n,
     current_volume: f32,
     volume_enabled: bool,
+    current_debug_hitbox: bool,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -215,6 +217,15 @@ pub fn draw_top_menu(
                         let response = ui.add_enabled(volume_enabled, slider);
                         if response.changed() && volume_enabled {
                             action = Some(TopMenuAction::SetVolume(volume));
+                        }
+
+                        ui.separator();
+                        let debug_selected = current_debug_hitbox;
+                        if draw_popup_row(ui, i18n.t(TextKey::SettingsDebugHitbox), debug_selected)
+                            .clicked()
+                        {
+                            action = Some(TopMenuAction::SetDebugHitbox(!current_debug_hitbox));
+                            ui.memory_mut(|mem| mem.close_popup());
                         }
                     },
                 );

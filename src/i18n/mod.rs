@@ -68,6 +68,7 @@ pub enum TextKey {
     MenuSelect,
     MenuSettings,
     SettingsLanguage,
+    SettingsDebugHitbox,
     LanguageChinese,
     LanguageEnglish,
     FileCreateProject,
@@ -101,6 +102,8 @@ pub enum TextKey {
     ActionPaste,
     ActionSetLanguageZh,
     ActionSetLanguageEn,
+    ActionDebugHitboxOn,
+    ActionDebugHitboxOff,
 }
 
 impl TextKey {
@@ -118,6 +121,7 @@ impl TextKey {
             TextKey::MenuSelect => "menu_select",
             TextKey::MenuSettings => "menu_settings",
             TextKey::SettingsLanguage => "settings_language",
+            TextKey::SettingsDebugHitbox => "settings_debug_hitbox",
             TextKey::LanguageChinese => "language_chinese",
             TextKey::LanguageEnglish => "language_english",
             TextKey::FileCreateProject => "file_create_project",
@@ -151,6 +155,8 @@ impl TextKey {
             TextKey::ActionPaste => "action_paste",
             TextKey::ActionSetLanguageZh => "action_set_language_zh",
             TextKey::ActionSetLanguageEn => "action_set_language_en",
+            TextKey::ActionDebugHitboxOn => "action_debug_hitbox_on",
+            TextKey::ActionDebugHitboxOff => "action_debug_hitbox_off",
         }
     }
 }
