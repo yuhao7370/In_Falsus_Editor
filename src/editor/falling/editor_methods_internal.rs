@@ -92,6 +92,69 @@ impl FallingGroundEditor {
             .max(1.0)
     }
 
+    fn format_measure_label(&self, measure_pos: f32) -> String {
+        let snapped = (measure_pos * 2.0).round() * 0.5 + 1.0;
+        format!("{snapped:.1}")
+    }
+
+    fn resolution_ui_scale(&self) -> f32 {
+        crate::ui::scale::ui_scale_factor().clamp(0.7, 1.8)
+    }
+
+    fn scaled_ui_px(&self, px: f32) -> f32 {
+        px * self.resolution_ui_scale()
+    }
+
+    fn title_top_baseline_px(&self) -> f32 {
+        self.scaled_ui_px(16.0)
+    }
+
+    fn title_side_margin_px(&self) -> f32 {
+        self.scaled_ui_px(4.0)
+    }
+
+    fn title_font_size(&self) -> u16 {
+        let scale = self.resolution_ui_scale();
+        (14.0 * scale).round().clamp(11.0, 28.0) as u16
+    }
+
+    fn barline_label_font_size(&self) -> u16 {
+        let scale = self.resolution_ui_scale();
+        (14.0 * scale).round().clamp(10.0, 26.0) as u16
+    }
+
+    fn judge_label_font_size(&self) -> u16 {
+        let scale = self.resolution_ui_scale();
+        (17.0 * scale).round().clamp(12.0, 30.0) as u16
+    }
+
+    fn begin_view_clip_rect(&self, rect: Rect) {
+        let sw = screen_width();
+        let sh = screen_height();
+        let x1 = rect.x.floor().clamp(0.0, sw);
+        let y1 = rect.y.floor().clamp(0.0, sh);
+        let x2 = (rect.x + rect.w).ceil().clamp(0.0, sw);
+        let y2 = (rect.y + rect.h).ceil().clamp(0.0, sh);
+
+        let clip = if x2 > x1 && y2 > y1 {
+            Some((x1 as i32, y1 as i32, (x2 - x1) as i32, (y2 - y1) as i32))
+        } else {
+            Some((0, 0, 0, 0))
+        };
+
+        unsafe {
+            let gl = macroquad::window::get_internal_gl();
+            gl.quad_gl.scissor(clip);
+        }
+    }
+
+    fn end_view_clip_rect(&self) {
+        unsafe {
+            let gl = macroquad::window::get_internal_gl();
+            gl.quad_gl.scissor(None);
+        }
+    }
+
 
 }
 

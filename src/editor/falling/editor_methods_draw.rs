@@ -12,9 +12,8 @@ impl FallingGroundEditor {
         self.sync_waveform(audio_path);
         let mut actions = Vec::new();
 
-        let header_h = 34.0;
-        let footer_h = 22.0;
-        let header_rect = Rect::new(area.x, area.y, area.w, header_h);
+        let header_h = 0.0;
+        let footer_h = 0.0;
         let content_rect = Rect::new(
             area.x + 8.0,
             area.y + header_h + 6.0,
@@ -80,8 +79,6 @@ impl FallingGroundEditor {
             );
         }
 
-        self.draw_header(header_rect);
-        self.handle_scroll_speed_controls(header_rect);
         let duration_sec = self.estimate_duration(audio_duration_sec).max(0.001);
         let mut render_current_sec = if self.waveform_seek_active {
             self.waveform_seek_sec
@@ -211,32 +208,6 @@ impl FallingGroundEditor {
         }
 
         self.draw_overlap_hint();
-
-        if let Some(error) = &self.waveform_error {
-            draw_text_ex(
-                error,
-                area.x + 12.0,
-                area.y + area.h - 6.0,
-                TextParams {
-                    font: self.text_font.as_ref(),
-                    font_size: 18,
-                    color: Color::from_rgba(255, 100, 100, 255),
-                    ..Default::default()
-                },
-            );
-        } else {
-            draw_text_ex(
-                &self.status,
-                area.x + 12.0,
-                area.y + area.h - 6.0,
-                TextParams {
-                    font: self.text_font.as_ref(),
-                    font_size: 18,
-                    color: Color::from_rgba(176, 210, 255, 255),
-                    ..Default::default()
-                },
-            );
-        }
 
         actions
     }

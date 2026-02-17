@@ -5,12 +5,19 @@ impl FallingGroundEditor {
         if rect.h <= 8.0 {
             return;
         }
+        self.begin_view_clip_rect(rect);
 
         let lane_w = rect.w / LANE_COUNT as f32;
         let judge_y = rect.y + rect.h * 0.82;
         let pixels_per_sec = (self.scroll_speed * rect.h).max(1.0);
         let ahead_ms = ((judge_y - rect.y) / pixels_per_sec * 1000.0).max(0.0);
         let behind_ms = (((rect.y + rect.h) - judge_y) / pixels_per_sec * 1000.0).max(0.0);
+        let top_label_baseline = self.title_top_baseline_px();
+        let barline_label_font_size = self.barline_label_font_size();
+        let barline_label_min_y = rect.y + self.scaled_ui_px(14.0);
+        let barline_label_baseline_offset = self.scaled_ui_px(2.0);
+        let judge_label_font_size = self.judge_label_font_size();
+        let judge_label_baseline_offset = self.scaled_ui_px(6.0);
 
         for lane in 0..LANE_COUNT {
             let x = rect.x + lane as f32 * lane_w;
@@ -21,17 +28,6 @@ impl FallingGroundEditor {
             };
             draw_rectangle(x, rect.y, lane_w, rect.h, bg);
             draw_line(x, rect.y, x, rect.y + rect.h, 1.0, Color::from_rgba(36, 36, 48, 255));
-            draw_text_ex(
-                &format!("L{lane}"),
-                x + 8.0,
-                rect.y + 20.0,
-                TextParams {
-                    font: self.text_font.as_ref(),
-                    font_size: 18,
-                    color: Color::from_rgba(170, 170, 180, 255),
-                    ..Default::default()
-                },
-            );
         }
         draw_line(
             rect.x + rect.w,
@@ -65,38 +61,21 @@ impl FallingGroundEditor {
                 BarLineKind::Subdivision => (0.9, Color::from_rgba(80, 108, 142, 142)),
             };
             draw_line(rect.x, y, rect.x + rect.w, y, thickness, color);
+            if barline.show_measure_label && y >= barline_label_min_y && y <= rect.y + rect.h - barline_label_baseline_offset {
+                let label = self.format_measure_label(barline.measure_pos);
+                draw_text_ex(
+                    &label,
+                    rect.x + self.title_side_margin_px(),
+                    y - barline_label_baseline_offset,
+                    TextParams {
+                        font: self.text_font.as_ref(),
+                        font_size: barline_label_font_size,
+                        color: Color::from_rgba(182, 212, 255, 220),
+                        ..Default::default()
+                    },
+                );
+            }
         }
-
-        draw_line(
-            rect.x,
-            judge_y,
-            rect.x + rect.w,
-            judge_y,
-            3.0,
-            Color::from_rgba(255, 120, 96, 255),
-        );
-        draw_text_ex(
-            "JUDGE",
-            rect.x + 8.0,
-            judge_y - 6.0,
-            TextParams {
-                font: self.text_font.as_ref(),
-                font_size: 18,
-                color: Color::from_rgba(255, 170, 140, 255),
-                ..Default::default()
-            },
-        );
-        draw_text_ex(
-            "GROUND",
-            rect.x + rect.w - 112.0,
-            rect.y + 22.0,
-            TextParams {
-                font: self.text_font.as_ref(),
-                font_size: 18,
-                color: Color::from_rgba(185, 198, 224, 255),
-                ..Default::default()
-            },
-        );
 
         for note in &self.notes {
             if !is_ground_kind(note.kind) {
@@ -166,6 +145,43 @@ impl FallingGroundEditor {
         if self.debug_show_hitboxes {
             self.draw_ground_hitbox_overlay(rect, current_ms);
         }
+
+        draw_line(
+            rect.x,
+            judge_y,
+            rect.x + rect.w,
+            judge_y,
+            3.0,
+            Color::from_rgba(255, 120, 96, 255),
+        );
+        draw_text_ex(
+            "JUDGE",
+            rect.x + self.title_side_margin_px(),
+            judge_y - judge_label_baseline_offset,
+            TextParams {
+                font: self.text_font.as_ref(),
+                font_size: judge_label_font_size,
+                color: Color::from_rgba(255, 170, 140, 255),
+                ..Default::default()
+            },
+        );
+
+        let ground_label = "GROUND";
+        let ground_label_font_size = self.title_font_size();
+        let ground_label_metrics =
+            measure_text(ground_label, self.text_font.as_ref(), ground_label_font_size, 1.0);
+        draw_text_ex(
+            ground_label,
+            rect.x + rect.w - self.title_side_margin_px() - ground_label_metrics.width,
+            rect.y + top_label_baseline,
+            TextParams {
+                font: self.text_font.as_ref(),
+                font_size: ground_label_font_size,
+                color: Color::from_rgba(185, 198, 224, 255),
+                ..Default::default()
+            },
+        );
+        self.end_view_clip_rect();
 
     }
 

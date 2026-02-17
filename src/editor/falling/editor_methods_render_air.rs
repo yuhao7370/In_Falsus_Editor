@@ -5,6 +5,7 @@ impl FallingGroundEditor {
         if rect.h <= 8.0 {
             return;
         }
+        self.begin_view_clip_rect(rect);
         let split_rect = air_split_rect(rect);
 
         if overlay_mode {
@@ -37,6 +38,10 @@ impl FallingGroundEditor {
         let pixels_per_sec = (self.scroll_speed * rect.h).max(1.0);
         let ahead_ms = ((judge_y - rect.y) / pixels_per_sec * 1000.0).max(0.0);
         let behind_ms = (((rect.y + rect.h) - judge_y) / pixels_per_sec * 1000.0).max(0.0);
+        let top_label_baseline = self.title_top_baseline_px();
+        let barline_label_font_size = self.barline_label_font_size();
+        let barline_label_min_y = rect.y + self.scaled_ui_px(14.0);
+        let barline_label_baseline_offset = self.scaled_ui_px(2.0);
 
         if show_spectrum {
             self.draw_falling_spectrum(
@@ -61,35 +66,25 @@ impl FallingGroundEditor {
                 BarLineKind::Subdivision => (0.9, Color::from_rgba(74, 102, 136, 140)),
             };
             draw_line(split_rect.x, y, split_rect.x + split_rect.w, y, thickness, color);
+            if !overlay_mode
+                && barline.show_measure_label
+                && y >= barline_label_min_y
+                && y <= rect.y + rect.h - barline_label_baseline_offset
+            {
+                let label = self.format_measure_label(barline.measure_pos);
+                draw_text_ex(
+                    &label,
+                    split_rect.x + self.title_side_margin_px(),
+                    y - barline_label_baseline_offset,
+                    TextParams {
+                        font: self.text_font.as_ref(),
+                        font_size: barline_label_font_size,
+                        color: Color::from_rgba(188, 216, 255, 214),
+                        ..Default::default()
+                    },
+                );
+            }
         }
-
-        draw_line(
-            split_rect.x,
-            judge_y,
-            split_rect.x + split_rect.w,
-            judge_y,
-            3.0,
-            if overlay_mode {
-                Color::from_rgba(170, 206, 255, 220)
-            } else {
-                Color::from_rgba(132, 196, 255, 255)
-            },
-        );
-        draw_text_ex(
-            "SKY",
-            rect.x + 8.0,
-            rect.y + 22.0,
-            TextParams {
-                font: self.text_font.as_ref(),
-                font_size: 18,
-                color: if overlay_mode {
-                    Color::from_rgba(214, 226, 250, 230)
-                } else {
-                    Color::from_rgba(190, 216, 255, 255)
-                },
-                ..Default::default()
-            },
-        );
 
         // 分两次绘制空中音符，保证 Flick 永远在 SkyArea 上层。
         for flick_pass in [false, true] {
@@ -179,6 +174,35 @@ impl FallingGroundEditor {
         if self.debug_show_hitboxes {
             self.draw_air_hitbox_overlay(rect, current_ms);
         }
+
+        draw_line(
+            split_rect.x,
+            judge_y,
+            split_rect.x + split_rect.w,
+            judge_y,
+            3.0,
+            if overlay_mode {
+                Color::from_rgba(170, 206, 255, 220)
+            } else {
+                Color::from_rgba(132, 196, 255, 255)
+            },
+        );
+        draw_text_ex(
+            "SKY",
+            rect.x + self.title_side_margin_px(),
+            rect.y + top_label_baseline,
+            TextParams {
+                font: self.text_font.as_ref(),
+                font_size: self.title_font_size(),
+                color: if overlay_mode {
+                    Color::from_rgba(214, 226, 250, 230)
+                } else {
+                    Color::from_rgba(190, 216, 255, 255)
+                },
+                ..Default::default()
+            },
+        );
+        self.end_view_clip_rect();
     }
 
 

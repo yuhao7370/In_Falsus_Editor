@@ -65,14 +65,6 @@
                 egui::Color32::from_rgb(18, 18, 18)
             };
             painter.rect_filled(row_rect, 0.0, bg);
-
-            painter.text(
-                egui::pos2(row_rect.left() + 6.0, row_rect.center().y),
-                egui::Align2::LEFT_CENTER,
-                format!("L{lane}"),
-                egui::FontId::proportional(12.0),
-                egui::Color32::from_rgb(160, 160, 160),
-            );
         }
     }
 

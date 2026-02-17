@@ -9,12 +9,12 @@ use editor::falling::{FallingEditorAction, FallingGroundEditor};
 use i18n::{I18n, Language, TextKey};
 use macroquad::prelude::*;
 use ui::fonts::{init_egui_fonts, load_macroquad_cjk_font};
+use ui::info_toast::InfoToastManager;
 use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
+use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
 use ui::top_menu::{TopMenuAction, draw_top_menu};
 
-const BASE_WIDTH: f32 = 1366.0;
-const BASE_HEIGHT: f32 = 768.0;
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
 
@@ -85,12 +85,6 @@ fn handle_top_menu_action(
     }
 }
 
-fn ui_scale_factor() -> f32 {
-    (screen_width() / BASE_WIDTH)
-        .min(screen_height() / BASE_HEIGHT)
-        .clamp(0.75, 3.5)
-}
-
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut editor = FallingGroundEditor::new();
@@ -98,12 +92,14 @@ async fn main() {
     let mut egui_fonts_ready = false;
     let mut audio = AudioController::new(&i18n);
     let mut top_progress_state = TopProgressBarState::new();
+    let mut info_toasts = InfoToastManager::new();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
     if macroquad_font.is_none() {
         audio.status =
             "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
     }
+    info_toasts.push("Info toasts enabled. Press F8 for multi-toast test.");
 
     loop {
         clear_background(Color::from_rgba(7, 7, 10, 255));
@@ -122,7 +118,7 @@ async fn main() {
         let top_bar_height = TOP_BAR_HEIGHT * ui_scale;
         let panel_pad = 10.0 * ui_scale;
         let editor_gap = 12.0 * ui_scale;
-        let status_bottom_pad = 8.0 * ui_scale;
+        let editor_bottom_pad = 8.0 * ui_scale;
 
         let mut top_menu_action = None;
         egui_macroquad::ui(|ctx| {
@@ -146,6 +142,13 @@ async fn main() {
 
         if let Some(action) = top_menu_action {
             handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n);
+            info_toasts.push(audio.status.clone());
+        }
+
+        if is_key_pressed(KeyCode::F8) {
+            info_toasts.push("Info A: multi-toast test");
+            info_toasts.push("Info B: animation should be smooth");
+            info_toasts.push("Info C: dismisses in queue order");
         }
 
         // 4. Wheel seek
@@ -183,7 +186,7 @@ async fn main() {
             panel_pad,
             editor_y,
             editor_width,
-            (screen_height() - editor_y - 28.0 * ui_scale).max(140.0),
+            (screen_height() - editor_y - editor_bottom_pad).max(140.0),
         );
 
         for action in editor.draw(
@@ -194,21 +197,17 @@ async fn main() {
             is_playing,
         ) {
             match action {
-                FallingEditorAction::SeekTo(sec) => audio.handle_editor_seek(sec, &i18n),
+                FallingEditorAction::SeekTo(sec) => {
+                    audio.handle_editor_seek(sec, &i18n);
+                    info_toasts.push(format!("seek {:.2}s", sec));
+                }
             }
         }
 
-        // 7. Status bar
-        draw_text_ex(
-            &audio.status,
-            panel_pad,
-            screen_height() - status_bottom_pad,
-            TextParams {
-                font: macroquad_font.as_ref(),
-                font_size: (18.0 * ui_scale).round().clamp(12.0, 64.0) as u16,
-                color: Color::from_rgba(170, 205, 255, 255),
-                ..Default::default()
-            },
+        info_toasts.draw(
+            ui_scale,
+            menu_height + top_bar_height,
+            macroquad_font.as_ref(),
         );
 
         egui_macroquad::draw();

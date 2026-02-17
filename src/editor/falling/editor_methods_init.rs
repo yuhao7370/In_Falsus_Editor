@@ -112,6 +112,34 @@ impl FallingGroundEditor {
         }
     }
 
+    pub fn scroll_speed(&self) -> f32 {
+        self.scroll_speed
+    }
+
+    pub fn min_scroll_speed(&self) -> f32 {
+        MIN_SCROLL_SPEED
+    }
+
+    pub fn max_scroll_speed(&self) -> f32 {
+        MAX_SCROLL_SPEED
+    }
+
+    pub fn scroll_speed_step(&self) -> f32 {
+        SCROLL_SPEED_STEP
+    }
+
+    pub fn set_scroll_speed(&mut self, speed: f32) {
+        let old_speed = self.scroll_speed;
+        self.scroll_speed = speed.clamp(MIN_SCROLL_SPEED, MAX_SCROLL_SPEED);
+        if (old_speed - self.scroll_speed).abs() > 0.001 {
+            self.status = format!("scroll speed set to {:.2}H/s", self.scroll_speed);
+        }
+    }
+
+    pub fn nudge_scroll_speed(&mut self, delta: f32) {
+        self.adjust_scroll_speed(delta);
+    }
+
     pub fn pending_hold_head_time_ms(&self) -> Option<f32> {
         self.pending_hold.map(|pending| pending.start_time_ms)
     }

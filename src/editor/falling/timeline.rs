@@ -12,6 +12,8 @@ struct BpmPoint {
 struct BarLine {
     time_ms: f32,
     kind: BarLineKind,
+    measure_pos: f32,
+    show_measure_label: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -191,7 +193,16 @@ impl BpmTimeline {
                     BarLineKind::Subdivision
                 };
 
-                output.push(BarLine { time_ms: line_time_ms, kind });
+                let measure_pos = beat / beats_per_measure;
+                let half_step = (measure_pos * 2.0).round();
+                let show_measure_label = (measure_pos * 2.0 - half_step).abs() < 0.001;
+
+                output.push(BarLine {
+                    time_ms: line_time_ms,
+                    kind,
+                    measure_pos,
+                    show_measure_label,
+                });
             }
         }
 
@@ -207,6 +218,8 @@ impl BpmTimeline {
                 if (last.time_ms - line.time_ms).abs() < 0.001 {
                     if line.kind.priority() > last.kind.priority() {
                         last.kind = line.kind;
+                        last.measure_pos = line.measure_pos;
+                        last.show_measure_label = line.show_measure_label;
                     }
                     continue;
                 }

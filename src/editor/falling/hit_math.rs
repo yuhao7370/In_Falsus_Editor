@@ -5,18 +5,15 @@ fn lane_from_x(x: f32, lanes_x: f32, lane_w: f32) -> usize {
 }
 
 fn adaptive_ui_scale() -> f32 {
-    (screen_width() / REFERENCE_WIDTH)
-        .min(screen_height() / REFERENCE_HEIGHT)
-        .clamp(0.75, 3.5)
+    crate::ui::scale::ui_scale_factor()
 }
 
 fn scaled_px(px: f32) -> f32 {
-    px * adaptive_ui_scale()
+    crate::ui::scale::scaled_px(px)
 }
 
 fn scaled_font_size(base: f32, min: u16, max: u16) -> u16 {
-    let size = (base * adaptive_ui_scale()).round();
-    size.clamp(min as f32, max as f32) as u16
+    crate::ui::scale::scaled_font_size(base, min, max)
 }
 
 fn push_best_hit_candidate(candidates: &mut Vec<HitCandidate>, candidate: HitCandidate) {
