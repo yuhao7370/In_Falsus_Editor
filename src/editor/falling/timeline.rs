@@ -193,7 +193,7 @@ impl BpmTimeline {
                     BarLineKind::Subdivision
                 };
 
-                // Label in global beat space (continuous 1,2,3,4,5...),
+                // Label in global beat space (continuous 0,1,2,3,4...),
                 // instead of resetting every measure.
                 // 1x/odd-x -> every whole beat
                 // even-x(>=2) -> every half beat
@@ -204,7 +204,7 @@ impl BpmTimeline {
                 };
                 let label_grid = (beat / label_step_beats).round();
                 let show_measure_label = (beat / label_step_beats - label_grid).abs() < 0.001;
-                let measure_pos = label_grid * label_step_beats + 1.0;
+                let measure_pos = label_grid * label_step_beats;
 
                 output.push(BarLine {
                     time_ms: line_time_ms,
