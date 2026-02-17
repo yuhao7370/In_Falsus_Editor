@@ -20,7 +20,7 @@ const MIN_SCROLL_SPEED: f32 = 0.2;
 /// 下落速度上限，防止过快导致无法精确操作。
 const MAX_SCROLL_SPEED: f32 = 4.0;
 /// 每次按钮调整速度的步进值。
-const SCROLL_SPEED_STEP: f32 = 0.1;
+const SCROLL_SPEED_STEP: f32 = 0.05;
 
 /// 可选的节拍吸附分母（1/N）。
 pub const SNAP_DIVISION_OPTIONS: [u32; 10] = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32];

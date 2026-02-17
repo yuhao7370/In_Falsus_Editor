@@ -13,7 +13,7 @@ use ui::info_toast::InfoToastManager;
 use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
-use ui::input_state::set_pointer_blocked;
+use ui::input_state::{set_pointer_blocked, safe_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
@@ -181,9 +181,17 @@ async fn main() {
             info_toasts.push("Info C: dismisses in queue order");
         }
 
-        // 4. Wheel seek
-        let (_, mq_wheel_y) = mouse_wheel();
-        audio.handle_wheel_seek(mq_wheel_y, egui_wheel_y, space_consumed, &i18n);
+        // 4. Wheel: Ctrl+wheel = flow speed, otherwise seek
+        let (_, mq_wheel_y) = safe_mouse_wheel();
+        let ctrl_down = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
+        let raw_wheel = if mq_wheel_y.abs() > f32::EPSILON { mq_wheel_y } else { egui_wheel_y };
+        if ctrl_down && raw_wheel.abs() > f32::EPSILON {
+            let step = editor.scroll_speed_step();
+            let delta = if raw_wheel > 0.0 { step } else { -step };
+            editor.nudge_scroll_speed(delta);
+        } else {
+            audio.handle_wheel_seek(mq_wheel_y, egui_wheel_y, space_consumed, &i18n);
+        }
 
         // Read snapshot values after input mutations this frame
         let mut current_sec = audio.current_sec();

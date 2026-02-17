@@ -42,3 +42,12 @@ pub fn safe_mouse_button_down(btn: MouseButton) -> bool {
 pub fn safe_mouse_button_released(btn: MouseButton) -> bool {
     !is_pointer_blocked() && is_mouse_button_released(btn)
 }
+
+/// 安全版 mouse_wheel — 被 egui 拦截时返回 (0, 0)，防止滚轮穿透
+pub fn safe_mouse_wheel() -> (f32, f32) {
+    if is_pointer_blocked() {
+        (0.0, 0.0)
+    } else {
+        mouse_wheel()
+    }
+}

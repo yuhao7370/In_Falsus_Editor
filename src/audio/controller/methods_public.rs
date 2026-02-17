@@ -1,4 +1,4 @@
-﻿impl AudioController {
+impl AudioController {
     pub fn new(i18n: &I18n, default_track_path: &str) -> Self {
         let (mut player, status) = match SongPlayer::new() {
             Ok(mut p) => {
@@ -205,9 +205,12 @@
             return;
         }
 
-        let denom = if is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl) {
-            WHEEL_SEEK_DIV_CTRL
-        } else if is_key_down(KeyCode::LeftAlt) || is_key_down(KeyCode::RightAlt) {
+        // Ctrl+wheel is handled elsewhere (flow speed adjustment), skip seek.
+        if is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl) {
+            return;
+        }
+
+        let denom = if is_key_down(KeyCode::LeftAlt) || is_key_down(KeyCode::RightAlt) {
             WHEEL_SEEK_DIV_ALT
         } else {
             WHEEL_SEEK_DIV_DEFAULT

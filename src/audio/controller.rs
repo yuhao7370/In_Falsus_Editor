@@ -4,8 +4,6 @@ use macroquad::prelude::*;
 
 /// 默认滚轮 seek 灵敏度分母（普通模式）。
 const WHEEL_SEEK_DIV_DEFAULT: f32 = 12_000.0;
-/// Ctrl 精细调整时使用更大的分母（步进更小）。
-const WHEEL_SEEK_DIV_CTRL: f32 = 60_000.0;
 /// Alt 快速调整时使用更小的分母（步进更大）。
 const WHEEL_SEEK_DIV_ALT: f32 = 3_000.0;
 /// 最终滚轮位移倍率。
