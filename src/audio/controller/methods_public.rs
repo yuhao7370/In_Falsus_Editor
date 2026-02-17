@@ -166,21 +166,6 @@ impl AudioController {
             self.toggle_play_pause(i18n);
         }
 
-        let pos = self.current_sec();
-        let dur = self.duration_sec;
-        if is_key_pressed(KeyCode::Left) {
-            self.seek_to((pos - 1.0).max(0.0), i18n);
-        }
-        if is_key_pressed(KeyCode::Right) {
-            self.seek_to((pos + 1.0).min(dur), i18n);
-        }
-        if is_key_pressed(KeyCode::Up) {
-            self.seek_to((pos - 0.1).max(0.0), i18n);
-        }
-        if is_key_pressed(KeyCode::Down) {
-            self.seek_to((pos + 0.1).min(dur), i18n);
-        }
-
         space
     }
 

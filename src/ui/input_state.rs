@@ -56,3 +56,23 @@ pub fn safe_mouse_wheel() -> (f32, f32) {
         mouse_wheel()
     }
 }
+
+/// 安全版 is_key_pressed — 被 egui 拦截时返回 false，防止按键穿透到编辑器
+pub fn safe_key_pressed(key: KeyCode) -> bool {
+    !is_pointer_blocked() && is_key_pressed(key)
+}
+
+/// 安全版 is_key_down — 被 egui 拦截时返回 false
+pub fn safe_key_down(key: KeyCode) -> bool {
+    !is_pointer_blocked() && is_key_down(key)
+}
+
+/// 自由版 is_key_pressed — 不受 egui 拦截影响，任何时候都返回真实按键状态
+pub fn free_key_pressed(key: KeyCode) -> bool {
+    is_key_pressed(key)
+}
+
+/// 自由版 is_key_down — 不受 egui 拦截影响
+pub fn free_key_down(key: KeyCode) -> bool {
+    is_key_down(key)
+}
