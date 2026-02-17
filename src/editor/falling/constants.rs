@@ -18,12 +18,12 @@ const DEFAULT_SCROLL_SPEED: f32 = 1.0;
 /// 下落速度下限，防止过慢导致编辑反馈滞后。
 const MIN_SCROLL_SPEED: f32 = 0.2;
 /// 下落速度上限，防止过快导致无法精确操作。
-const MAX_SCROLL_SPEED: f32 = 4.0;
+const MAX_SCROLL_SPEED: f32 = 8.0;
 /// 每次按钮调整速度的步进值。
 const SCROLL_SPEED_STEP: f32 = 0.05;
 
 /// 可选的节拍吸附分母（1/N）。
-pub const SNAP_DIVISION_OPTIONS: [u32; 10] = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32];
+pub const SNAP_DIVISION_OPTIONS: [u32; 12] = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 
 /// SkyArea 头/体/尾的可视化颜色。
 const AIR_SKYAREA_HEAD_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.84);

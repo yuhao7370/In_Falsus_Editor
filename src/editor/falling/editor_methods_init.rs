@@ -77,7 +77,7 @@ impl FallingGroundEditor {
             overlap_cycle: None,
             hover_overlap_hint: None,
             debug_show_hitboxes: false,
-            autoplay_enabled: true,
+            autoplay_enabled: false,
             show_spectrum: true,
             show_minimap: false,
             waveform: None,

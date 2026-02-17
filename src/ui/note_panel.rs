@@ -118,6 +118,21 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
                 ui.label(format!("SkyArea head: {:.0}ms", head_time_ms));
                 ui.label("Click again to set tail");
             }
+
+            // Bottom status line
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new(format!(
+                        "Speed: {:.2} H/s   Snap: {}x",
+                        editor.scroll_speed(),
+                        editor.snap_division(),
+                    ))
+                    .color(egui::Color32::from_rgb(160, 160, 170))
+                    .size(12.0),
+                );
+                ui.separator();
+            });
         });
 
     if let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos()) {
