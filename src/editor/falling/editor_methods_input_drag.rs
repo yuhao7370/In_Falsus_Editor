@@ -1,0 +1,83 @@
+﻿impl FallingGroundEditor {
+    fn start_drag_for_candidate(
+        &mut self,
+        candidate: HitCandidate,
+        mx: f32,
+        my: f32,
+        current_ms: f32,
+        ground_rect: Option<Rect>,
+        air_rect: Option<Rect>,
+    ) {
+        let Some(note) = self.notes.iter().find(|note| note.id == candidate.note_id) else {
+            self.drag_state = None;
+            return;
+        };
+
+        let (judge_y, lane_h) = match candidate.scope {
+            HitScope::Ground => {
+                let Some(rect) = ground_rect else {
+                    self.drag_state = None;
+                    return;
+                };
+                (rect.y + rect.h * 0.82, rect.h)
+            }
+            HitScope::Air => {
+                let Some(rect) = air_rect else {
+                    self.drag_state = None;
+                    return;
+                };
+                (rect.y + rect.h * 0.82, rect.h)
+            }
+            HitScope::Mixed => {
+                self.drag_state = None;
+                return;
+            }
+        };
+
+        let pointer_time_ms = self.pointer_to_time(my, current_ms, judge_y, lane_h);
+        let (sky_start_center_norm, sky_end_center_norm, sky_start_half_norm, sky_end_half_norm) =
+            if note.kind == GroundNoteKind::SkyArea {
+                if let Some(shape) = note.skyarea_shape {
+                    let start_left = shape.start_left_norm.clamp(0.0, 1.0);
+                    let start_right = shape.start_right_norm.clamp(0.0, 1.0);
+                    let end_left = shape.end_left_norm.clamp(0.0, 1.0);
+                    let end_right = shape.end_right_norm.clamp(0.0, 1.0);
+                    (
+                        (start_left + start_right) * 0.5,
+                        (end_left + end_right) * 0.5,
+                        ((start_right - start_left).abs() * 0.5).clamp(0.01, 0.5),
+                        ((end_right - end_left).abs() * 0.5).clamp(0.01, 0.5),
+                    )
+                } else {
+                    let center = lane_to_air_x_norm(note.lane);
+                    (center, center, 0.25, 0.25)
+                }
+            } else {
+                (0.0, 0.0, 0.0, 0.0)
+            };
+
+        let drag_anchor_time_ms =
+            if note.kind == GroundNoteKind::SkyArea && candidate.air_target == AirDragTarget::SkyTail {
+                note.end_time_ms()
+            } else {
+                note.time_ms
+            };
+
+        self.drag_state = Some(DragState {
+            note_id: candidate.note_id,
+            time_offset_ms: drag_anchor_time_ms - pointer_time_ms,
+            start_time_sec: get_time(),
+            start_mouse_x: mx,
+            start_mouse_y: my,
+            sky_start_center_norm,
+            sky_end_center_norm,
+            sky_start_half_norm,
+            sky_end_half_norm,
+            air_target: candidate.air_target,
+        });
+    }
+
+
+
+}
+

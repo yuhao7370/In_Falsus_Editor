@@ -48,10 +48,7 @@ fn try_load_font(fonts: &mut egui::FontDefinitions, font_path: &str, font_name: 
 }
 
 fn register_font_family(fonts: &mut egui::FontDefinitions, font_name: String) {
-    let proportional = fonts
-        .families
-        .entry(FontFamily::Proportional)
-        .or_default();
+    let proportional = fonts.families.entry(FontFamily::Proportional).or_default();
     if !proportional.contains(&font_name) {
         proportional.insert(0, font_name.clone());
     }

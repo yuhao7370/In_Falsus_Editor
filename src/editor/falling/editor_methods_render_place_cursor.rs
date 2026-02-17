@@ -1,0 +1,190 @@
+impl FallingGroundEditor {
+    fn draw_place_cursor(&self, rect: Rect, current_ms: f32) {
+        let Some(place_type) = self.place_note_type else {
+            return;
+        };
+        if rect.h <= 8.0 {
+            return;
+        }
+
+        let (mx, my) = mouse_position();
+        if !point_in_rect(mx, my, rect) {
+            return;
+        }
+
+        if is_ground_tool(place_type) {
+            let lane_w = rect.w / LANE_COUNT as f32;
+            let judge_y = rect.y + rect.h * 0.82;
+            let preview_time =
+                self.apply_snap(self.pointer_to_time(my, current_ms, judge_y, rect.h).max(0.0));
+            let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
+            let lane = lane_from_x(mx, rect.x, lane_w);
+            let palette = lane_note_palette(lane);
+            draw_line(
+                rect.x,
+                preview_y,
+                rect.x + rect.w,
+                preview_y,
+                1.2,
+                Color::from_rgba(255, 230, 132, 190),
+            );
+            match place_type {
+                PlaceNoteType::Hold => {
+                    if let Some(pending) = self.pending_hold {
+                        let lane_x = rect.x + lane_w * pending.lane as f32;
+                        let note_w = lane_w * 0.94;
+                        let note_x = lane_x + (lane_w - note_w) * 0.5;
+                        let start_y = self.time_to_y(pending.start_time_ms, current_ms, judge_y, rect.h);
+                        let y1 = start_y.min(preview_y);
+                        let y2 = start_y.max(preview_y);
+
+                        draw_rectangle(
+                            note_x + note_w * 0.04,
+                            y1,
+                            note_w * 0.92,
+                            (y2 - y1).max(1.0),
+                            Color::from_rgba(236, 204, 120, 116),
+                        );
+                        draw_rectangle(
+                            note_x,
+                            start_y - 8.0,
+                            note_w,
+                            16.0,
+                            Color::from_rgba(255, 222, 140, 220),
+                        );
+                        draw_rectangle(
+                            note_x,
+                            preview_y - 8.0,
+                            note_w,
+                            16.0,
+                            Color::from_rgba(255, 236, 170, 220),
+                        );
+                    } else {
+                        let lane_x = rect.x + lane_w * lane as f32;
+                        let note_w = lane_w * 0.94;
+                        let note_x = lane_x + (lane_w - note_w) * 0.5;
+                        draw_rectangle(
+                            note_x,
+                            preview_y - 8.0,
+                            note_w,
+                            16.0,
+                            Color::from_rgba(255, 222, 140, 220),
+                        );
+                    }
+                }
+                PlaceNoteType::Tap => {
+                    let lane_x = rect.x + lane_w * lane as f32;
+                    let note_w = lane_w * 0.78;
+                    let note_x = lane_x + (lane_w - note_w) * 0.5;
+                    draw_rectangle(
+                        note_x,
+                        preview_y - 8.0,
+                        note_w,
+                        16.0,
+                        Color::new(palette.tap.r, palette.tap.g, palette.tap.b, 0.82),
+                    );
+                }
+                _ => {}
+            }
+        } else if is_air_tool(place_type) {
+            let split_rect = air_split_rect(rect);
+            if !point_in_rect(mx, my, split_rect) {
+                return;
+            }
+            let judge_y = rect.y + rect.h * 0.82;
+            let preview_time =
+                self.apply_snap(self.pointer_to_time(my, current_ms, judge_y, rect.h).max(0.0));
+            let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
+            draw_line(
+                split_rect.x,
+                preview_y,
+                split_rect.x + split_rect.w,
+                preview_y,
+                1.2,
+                Color::from_rgba(216, 232, 255, 188),
+            );
+            let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
+            let lane = air_x_to_lane(x_norm);
+            let center_norm = if place_type == PlaceNoteType::Flick {
+                lane_to_air_x_norm(lane)
+            } else {
+                x_norm
+            };
+            let center_x = split_rect.x + center_norm * split_rect.w;
+            let note_w = match place_type {
+                PlaceNoteType::SkyArea => split_rect.w * DEFAULT_SKYAREA_WIDTH_NORM,
+                _ => split_rect.w * DEFAULT_AIR_WIDTH_NORM,
+            };
+            let note_x = center_x - note_w * 0.5;
+            let preview = GroundNote {
+                id: 0,
+                kind: GroundNoteKind::Flick,
+                lane,
+                time_ms: preview_time,
+                duration_ms: 0.0,
+                width: DEFAULT_AIR_WIDTH_NORM,
+                flick_right: true,
+                skyarea_shape: None,
+            };
+            if place_type == PlaceNoteType::Flick {
+                let side_h = self.flick_side_height_px(preview.time_ms, rect.h);
+                draw_flick_curve_shape(&preview, note_x, note_w, preview_y, side_h);
+            } else {
+                if let Some(pending) = self.pending_skyarea {
+                    let half = DEFAULT_SKYAREA_WIDTH_NORM * 0.5;
+                    let (start_time_ms, end_time_ms, start_center_norm, end_center_norm) =
+                        if pending.start_time_ms <= preview_time {
+                            (
+                                pending.start_time_ms,
+                                preview_time,
+                                pending.start_center_norm,
+                                x_norm,
+                            )
+                        } else {
+                            (
+                                preview_time,
+                                pending.start_time_ms,
+                                x_norm,
+                                pending.start_center_norm,
+                            )
+                        };
+                    let start_left = (start_center_norm - half).clamp(0.0, 1.0);
+                    let start_right = (start_center_norm + half).clamp(0.0, 1.0);
+                    let end_left = (end_center_norm - half).clamp(0.0, 1.0);
+                    let end_right = (end_center_norm + half).clamp(0.0, 1.0);
+                    let shape = SkyAreaShape {
+                        start_left_norm: start_left,
+                        start_right_norm: start_right,
+                        end_left_norm: end_left,
+                        end_right_norm: end_right,
+                        left_ease: Ease::Linear,
+                        right_ease: Ease::Linear,
+                    };
+                    let preview_note = GroundNote {
+                        id: 0,
+                        kind: GroundNoteKind::SkyArea,
+                        lane: air_x_to_lane(((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0)),
+                        time_ms: start_time_ms,
+                        duration_ms: (end_time_ms - start_time_ms).max(0.0),
+                        width: DEFAULT_SKYAREA_WIDTH_NORM,
+                        flick_right: true,
+                        skyarea_shape: Some(shape),
+                    };
+                    self.draw_skyarea_shape(
+                        split_rect,
+                        current_ms,
+                        judge_y,
+                        rect.h,
+                        &preview_note,
+                        shape,
+                        false,
+                    );
+                } else {
+                    draw_rectangle(note_x, preview_y - 8.0, note_w, 16.0, AIR_SKYAREA_HEAD_COLOR);
+                }
+            }
+        }
+    }
+
+}
+

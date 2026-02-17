@@ -22,8 +22,10 @@ const POPUP_ITEM_HEIGHT: f32 = 30.0;
 
 fn draw_popup_row(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
     let row_width = ui.available_width().max(1.0);
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(row_width, POPUP_ITEM_HEIGHT), egui::Sense::click());
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(row_width, POPUP_ITEM_HEIGHT),
+        egui::Sense::click(),
+    );
 
     let is_hot = selected || response.hovered();
     if is_hot {
@@ -161,11 +163,31 @@ pub fn draw_top_menu(
                 });
 
                 draw_top_button_with_popup(ui, "top_menu_edit", i18n.t(TextKey::MenuEdit), |ui| {
-                    draw_popup_item(ui, &mut action, TopMenuAction::Undo, i18n.t(TextKey::EditUndo));
-                    draw_popup_item(ui, &mut action, TopMenuAction::Redo, i18n.t(TextKey::EditRedo));
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::Undo,
+                        i18n.t(TextKey::EditUndo),
+                    );
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::Redo,
+                        i18n.t(TextKey::EditRedo),
+                    );
                     ui.separator();
-                    draw_popup_item(ui, &mut action, TopMenuAction::Cut, i18n.t(TextKey::EditCut));
-                    draw_popup_item(ui, &mut action, TopMenuAction::Copy, i18n.t(TextKey::EditCopy));
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::Cut,
+                        i18n.t(TextKey::EditCut),
+                    );
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::Copy,
+                        i18n.t(TextKey::EditCopy),
+                    );
                     draw_popup_item(
                         ui,
                         &mut action,
@@ -214,8 +236,9 @@ pub fn draw_top_menu(
                             i18n.t(TextKey::PlayerLabelVolume),
                         );
                         let mut volume = current_volume.clamp(0.0, 1.0);
-                        let slider =
-                            egui::Slider::new(&mut volume, 0.0..=1.0).show_value(true).text("");
+                        let slider = egui::Slider::new(&mut volume, 0.0..=1.0)
+                            .show_value(true)
+                            .text("");
                         let response = ui.add_enabled(volume_enabled, slider);
                         if response.changed() && volume_enabled {
                             action = Some(TopMenuAction::SetVolume(volume));
@@ -231,8 +254,12 @@ pub fn draw_top_menu(
                         }
 
                         let minimap_selected = current_show_minimap;
-                        if draw_popup_row(ui, i18n.t(TextKey::SettingsShowMinimap), minimap_selected)
-                            .clicked()
+                        if draw_popup_row(
+                            ui,
+                            i18n.t(TextKey::SettingsShowMinimap),
+                            minimap_selected,
+                        )
+                        .clicked()
                         {
                             action = Some(TopMenuAction::SetMinimapVisible(!current_show_minimap));
                             ui.memory_mut(|mem| mem.close_popup());

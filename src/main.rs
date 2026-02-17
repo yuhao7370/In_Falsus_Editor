@@ -9,8 +9,8 @@ use editor::falling::{FallingEditorAction, FallingGroundEditor};
 use i18n::{I18n, Language, TextKey};
 use macroquad::prelude::*;
 use ui::fonts::init_egui_fonts;
-use ui::note_panel::{draw_note_selector_panel, NOTE_PANEL_BASE_WIDTH_POINTS};
-use ui::top_menu::{draw_top_menu, TopMenuAction};
+use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel};
+use ui::top_menu::{TopMenuAction, draw_top_menu};
 
 const BASE_WIDTH: f32 = 1366.0;
 const BASE_HEIGHT: f32 = 768.0;
@@ -161,17 +161,29 @@ async fn main() {
         // 5. Top bar
         let top_bar = Rect::new(0.0, menu_height, screen_width(), top_bar_height);
         draw_rectangle(
-            top_bar.x, top_bar.y, top_bar.w, top_bar.h,
+            top_bar.x,
+            top_bar.y,
+            top_bar.w,
+            top_bar.h,
             Color::from_rgba(15, 15, 20, 255),
         );
         draw_line(
-            0.0, top_bar.y + top_bar.h, screen_width(), top_bar.y + top_bar.h,
-            (1.0 * ui_scale).max(1.0), Color::from_rgba(40, 40, 50, 255),
+            0.0,
+            top_bar.y + top_bar.h,
+            screen_width(),
+            top_bar.y + top_bar.h,
+            (1.0 * ui_scale).max(1.0),
+            Color::from_rgba(40, 40, 50, 255),
         );
 
         draw_text_ex(
-            &format!("{} / {}", format_time(current_sec), format_time(duration_sec)),
-            panel_pad, menu_height + 33.0 * ui_scale,
+            &format!(
+                "{} / {}",
+                format_time(current_sec),
+                format_time(duration_sec)
+            ),
+            panel_pad,
+            menu_height + 33.0 * ui_scale,
             TextParams {
                 font_size: (22.0 * ui_scale).round().clamp(14.0, 84.0) as u16,
                 color: Color::from_rgba(236, 236, 242, 255),
@@ -181,7 +193,8 @@ async fn main() {
 
         draw_text_ex(
             "Keys: Space Play/Pause | <- -> seek 1s | Up/Down seek 0.1s | Wheel seek | Ctrl=finer",
-            panel_pad, menu_height + 52.0 * ui_scale,
+            panel_pad,
+            menu_height + 52.0 * ui_scale,
             TextParams {
                 font_size: (16.0 * ui_scale).round().clamp(11.0, 60.0) as u16,
                 color: Color::from_rgba(170, 170, 185, 255),
@@ -191,10 +204,12 @@ async fn main() {
 
         // 6. Editor
         let editor_y = menu_height + top_bar_height + 8.0 * ui_scale;
-        let editor_width = (screen_width() - panel_pad * 2.0 - note_panel_width_px - editor_gap)
-            .max(360.0);
+        let editor_width =
+            (screen_width() - panel_pad * 2.0 - note_panel_width_px - editor_gap).max(360.0);
         let editor_rect = Rect::new(
-            panel_pad, editor_y, editor_width,
+            panel_pad,
+            editor_y,
+            editor_width,
             (screen_height() - editor_y - 28.0 * ui_scale).max(140.0),
         );
 
@@ -213,7 +228,8 @@ async fn main() {
         // 7. Status bar
         draw_text_ex(
             &audio.status,
-            panel_pad, screen_height() - status_bottom_pad,
+            panel_pad,
+            screen_height() - status_bottom_pad,
             TextParams {
                 font_size: (18.0 * ui_scale).round().clamp(12.0, 64.0) as u16,
                 color: Color::from_rgba(170, 205, 255, 255),
