@@ -74,12 +74,12 @@ impl FallingGroundEditor {
         }
 
         // 点击检测
-        let mouse = mouse_position();
+        let mouse = safe_mouse_position();
         let mouse_in_rect = mouse.0 >= rect.x
             && mouse.0 <= rect.x + rect.w
             && mouse.1 >= rect.y
             && mouse.1 <= rect.y + rect.h;
-        let clicked = mouse_in_rect && is_mouse_button_pressed(MouseButton::Left);
+        let clicked = mouse_in_rect && safe_mouse_button_pressed(MouseButton::Left);
         let event_hit_half_h = 9.0_f32 * ui;
         let font_size = ((14.0 * ui).round() as u16).clamp(9, 32);
         let time_font_size = ((10.0 * ui).round() as u16).clamp(7, 22);

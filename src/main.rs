@@ -13,7 +13,8 @@ use ui::info_toast::InfoToastManager;
 use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
-use ui::top_menu::{TopMenuAction, draw_top_menu};
+use ui::input_state::set_pointer_blocked;
+use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
@@ -135,7 +136,8 @@ async fn main() {
         let editor_gap = 12.0 * ui_scale;
         let editor_bottom_pad = 8.0 * ui_scale;
 
-        let mut top_menu_action = None;
+        let mut top_menu_result = TopMenuResult { action: None, any_popup_open: false };
+        let mut egui_wants_pointer = false;
         egui_macroquad::ui(|ctx| {
             if !egui_fonts_ready {
                 let _ = init_egui_fonts(ctx);
@@ -143,7 +145,7 @@ async fn main() {
             }
             ctx.set_pixels_per_point(ui_scale);
             let volume = audio.volume();
-            top_menu_action = draw_top_menu(
+            top_menu_result = draw_top_menu(
                 ctx,
                 &i18n,
                 volume,
@@ -155,9 +157,13 @@ async fn main() {
             );
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
+            egui_wants_pointer = ctx.is_using_pointer()
+                || ctx.is_pointer_over_area()
+                || top_menu_result.any_popup_open;
         });
+        set_pointer_blocked(egui_wants_pointer);
 
-        if let Some(action) = top_menu_action {
+        if let Some(action) = top_menu_result.action {
             handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n);
             info_toasts.push(audio.status.clone());
         }

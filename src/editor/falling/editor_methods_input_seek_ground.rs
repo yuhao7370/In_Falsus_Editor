@@ -7,10 +7,10 @@ impl FallingGroundEditor {
         }
         let lane_w = rect.w / LANE_COUNT as f32;
         let judge_y = rect.y + rect.h * 0.82;
-        let (mx, my) = mouse_position();
+        let (mx, my) = safe_mouse_position();
         let inside = point_in_rect(mx, my, rect);
 
-        if is_mouse_button_pressed(MouseButton::Left) && inside {
+        if safe_mouse_button_pressed(MouseButton::Left) && inside {
             if let Some(tool) = self.place_note_type {
                 if !is_ground_tool(tool) {
                     return;
@@ -70,7 +70,7 @@ impl FallingGroundEditor {
         }
 
         if let Some(drag) = self.drag_state {
-            if is_mouse_button_down(MouseButton::Left) {
+            if safe_mouse_button_down(MouseButton::Left) {
                 if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {
                     return;
                 }

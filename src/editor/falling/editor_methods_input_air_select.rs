@@ -7,10 +7,10 @@ impl FallingGroundEditor {
         }
         let split_rect = air_split_rect(rect);
         let judge_y = rect.y + rect.h * 0.82;
-        let (mx, my) = mouse_position();
+        let (mx, my) = safe_mouse_position();
         let inside = point_in_rect(mx, my, split_rect);
 
-        if is_mouse_button_pressed(MouseButton::Left) && inside {
+        if safe_mouse_button_pressed(MouseButton::Left) && inside {
             if let Some(tool) = self.place_note_type {
                 if !is_air_tool(tool) {
                     return;
@@ -92,7 +92,7 @@ impl FallingGroundEditor {
         }
 
         if let Some(drag) = self.drag_state {
-            if is_mouse_button_down(MouseButton::Left) {
+            if safe_mouse_button_down(MouseButton::Left) {
                 if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {
                     return;
                 }
@@ -190,9 +190,9 @@ impl FallingGroundEditor {
         air_rect: Option<Rect>,
         current_ms: f32,
     ) {
-        let (mx, my) = mouse_position();
+        let (mx, my) = safe_mouse_position();
 
-        if is_mouse_button_pressed(MouseButton::Right) {
+        if safe_mouse_button_pressed(MouseButton::Right) {
             self.selected_note_id = None;
             self.drag_state = None;
             self.overlap_cycle = None;
@@ -201,7 +201,7 @@ impl FallingGroundEditor {
             return;
         }
 
-        if !is_mouse_button_pressed(MouseButton::Left) {
+        if !safe_mouse_button_pressed(MouseButton::Left) {
             return;
         }
 

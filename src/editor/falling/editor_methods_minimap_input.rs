@@ -17,7 +17,7 @@ impl FallingGroundEditor {
             return;
         }
 
-        let (mx, my) = mouse_position();
+        let (mx, my) = safe_mouse_position();
         let ui = adaptive_ui_scale();
         let min_hit_h = (26.0 * ui).max(minimap.highlight_rect.h);
         let cy = minimap.highlight_rect.y + minimap.highlight_rect.h * 0.5;
@@ -32,7 +32,7 @@ impl FallingGroundEditor {
         );
         let inside_highlight = point_in_rect(mx, my, hit_rect);
 
-        if is_mouse_button_pressed(MouseButton::Left) && inside_highlight {
+        if safe_mouse_button_pressed(MouseButton::Left) && inside_highlight {
             if is_playing {
                 self.status = "pause to scrub minimap".to_owned();
                 return;
@@ -62,7 +62,7 @@ impl FallingGroundEditor {
             return;
         }
 
-        if is_mouse_button_down(MouseButton::Left) {
+        if safe_mouse_button_down(MouseButton::Left) {
             let mouse_ms = self.minimap_segment_y_to_time(
                 my,
                 minimap.content_rect,

@@ -128,6 +128,19 @@ fn draw_top_button_with_popup<R>(
     });
 }
 
+/// Result of drawing the top menu: the optional action plus whether any popup is open.
+pub struct TopMenuResult {
+    pub action: Option<TopMenuAction>,
+    pub any_popup_open: bool,
+}
+
+const POPUP_IDS: &[&str] = &[
+    "top_menu_file",
+    "top_menu_edit",
+    "top_menu_select",
+    "top_menu_settings",
+];
+
 pub fn draw_top_menu(
     ctx: &egui::Context,
     i18n: &I18n,
@@ -137,8 +150,9 @@ pub fn draw_top_menu(
     current_autoplay: bool,
     current_show_spectrum: bool,
     current_show_minimap: bool,
-) -> Option<TopMenuAction> {
+) -> TopMenuResult {
     let mut action = None;
+    let mut any_popup_open = false;
 
     egui::TopBottomPanel::top("main_top_menu")
         .frame(
@@ -151,6 +165,15 @@ pub fn draw_top_menu(
         .show(ctx, |ui| {
             ui.spacing_mut().item_spacing.x = 10.0;
             ui.horizontal(|ui| {
+                // Check if any popup was open at the start of this frame
+                for &id_src in POPUP_IDS {
+                    let pid = ui.make_persistent_id(id_src);
+                    if ui.memory(|mem| mem.is_popup_open(pid)) {
+                        any_popup_open = true;
+                        break;
+                    }
+                }
+
                 draw_top_button_with_popup(ui, "top_menu_file", i18n.t(TextKey::MenuFile), |ui| {
                     draw_popup_item(
                         ui,
@@ -288,5 +311,8 @@ pub fn draw_top_menu(
             });
         });
 
-    action
+    TopMenuResult {
+        action,
+        any_popup_open,
+    }
 }

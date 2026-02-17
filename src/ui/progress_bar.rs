@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use super::input_state::is_pointer_blocked;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TopProgressBarState {
@@ -41,6 +42,7 @@ pub fn draw_top_progress_bar(
     font: Option<&Font>,
     state: &mut TopProgressBarState,
 ) -> TopProgressBarOutput {
+    let pointer_blocked = is_pointer_blocked();
     let mut display_sec = current_sec;
     let mut seek_to_sec = None;
 
@@ -70,10 +72,14 @@ pub fn draw_top_progress_bar(
         progress_h,
     );
     let (mx, my) = mouse_position();
-    let inside_progress = mx >= progress_rect.x
+    let inside_progress = !pointer_blocked
+        && mx >= progress_rect.x
         && mx <= progress_rect.x + progress_rect.w
         && my >= progress_rect.y
         && my <= progress_rect.y + progress_rect.h;
+    if pointer_blocked {
+        state.drag_active = false;
+    }
     let frame_border = if inside_progress || state.drag_active {
         Color::from_rgba(108, 122, 154, 255)
     } else {

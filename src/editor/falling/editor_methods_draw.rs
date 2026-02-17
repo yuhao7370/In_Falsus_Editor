@@ -1,5 +1,6 @@
 // 文件说明：编辑器每帧绘制与输入分发的主入口实现。
 // 主要功能：负责布局计算、视图绘制顺序和交互调用编排。
+
 impl FallingGroundEditor {
     pub fn draw(
         &mut self,
@@ -121,7 +122,7 @@ impl FallingGroundEditor {
 
         let allow_editor_input = !self.minimap_drag_active;
         if allow_editor_input {
-            if is_mouse_button_pressed(MouseButton::Right)
+            if safe_mouse_button_pressed(MouseButton::Right)
                 && (self.place_note_type.is_some()
                     || self.pending_hold.is_some()
                     || self.pending_skyarea.is_some())
@@ -176,7 +177,7 @@ impl FallingGroundEditor {
             }
         }
 
-        let (mx, my) = mouse_position();
+        let (mx, my) = safe_mouse_position();
         let using_note_cursor = if allow_editor_input {
             match self.place_note_type {
                 Some(tool) if is_ground_tool(tool) => {

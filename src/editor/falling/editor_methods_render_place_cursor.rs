@@ -9,7 +9,7 @@ impl FallingGroundEditor {
             return;
         }
 
-        let (mx, my) = mouse_position();
+        let (mx, my) = safe_mouse_position();
         if !point_in_rect(mx, my, rect) {
             return;
         }
