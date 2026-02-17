@@ -4,4 +4,5 @@ pub mod input_state;
 pub mod note_panel;
 pub mod progress_bar;
 pub mod scale;
+pub mod settings_window;
 pub mod top_menu;

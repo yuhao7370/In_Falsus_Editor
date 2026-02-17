@@ -111,6 +111,11 @@ pub enum TextKey {
     ActionMinimapOff,
     RenderMerge,
     RenderSplit,
+    SettingsCategoryLanguage,
+    SettingsCategoryAudio,
+    SettingsCategoryDisplay,
+    SettingsCategoryDebug,
+    SettingsFlowSpeed,
 }
 
 impl TextKey {
@@ -171,6 +176,11 @@ impl TextKey {
             TextKey::ActionMinimapOff => "action_minimap_off",
             TextKey::RenderMerge => "render_merge",
             TextKey::RenderSplit => "render_split",
+            TextKey::SettingsCategoryLanguage => "settings_category_language",
+            TextKey::SettingsCategoryAudio => "settings_category_audio",
+            TextKey::SettingsCategoryDisplay => "settings_category_display",
+            TextKey::SettingsCategoryDebug => "settings_category_debug",
+            TextKey::SettingsFlowSpeed => "settings_flow_speed",
         }
     }
 }

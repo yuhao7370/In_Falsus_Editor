@@ -81,36 +81,6 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
                 }
             });
 
-            ui.separator();
-            ui.label("Flow Speed");
-            ui.horizontal(|ui| {
-                if ui
-                    .add(egui::Button::new("-").min_size(egui::vec2(28.0, 26.0)))
-                    .clicked()
-                {
-                    editor.nudge_scroll_speed(-editor.scroll_speed_step());
-                }
-
-                let mut speed = editor.scroll_speed();
-                let slider = egui::Slider::new(
-                    &mut speed,
-                    editor.min_scroll_speed()..=editor.max_scroll_speed(),
-                )
-                .text("H/s")
-                .clamping(egui::SliderClamping::Always);
-                if ui.add(slider).changed() {
-                    editor.set_scroll_speed(speed);
-                }
-
-                if ui
-                    .add(egui::Button::new("+").min_size(egui::vec2(28.0, 26.0)))
-                    .clicked()
-                {
-                    editor.nudge_scroll_speed(editor.scroll_speed_step());
-                }
-            });
-            ui.label(format!("Current: {:.2}H/s", editor.scroll_speed()));
-
             {
                 let mut enabled = editor.track_speed_enabled();
                 if ui.checkbox(&mut enabled, "Track Speed Events").changed() {

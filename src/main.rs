@@ -13,8 +13,9 @@ use ui::info_toast::InfoToastManager;
 use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
-use ui::input_state::{set_pointer_blocked, safe_mouse_wheel};
+use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
+use ui::settings_window::{SettingsCategory, draw_settings_window};
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
@@ -75,6 +76,8 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetVolume(volume) => {
             audio.set_volume(volume, i18n);
+            // Don't trigger toast for continuous volume slider drags
+            audio.status.clear();
         }
         TopMenuAction::SetAutoPlay(enabled) => {
             editor.set_autoplay_enabled(enabled);
@@ -101,6 +104,15 @@ fn handle_top_menu_action(
         TopMenuAction::SetRenderScope(scope) => {
             editor.set_render_scope(scope);
         }
+        TopMenuAction::SetScrollSpeed(speed) => {
+            editor.set_scroll_speed(speed);
+            // Slider dragging — no toast
+            audio.status.clear();
+        }
+        TopMenuAction::SetScrollSpeedFinal(speed) => {
+            editor.set_scroll_speed(speed);
+            audio.status = format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), speed);
+        }
     }
 }
 
@@ -111,6 +123,8 @@ async fn main() {
     let mut egui_fonts_ready = false;
     let mut audio = AudioController::new(&i18n, DEFAULT_AUDIO_TRACK_PATH);
     let mut top_progress_state = TopProgressBarState::new();
+    let mut settings_open = false;
+    let mut settings_category = SettingsCategory::Display;
     let mut info_toasts = InfoToastManager::new();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
@@ -151,14 +165,30 @@ async fn main() {
             top_menu_result = draw_top_menu(
                 ctx,
                 &i18n,
-                volume,
-                audio.has_player(),
-                editor.debug_show_hitboxes(),
-                editor.autoplay_enabled(),
-                editor.show_spectrum(),
-                editor.show_minimap(),
                 editor.render_scope(),
+                &mut settings_open,
             );
+            // Draw settings window (if open)
+            if settings_open {
+                if let Some(settings_action) = draw_settings_window(
+                    ctx,
+                    &i18n,
+                    &mut settings_open,
+                    &mut settings_category,
+                    volume,
+                    audio.has_player(),
+                    editor.debug_show_hitboxes(),
+                    editor.autoplay_enabled(),
+                    editor.show_spectrum(),
+                    editor.show_minimap(),
+                    editor.scroll_speed(),
+                    editor.min_scroll_speed(),
+                    editor.max_scroll_speed(),
+                    editor.scroll_speed_step(),
+                ) {
+                    top_menu_result.action = Some(settings_action);
+                }
+            }
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
             egui_wants_pointer = ctx.is_using_pointer()
@@ -181,14 +211,18 @@ async fn main() {
             info_toasts.push("Info C: dismisses in queue order");
         }
 
-        // 4. Wheel: Ctrl+wheel = flow speed, otherwise seek
+        // 4. Wheel: Ctrl+wheel = flow speed (free, ignores egui block), otherwise seek
+        let (_, free_wheel_y) = free_mouse_wheel();
         let (_, mq_wheel_y) = safe_mouse_wheel();
         let ctrl_down = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
-        let raw_wheel = if mq_wheel_y.abs() > f32::EPSILON { mq_wheel_y } else { egui_wheel_y };
-        if ctrl_down && raw_wheel.abs() > f32::EPSILON {
+        if egui_wants_pointer {
+            egui_wheel_y = 0.0;
+        }
+        if ctrl_down && free_wheel_y.abs() > f32::EPSILON {
             let step = editor.scroll_speed_step();
-            let delta = if raw_wheel > 0.0 { step } else { -step };
+            let delta = if free_wheel_y > 0.0 { step } else { -step };
             editor.nudge_scroll_speed(delta);
+            info_toasts.push(format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), editor.scroll_speed()));
         } else {
             audio.handle_wheel_seek(mq_wheel_y, egui_wheel_y, space_consumed, &i18n);
         }

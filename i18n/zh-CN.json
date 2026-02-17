@@ -13,7 +13,7 @@
   "settings_language": "语言",
   "settings_autoplay": "AutoPlay",
   "settings_show_spectrum": "显示频谱",
-  "settings_debug_hitbox": "命中框调试",
+  "settings_debug_hitbox": "Hitbox调试",
   "settings_show_minimap": "绘制 Minimap",
   "language_chinese": "中文",
   "language_english": "English",
@@ -53,5 +53,10 @@
   "action_minimap_on": "Minimap 已开启",
   "action_minimap_off": "Minimap 已关闭",
   "render_merge": "合并视图",
-  "render_split": "分离视图"
+  "render_split": "分离视图",
+  "settings_category_language": "🌐 语言",
+  "settings_category_audio": "🔊 音频",
+  "settings_category_display": "👁 显示",
+  "settings_category_debug": "🔧 调试",
+  "settings_flow_speed": "流速"
 }

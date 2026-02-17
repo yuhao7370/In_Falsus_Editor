@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use super::input_state::is_pointer_blocked;
+use super::input_state::{is_pointer_blocked, safe_mouse_button_pressed, safe_mouse_button_down, safe_mouse_button_released};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TopProgressBarState {
@@ -133,19 +133,19 @@ pub fn draw_top_progress_bar(
 
         if is_playing {
             state.drag_active = false;
-            if is_mouse_button_pressed(MouseButton::Left) && inside_progress {
+            if safe_mouse_button_pressed(MouseButton::Left) && inside_progress {
                 seek_to_sec = Some(mouse_seek_sec);
                 display_sec = mouse_seek_sec;
             }
         } else {
-            if is_mouse_button_pressed(MouseButton::Left) && inside_progress {
+            if safe_mouse_button_pressed(MouseButton::Left) && inside_progress {
                 state.drag_active = true;
                 state.seek_sec = mouse_seek_sec;
             }
-            if state.drag_active && is_mouse_button_down(MouseButton::Left) {
+            if state.drag_active && safe_mouse_button_down(MouseButton::Left) {
                 state.seek_sec = mouse_seek_sec;
             }
-            if state.drag_active && is_mouse_button_released(MouseButton::Left) {
+            if state.drag_active && safe_mouse_button_released(MouseButton::Left) {
                 state.drag_active = false;
                 seek_to_sec = Some(state.seek_sec);
                 display_sec = state.seek_sec.clamp(0.0, duration_sec);

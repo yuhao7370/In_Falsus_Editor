@@ -18,6 +18,8 @@ pub enum TopMenuAction {
     SetShowSpectrum(bool),
     SetMinimapVisible(bool),
     SetRenderScope(RenderScope),
+    SetScrollSpeed(f32),
+    SetScrollSpeedFinal(f32),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
@@ -140,19 +142,13 @@ const POPUP_IDS: &[&str] = &[
     "top_menu_file",
     "top_menu_edit",
     "top_menu_select",
-    "top_menu_settings",
 ];
 
 pub fn draw_top_menu(
     ctx: &egui::Context,
     i18n: &I18n,
-    current_volume: f32,
-    volume_enabled: bool,
-    current_debug_hitbox: bool,
-    current_autoplay: bool,
-    current_show_spectrum: bool,
-    current_show_minimap: bool,
     current_render_scope: RenderScope,
+    settings_open: &mut bool,
 ) -> TopMenuResult {
     let mut action = None;
     let mut any_popup_open = false;
@@ -233,84 +229,13 @@ pub fn draw_top_menu(
                     |_ui| {},
                 );
 
-                draw_top_button_with_popup(
-                    ui,
-                    "top_menu_settings",
-                    i18n.t(TextKey::MenuSettings),
-                    |ui| {
-                        ui.colored_label(
-                            egui::Color32::from_rgb(210, 210, 210),
-                            i18n.t(TextKey::SettingsLanguage),
-                        );
-                        ui.separator();
-
-                        let zh_selected = i18n.language() == Language::ZhCn;
-                        if draw_popup_row(ui, i18n.t(TextKey::LanguageChinese), zh_selected)
-                            .clicked()
-                        {
-                            action = Some(TopMenuAction::SetLanguage(Language::ZhCn));
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
-
-                        let en_selected = i18n.language() == Language::EnUs;
-                        if draw_popup_row(ui, i18n.t(TextKey::LanguageEnglish), en_selected)
-                            .clicked()
-                        {
-                            action = Some(TopMenuAction::SetLanguage(Language::EnUs));
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
-
-                        ui.separator();
-                        ui.colored_label(
-                            egui::Color32::from_rgb(210, 210, 210),
-                            i18n.t(TextKey::PlayerLabelVolume),
-                        );
-                        let mut volume = current_volume.clamp(0.0, 1.0);
-                        let slider = egui::Slider::new(&mut volume, 0.0..=1.0)
-                            .show_value(true)
-                            .text("");
-                        let response = ui.add_enabled(volume_enabled, slider);
-                        if response.changed() && volume_enabled {
-                            action = Some(TopMenuAction::SetVolume(volume));
-                        }
-
-                        ui.separator();
-                        if draw_popup_row(ui, i18n.t(TextKey::SettingsAutoPlay), current_autoplay)
-                            .clicked()
-                        {
-                            action = Some(TopMenuAction::SetAutoPlay(!current_autoplay));
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
-
-                        if draw_popup_row(ui, i18n.t(TextKey::SettingsShowSpectrum), current_show_spectrum)
-                            .clicked()
-                        {
-                            action = Some(TopMenuAction::SetShowSpectrum(!current_show_spectrum));
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
-
-                        ui.separator();
-                        let debug_selected = current_debug_hitbox;
-                        if draw_popup_row(ui, i18n.t(TextKey::SettingsDebugHitbox), debug_selected)
-                            .clicked()
-                        {
-                            action = Some(TopMenuAction::SetDebugHitbox(!current_debug_hitbox));
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
-
-                        let minimap_selected = current_show_minimap;
-                        if draw_popup_row(
-                            ui,
-                            i18n.t(TextKey::SettingsShowMinimap),
-                            minimap_selected,
-                        )
-                        .clicked()
-                        {
-                            action = Some(TopMenuAction::SetMinimapVisible(!current_show_minimap));
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
-                    },
-                );
+                // Settings button: toggle window instead of popup
+                {
+                    let btn_response = draw_top_menu_button(ui, i18n.t(TextKey::MenuSettings), *settings_open);
+                    if btn_response.clicked() {
+                        *settings_open = !*settings_open;
+                    }
+                }
 
                 // ── Right-aligned render scope toggle switch (animated) ──
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -431,8 +356,13 @@ pub fn draw_top_menu(
             });
         });
 
+    if *settings_open {
+        any_popup_open = true;
+    }
+
     TopMenuResult {
         action,
         any_popup_open,
     }
 }
+
