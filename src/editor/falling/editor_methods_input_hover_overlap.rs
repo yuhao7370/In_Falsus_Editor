@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：重叠音符悬停提示逻辑。
+// 主要功能：计算悬停候选并更新重叠切换提示状态。
+impl FallingGroundEditor {
     fn update_hover_overlap_hint(
         &mut self,
         ground_rect: Option<Rect>,

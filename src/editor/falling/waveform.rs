@@ -1,4 +1,6 @@
-﻿#[derive(Debug, Clone)]
+﻿// 文件说明：音频波形数据处理与缓存实现。
+// 主要功能：加载波形采样并提供绘制与交互所需的查询能力。
+#[derive(Debug, Clone)]
 struct Waveform {
     path: String,
     peaks: Vec<f32>,

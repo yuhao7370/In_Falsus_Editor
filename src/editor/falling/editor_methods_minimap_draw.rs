@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：小地图视图绘制实现。
+// 主要功能：绘制全曲概览、可视窗口和小地图音符分布。
+impl FallingGroundEditor {
     fn draw_minimap_view(
         &self,
         rect: Rect,
@@ -266,163 +268,166 @@ impl FallingGroundEditor {
         let head_h = (2.8 * ui).clamp(1.0, 5.0);
         let flick_tip_h = (head_h * 0.35).max(0.8);
 
-        for note in &self.notes {
-            let note_time = note.time_ms.max(0.0);
-            let on_right = note_time >= layout.half_ms;
-            let (ground_rect, sky_rect, page_start_ms, page_end_ms) = if on_right {
-                (
-                    layout.ground_rect_2,
-                    layout.sky_rect_2,
-                    layout.half_ms,
-                    layout.duration_ms.max(layout.half_ms + 0.001),
-                )
-            } else {
-                (
-                    layout.ground_rect_1,
-                    layout.sky_rect_1,
-                    0.0_f32,
-                    layout.half_ms.max(0.001),
-                )
-            };
-
-            let y_head = self.minimap_segment_time_to_y(
-                note_time,
-                ground_rect,
-                page_start_ms,
-                page_end_ms,
-            );
-            let lane_palette = lane_note_palette(note.lane.clamp(0, LANE_COUNT - 1));
-            let ground_lane_w = ground_rect.w / LANE_COUNT as f32;
-            let page_duration_ms = (page_end_ms - page_start_ms).max(0.001);
-
-            match note.kind {
-                GroundNoteKind::Tap => {
-                    let lane_x = ground_rect.x + ground_lane_w * note.lane as f32;
-                    let note_w = (ground_lane_w * 0.74).max(1.0);
-                    let note_x = lane_x + (ground_lane_w - note_w) * 0.5;
-                    draw_rectangle(note_x, y_head - head_h * 0.5, note_w, head_h, lane_palette.tap);
+        // 分两次绘制，确保 Flick 始终压在 SkyArea 上层。
+        for flick_pass in [false, true] {
+            for note in &self.notes {
+                if flick_pass != (note.kind == GroundNoteKind::Flick) {
+                    continue;
                 }
-                GroundNoteKind::Hold => {
-                    let note_end = note.end_time_ms();
-                    for (g_rect, start_ms, end_ms) in [
-                        (layout.ground_rect_1, 0.0_f32, layout.half_ms.max(0.001)),
-                        (
-                            layout.ground_rect_2,
-                            layout.half_ms,
-                            layout.duration_ms.max(layout.half_ms + 0.001),
-                        ),
-                    ] {
-                        if note_end < start_ms || note_time > end_ms {
-                            continue;
-                        }
-                        let lane_w = g_rect.w / LANE_COUNT as f32;
-                        let lane_x = g_rect.x + lane_w * note.lane as f32;
-                        let head_w = (lane_w * 0.82).max(1.0);
-                        let head_x = lane_x + (lane_w - head_w) * 0.5;
-                        let body_start = note_time.max(start_ms);
-                        let body_end = note_end.min(end_ms);
-                        let y0 = self.minimap_segment_time_to_y(body_start, g_rect, start_ms, end_ms);
-                        let y1 = self.minimap_segment_time_to_y(body_end, g_rect, start_ms, end_ms);
-                        let body_w = (head_w * 0.56).max(1.0);
-                        let body_x = head_x + (head_w - body_w) * 0.5;
-                        draw_rectangle(
-                            body_x,
-                            y0.min(y1),
-                            body_w,
-                            (y1 - y0).abs().max(1.0),
-                            lane_palette.hold_body,
-                        );
 
-                        if note_time >= start_ms && note_time <= end_ms {
-                            let y_head_local =
-                                self.minimap_segment_time_to_y(note_time, g_rect, start_ms, end_ms);
+                let note_time = note.time_ms.max(0.0);
+                let on_right = note_time >= layout.half_ms;
+                let (ground_rect, sky_rect, page_start_ms, page_end_ms) = if on_right {
+                    (
+                        layout.ground_rect_2,
+                        layout.sky_rect_2,
+                        layout.half_ms,
+                        layout.duration_ms.max(layout.half_ms + 0.001),
+                    )
+                } else {
+                    (
+                        layout.ground_rect_1,
+                        layout.sky_rect_1,
+                        0.0_f32,
+                        layout.half_ms.max(0.001),
+                    )
+                };
+
+                let y_head = self.minimap_segment_time_to_y(
+                    note_time,
+                    ground_rect,
+                    page_start_ms,
+                    page_end_ms,
+                );
+                let lane_palette = lane_note_palette(note.lane.clamp(0, LANE_COUNT - 1));
+                let ground_lane_w = ground_rect.w / LANE_COUNT as f32;
+                let page_duration_ms = (page_end_ms - page_start_ms).max(0.001);
+
+                match note.kind {
+                    GroundNoteKind::Tap => {
+                        let lane_x = ground_rect.x + ground_lane_w * note.lane as f32;
+                        let note_w = (ground_lane_w * 0.74).max(1.0);
+                        let note_x = lane_x + (ground_lane_w - note_w) * 0.5;
+                        draw_rectangle(note_x, y_head - head_h * 0.5, note_w, head_h, lane_palette.tap);
+                    }
+                    GroundNoteKind::Hold => {
+                        let note_end = note.end_time_ms();
+                        for (g_rect, start_ms, end_ms) in [
+                            (layout.ground_rect_1, 0.0_f32, layout.half_ms.max(0.001)),
+                            (
+                                layout.ground_rect_2,
+                                layout.half_ms,
+                                layout.duration_ms.max(layout.half_ms + 0.001),
+                            ),
+                        ] {
+                            if note_end < start_ms || note_time > end_ms {
+                                continue;
+                            }
+                            let lane_w = g_rect.w / LANE_COUNT as f32;
+                            let lane_x = g_rect.x + lane_w * note.lane as f32;
+                            let head_w = (lane_w * 0.82).max(1.0);
+                            let head_x = lane_x + (lane_w - head_w) * 0.5;
+                            let body_start = note_time.max(start_ms);
+                            let body_end = note_end.min(end_ms);
+                            let y0 = self.minimap_segment_time_to_y(body_start, g_rect, start_ms, end_ms);
+                            let y1 = self.minimap_segment_time_to_y(body_end, g_rect, start_ms, end_ms);
+                            let body_w = (head_w * 0.56).max(1.0);
+                            let body_x = head_x + (head_w - body_w) * 0.5;
                             draw_rectangle(
-                                head_x,
-                                y_head_local - head_h * 0.55,
-                                head_w,
-                                head_h * 1.1,
-                                lane_palette.hold_head,
+                                body_x,
+                                y0.min(y1),
+                                body_w,
+                                (y1 - y0).abs().max(1.0),
+                                lane_palette.hold_body,
+                            );
+
+                            if note_time >= start_ms && note_time <= end_ms {
+                                let y_head_local = self
+                                    .minimap_segment_time_to_y(note_time, g_rect, start_ms, end_ms);
+                                draw_rectangle(
+                                    head_x,
+                                    y_head_local - head_h * 0.55,
+                                    head_w,
+                                    head_h * 1.1,
+                                    lane_palette.hold_head,
+                                );
+                            }
+                            if note_end >= start_ms && note_end <= end_ms {
+                                let y_tail_local =
+                                    self.minimap_segment_time_to_y(note_end, g_rect, start_ms, end_ms);
+                                draw_rectangle(
+                                    head_x,
+                                    y_tail_local - head_h * 0.45,
+                                    head_w,
+                                    head_h * 0.9,
+                                    Color::from_rgba(
+                                        (lane_palette.hold_head.r * 255.0) as u8,
+                                        (lane_palette.hold_head.g * 255.0) as u8,
+                                        (lane_palette.hold_head.b * 255.0) as u8,
+                                        190,
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    GroundNoteKind::Flick => {
+                        let center_x = sky_rect.x + lane_to_air_x_norm(note.lane.clamp(1, 4)) * sky_rect.w;
+                        let air_lane_w = sky_rect.w / 4.0;
+                        let note_w = air_note_width(note, sky_rect.w)
+                            .clamp(air_lane_w * 0.22, air_lane_w * 0.98);
+                        let flick_color = if note.flick_right {
+                            Color::from_rgba(112, 228, 156, 230)
+                        } else {
+                            Color::from_rgba(246, 232, 122, 230)
+                        };
+                        let bpm = self.timeline.point_at_time(note_time).bpm.abs().max(0.001);
+                        let subdiv_ms = 60_000.0 / bpm / 16.0;
+                        let side_h = (subdiv_ms / page_duration_ms * sky_rect.h).max(head_h);
+                        let side_x = if note.flick_right {
+                            center_x + note_w * 0.46
+                        } else {
+                            center_x - note_w * 0.46
+                        };
+                        let tip_x = if note.flick_right {
+                            center_x - note_w * 0.52
+                        } else {
+                            center_x + note_w * 0.52
+                        };
+                        let y_bottom =
+                            self.minimap_segment_time_to_y(note_time, sky_rect, page_start_ms, page_end_ms);
+                        let y_top = y_bottom - side_h;
+                        let y_tip_top = y_bottom - flick_tip_h;
+                        let mut top_curve = Vec::with_capacity(17);
+                        for i in 0..=16 {
+                            let t = i as f32 / 16.0;
+                            let eased = ease_progress(Ease::SineOut, t);
+                            let x = lerp(side_x, tip_x, t);
+                            let y = lerp(y_top, y_tip_top, eased);
+                            top_curve.push(Vec2::new(x, y));
+                        }
+                        let mut polygon = Vec::with_capacity(22);
+                        polygon.push(Vec2::new(side_x, y_bottom));
+                        polygon.extend_from_slice(&top_curve);
+                        polygon.push(Vec2::new(tip_x, y_bottom));
+                        for i in 1..(polygon.len() - 1) {
+                            draw_triangle(
+                                polygon[0],
+                                polygon[i],
+                                polygon[i + 1],
+                                Color::new(flick_color.r, flick_color.g, flick_color.b, 0.52),
                             );
                         }
-                        if note_end >= start_ms && note_end <= end_ms {
-                            let y_tail_local =
-                                self.minimap_segment_time_to_y(note_end, g_rect, start_ms, end_ms);
-                            draw_rectangle(
-                                head_x,
-                                y_tail_local - head_h * 0.45,
-                                head_w,
-                                head_h * 0.9,
-                                Color::from_rgba(
-                                    (lane_palette.hold_head.r * 255.0) as u8,
-                                    (lane_palette.hold_head.g * 255.0) as u8,
-                                    (lane_palette.hold_head.b * 255.0) as u8,
-                                    190,
-                                ),
-                            );
+                        for i in 0..(top_curve.len() - 1) {
+                            let a = top_curve[i];
+                            let b = top_curve[i + 1];
+                            draw_line(a.x, a.y, b.x, b.y, thin, flick_color);
                         }
+                        draw_line(side_x, y_bottom, tip_x, y_bottom, thin, flick_color);
+                        draw_line(side_x, y_bottom, side_x, y_top, thin, flick_color);
                     }
-                }
-                GroundNoteKind::Flick => {
-                    let center_x = sky_rect.x + lane_to_air_x_norm(note.lane.clamp(1, 4)) * sky_rect.w;
-                    let air_lane_w = sky_rect.w / 4.0;
-                    let note_w =
-                        air_note_width(note, sky_rect.w).clamp(air_lane_w * 0.22, air_lane_w * 0.98);
-                    let flick_color = if note.flick_right {
-                        Color::from_rgba(112, 228, 156, 230)
-                    } else {
-                        Color::from_rgba(246, 232, 122, 230)
-                    };
-                    let bpm = self.timeline.point_at_time(note_time).bpm.abs().max(0.001);
-                    let subdiv_ms = 60_000.0 / bpm / 16.0;
-                    let side_h = (subdiv_ms / page_duration_ms * sky_rect.h).max(head_h);
-                    let side_x = if note.flick_right {
-                        center_x + note_w * 0.46
-                    } else {
-                        center_x - note_w * 0.46
-                    };
-                    let tip_x = if note.flick_right {
-                        center_x - note_w * 0.52
-                    } else {
-                        center_x + note_w * 0.52
-                    };
-                    let y_bottom = self.minimap_segment_time_to_y(
-                        note_time,
-                        sky_rect,
-                        page_start_ms,
-                        page_end_ms,
-                    );
-                    let y_top = y_bottom - side_h;
-                    let y_tip_top = y_bottom - flick_tip_h;
-                    let mut top_curve = Vec::with_capacity(17);
-                    for i in 0..=16 {
-                        let t = i as f32 / 16.0;
-                        let eased = ease_progress(Ease::SineOut, t);
-                        let x = lerp(side_x, tip_x, t);
-                        let y = lerp(y_top, y_tip_top, eased);
-                        top_curve.push(Vec2::new(x, y));
+                    GroundNoteKind::SkyArea => {
+                        self.draw_minimap_skyarea_note(note, note_time, head_h, thin, layout);
                     }
-                    let mut polygon = Vec::with_capacity(22);
-                    polygon.push(Vec2::new(side_x, y_bottom));
-                    polygon.extend_from_slice(&top_curve);
-                    polygon.push(Vec2::new(tip_x, y_bottom));
-                    for i in 1..(polygon.len() - 1) {
-                        draw_triangle(
-                            polygon[0],
-                            polygon[i],
-                            polygon[i + 1],
-                            Color::new(flick_color.r, flick_color.g, flick_color.b, 0.52),
-                        );
-                    }
-                    for i in 0..(top_curve.len() - 1) {
-                        let a = top_curve[i];
-                        let b = top_curve[i + 1];
-                        draw_line(a.x, a.y, b.x, b.y, thin, flick_color);
-                    }
-                    draw_line(side_x, y_bottom, tip_x, y_bottom, thin, flick_color);
-                    draw_line(side_x, y_bottom, side_x, y_top, thin, flick_color);
-                }
-                GroundNoteKind::SkyArea => {
-                    self.draw_minimap_skyarea_note(note, note_time, head_h, thin, layout);
                 }
             }
         }

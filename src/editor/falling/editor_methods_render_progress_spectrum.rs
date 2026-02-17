@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：进度条与频谱渲染实现。
+// 主要功能：绘制播放进度、频谱信息及其交互反馈。
+impl FallingGroundEditor {
     fn draw_vertical_progress(&self, rect: Rect, current_sec: f32, duration_sec: f32) {
         if rect.h <= 4.0 || rect.w <= 4.0 {
             return;

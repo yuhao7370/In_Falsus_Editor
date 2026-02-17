@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：地面轨道输入与定位处理。
+// 主要功能：处理 Tap/Hold 的放置、续点与时间定位操作。
+impl FallingGroundEditor {
     fn handle_vertical_progress_seek(
         &mut self,
         rect: Rect,

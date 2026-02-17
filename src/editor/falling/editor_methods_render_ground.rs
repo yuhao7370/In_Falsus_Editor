@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：地面轨道渲染实现。
+// 主要功能：绘制 GROUND 视图、判定线、拍线与地面音符。
+impl FallingGroundEditor {
     fn draw_ground_view(&self, rect: Rect, current_ms: f32, show_spectrum: bool) {
         if rect.h <= 8.0 {
             return;

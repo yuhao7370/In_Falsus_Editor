@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：音符拖拽编辑行为实现。
+// 主要功能：处理拖拽中的位置更新、尾部调整和约束校验。
+impl FallingGroundEditor {
     fn start_drag_for_candidate(
         &mut self,
         candidate: HitCandidate,

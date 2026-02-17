@@ -1,49 +1,76 @@
-﻿fn extract_timeline_events(chart: &Chart) -> Vec<TimelineEvent> {
-    let mut events = Vec::new();
+﻿// 文件说明：从谱面事件中提取编辑器可直接使用的数据。
+// 主要功能：单次遍历构建音符列表、时间轴事件和 BPM 源数据。
+struct ExtractedChartData {
+    notes: Vec<GroundNote>,
+    next_note_id: u64,
+    timeline_events: Vec<TimelineEvent>,
+    bpm_source: BpmSourceData,
+}
+
+fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
+    // One-pass extraction keeps loading accurate while avoiding repeated scans.
+    let mut notes = Vec::new();
+    notes.reserve(chart.events.len().saturating_div(2));
+    let mut timeline_events = Vec::new();
+    timeline_events.reserve(chart.events.len().saturating_div(4));
+
+    let mut bpm_source = BpmSourceData::default();
+    bpm_source
+        .bpm_events
+        .reserve(chart.events.len().saturating_div(8));
+    let mut has_chart_base = false;
+
+    let mut next_id = 1_u64;
 
     for event in &chart.events {
         match event {
-            ChartEvent::Chart { bpm, beats } => events.push(TimelineEvent {
-                time_ms: 0.0,
-                label: format!("chart {:.2}/{:.2}", bpm, beats),
-                color: Color::from_rgba(126, 210, 255, 255),
-            }),
-            ChartEvent::Bpm { time, bpm, beats, .. } => events.push(TimelineEvent {
-                time_ms: *time as f32,
-                label: format!("bpm {:.2} (beats {:.2})", bpm, beats),
-                color: Color::from_rgba(124, 226, 255, 255),
-            }),
+            ChartEvent::Chart { bpm, beats } => {
+                timeline_events.push(TimelineEvent {
+                    time_ms: 0.0,
+                    label: format!("chart {:.2}/{:.2}", bpm, beats),
+                    color: Color::from_rgba(126, 210, 255, 255),
+                });
+
+                if !has_chart_base {
+                    bpm_source.base_bpm = *bpm as f32;
+                    bpm_source.base_beats_per_measure = (*beats as f32).max(1.0);
+                    has_chart_base = true;
+                }
+            }
+            ChartEvent::Bpm {
+                time,
+                bpm,
+                beats,
+                ..
+            } => {
+                timeline_events.push(TimelineEvent {
+                    time_ms: *time as f32,
+                    label: format!("bpm {:.2} (beats {:.2})", bpm, beats),
+                    color: Color::from_rgba(124, 226, 255, 255),
+                });
+                bpm_source
+                    .bpm_events
+                    .push((*time as f32, *bpm as f32, (*beats as f32).max(1.0)));
+            }
             ChartEvent::Track { time, speed } => {
                 let color = if *speed >= 0.0 {
                     Color::from_rgba(150, 240, 170, 255)
                 } else {
                     Color::from_rgba(255, 168, 128, 255)
                 };
-                events.push(TimelineEvent {
+                timeline_events.push(TimelineEvent {
                     time_ms: *time as f32,
                     label: format!("track x{:.2}", speed),
                     color,
                 });
             }
-            ChartEvent::Lane { time, lane, enable } => events.push(TimelineEvent {
-                time_ms: *time as f32,
-                label: format!("lane {} {}", lane, if *enable { "on" } else { "off" }),
-                color: Color::from_rgba(232, 198, 124, 255),
-            }),
-            _ => {}
-        }
-    }
-
-    events.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms).then_with(|| a.label.cmp(&b.label)));
-    events
-}
-
-fn extract_ground_notes(chart: &Chart) -> Vec<GroundNote> {
-    let mut notes = Vec::new();
-    let mut next_id = 1_u64;
-
-    for event in &chart.events {
-        match event {
+            ChartEvent::Lane { time, lane, enable } => {
+                timeline_events.push(TimelineEvent {
+                    time_ms: *time as f32,
+                    label: format!("lane {} {}", lane, if *enable { "on" } else { "off" }),
+                    color: Color::from_rgba(232, 198, 124, 255),
+                });
+            }
             ChartEvent::Tap { time, width, lane } => {
                 if *lane >= 0 && (*lane as usize) < LANE_COUNT {
                     notes.push(GroundNote {
@@ -92,7 +119,9 @@ fn extract_ground_notes(chart: &Chart) -> Vec<GroundNote> {
                     lane: lane_from_normalized_x((*x as f32) / (*x_split as f32).max(1.0)),
                     time_ms: *time as f32,
                     duration_ms: 0.0,
-                    width: normalized_width_to_air_ratio((*width as f32) / (*x_split as f32).max(1.0)),
+                    width: normalized_width_to_air_ratio(
+                        (*width as f32) / (*x_split as f32).max(1.0),
+                    ),
                     flick_right: !matches!(flick_type, FlickType::Left),
                     skyarea_shape: None,
                 });
@@ -150,13 +179,21 @@ fn extract_ground_notes(chart: &Chart) -> Vec<GroundNote> {
         }
     }
 
+    timeline_events
+        .sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms).then_with(|| a.label.cmp(&b.label)));
     notes.sort_by(|a, b| {
         a.time_ms
             .total_cmp(&b.time_ms)
             .then_with(|| a.lane.cmp(&b.lane))
             .then_with(|| a.id.cmp(&b.id))
     });
-    notes
+
+    ExtractedChartData {
+        notes,
+        next_note_id: next_id,
+        timeline_events,
+        bpm_source,
+    }
 }
 
 fn lane_from_normalized_x(norm_x: f32) -> usize {
@@ -190,5 +227,3 @@ fn air_note_width(note: &GroundNote, total_width: f32) -> f32 {
     };
     width_norm * total_width
 }
-
-

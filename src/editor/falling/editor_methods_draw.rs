@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：编辑器每帧绘制与输入分发的主入口实现。
+// 主要功能：负责布局计算、视图绘制顺序和交互调用编排。
+impl FallingGroundEditor {
     pub fn draw(
         &mut self,
         area: Rect,

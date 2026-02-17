@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：命中区域调试渲染实现。
+// 主要功能：可视化音符命中盒与交互判定区域，便于调试。
+impl FallingGroundEditor {
     fn draw_ground_hitbox_overlay(&self, rect: Rect, current_ms: f32) {
         if rect.h <= 4.0 || rect.w <= 4.0 {
             return;

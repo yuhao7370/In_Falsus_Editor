@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：空中轨道的选择与放置输入处理。
+// 主要功能：处理 Flick/SkyArea 的点击、放置和选中逻辑。
+impl FallingGroundEditor {
     fn handle_air_input(&mut self, rect: Rect, current_ms: f32) {
         if rect.h <= 8.0 {
             return;

@@ -1,4 +1,6 @@
-﻿#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+﻿// 文件说明：下落编辑器音符与工具类型定义。
+// 主要功能：定义音符枚举、编辑动作和共用数据结构。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaceNoteType {
     Tap,
     Hold,

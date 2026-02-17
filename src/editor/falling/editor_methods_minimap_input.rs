@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：小地图交互输入处理实现。
+// 主要功能：处理小地图拖拽、点击跳转和同步状态更新。
+impl FallingGroundEditor {
     fn handle_minimap_seek_drag(
         &mut self,
         minimap: MinimapRenderInfo,

@@ -1,4 +1,6 @@
-﻿#[derive(Debug, Clone, Copy)]
+﻿// 文件说明：BPM 时间轴模型与节拍换算实现。
+// 主要功能：处理毫秒与拍点转换、吸附和可见拍线生成。
+#[derive(Debug, Clone, Copy)]
 struct BpmPoint {
     time_ms: f32,
     bpm: f32,
@@ -34,42 +36,35 @@ struct BpmTimeline {
     points: Vec<BpmPoint>,
 }
 
-impl BpmTimeline {
-    fn from_chart(chart: &Chart) -> Self {
-        let mut base_bpm = 120.0_f32;
-        let mut base_beats = 4.0_f32;
+#[derive(Debug, Clone)]
+struct BpmSourceData {
+    base_bpm: f32,
+    base_beats_per_measure: f32,
+    bpm_events: Vec<(f32, f32, f32)>,
+}
 
-        for event in &chart.events {
-            if let ChartEvent::Chart { bpm, beats } = event {
-                base_bpm = *bpm as f32;
-                base_beats = (*beats as f32).max(1.0);
-                break;
-            }
+impl Default for BpmSourceData {
+    fn default() -> Self {
+        Self {
+            base_bpm: 120.0,
+            base_beats_per_measure: 4.0,
+            bpm_events: Vec::new(),
         }
+    }
+}
 
+impl BpmTimeline {
+    fn from_source(mut source: BpmSourceData) -> Self {
         let mut points = vec![BpmPoint {
             time_ms: 0.0,
-            bpm: base_bpm,
-            beats_per_measure: base_beats,
+            bpm: source.base_bpm,
+            beats_per_measure: source.base_beats_per_measure,
             start_beat: 0.0,
         }];
 
-        let mut bpm_events = Vec::new();
-        for event in &chart.events {
-            if let ChartEvent::Bpm {
-                time,
-                bpm,
-                beats,
-                ..
-            } = event
-            {
-                bpm_events.push((*time as f32, *bpm as f32, (*beats as f32).max(1.0)));
-            }
-        }
+        source.bpm_events.sort_by(|a, b| a.0.total_cmp(&b.0));
 
-        bpm_events.sort_by(|a, b| a.0.total_cmp(&b.0));
-
-        for (time_ms, bpm, beats_per_measure) in bpm_events {
+        for (time_ms, bpm, beats_per_measure) in source.bpm_events {
             if time_ms <= 0.0 {
                 points[0].bpm = bpm;
                 points[0].beats_per_measure = beats_per_measure;
@@ -105,15 +100,8 @@ impl BpmTimeline {
     }
 
     fn point_at_time(&self, time_ms: f32) -> BpmPoint {
-        let mut active = self.points[0];
-        for point in &self.points {
-            if point.time_ms <= time_ms {
-                active = *point;
-            } else {
-                break;
-            }
-        }
-        active
+        let idx = self.point_index_at_or_before_time(time_ms);
+        self.points[idx]
     }
 
     fn time_to_beat(&self, time_ms: f32) -> f32 {
@@ -123,20 +111,8 @@ impl BpmTimeline {
     }
 
     fn beat_to_time(&self, beat: f32) -> f32 {
-        for idx in 0..self.points.len() {
-            let point = self.points[idx];
-            let next_beat = if idx + 1 < self.points.len() {
-                self.points[idx + 1].start_beat
-            } else {
-                f32::INFINITY
-            };
-            if beat < next_beat {
-                let bpm = point.bpm.abs().max(0.001);
-                return point.time_ms + (beat - point.start_beat) * 60_000.0 / bpm;
-            }
-        }
-
-        let point = *self.points.last().unwrap_or(&BpmPoint {
+        let idx = self.point_index_at_or_before_beat(beat);
+        let point = self.points.get(idx).copied().unwrap_or(BpmPoint {
             time_ms: 0.0,
             bpm: 120.0,
             beats_per_measure: 4.0,
@@ -167,8 +143,8 @@ impl BpmTimeline {
         let mut output = Vec::new();
         let subdivision = subdivision.max(1);
         let subdivision_i = subdivision as i32;
-
-        for idx in 0..self.points.len() {
+        let first_idx = self.point_index_at_or_before_time(start_ms);
+        for idx in first_idx..self.points.len() {
             let point = self.points[idx];
             let segment_start = point.time_ms;
             let segment_end = if idx + 1 < self.points.len() {
@@ -176,6 +152,9 @@ impl BpmTimeline {
             } else {
                 end_ms + 60_000.0
             };
+            if segment_start > end_ms + 0.001 {
+                break;
+            }
 
             let visible_start = segment_start.max(start_ms);
             let visible_end = segment_end.min(end_ms);
@@ -235,6 +214,28 @@ impl BpmTimeline {
             deduped.push(line);
         }
         deduped
+    }
+
+    fn point_index_at_or_before_time(&self, time_ms: f32) -> usize {
+        match self
+            .points
+            .binary_search_by(|point| point.time_ms.total_cmp(&time_ms))
+        {
+            Ok(idx) => idx,
+            Err(0) => 0,
+            Err(next_idx) => next_idx.saturating_sub(1),
+        }
+    }
+
+    fn point_index_at_or_before_beat(&self, beat: f32) -> usize {
+        match self
+            .points
+            .binary_search_by(|point| point.start_beat.total_cmp(&beat))
+        {
+            Ok(idx) => idx,
+            Err(0) => 0,
+            Err(next_idx) => next_idx.saturating_sub(1),
+        }
     }
 }
 

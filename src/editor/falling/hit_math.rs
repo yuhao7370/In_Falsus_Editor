@@ -1,4 +1,6 @@
-﻿fn lane_from_x(x: f32, lanes_x: f32, lane_w: f32) -> usize {
+﻿// 文件说明：命中测试与坐标换算数学工具。
+// 主要功能：提供轨道映射、距离计算和命中判定辅助函数。
+fn lane_from_x(x: f32, lanes_x: f32, lane_w: f32) -> usize {
     ((x - lanes_x) / lane_w).floor().clamp(0.0, (LANE_COUNT as f32) - 1.0) as usize
 }
 
@@ -50,12 +52,28 @@ fn should_replace_hit_candidate(current: HitCandidate, incoming: HitCandidate) -
 
 fn sort_hit_candidates(candidates: &mut Vec<HitCandidate>) {
     candidates.sort_by(|a, b| {
-        hit_part_rank(b.part)
-            .cmp(&hit_part_rank(a.part))
+        b.z_order
+            .cmp(&a.z_order)
+            .then_with(|| hit_part_rank(b.part).cmp(&hit_part_rank(a.part)))
             .then_with(|| a.distance_sq.total_cmp(&b.distance_sq))
-            .then_with(|| b.z_order.cmp(&a.z_order))
             .then_with(|| a.note_id.cmp(&b.note_id))
     });
+}
+
+fn ground_hit_z_order(note_index: usize) -> u32 {
+    note_index as u32
+}
+
+fn air_hit_z_order(note_index: usize, kind: GroundNoteKind) -> u32 {
+    // Air 视图在 Both 模式下覆盖 Ground；Flick 在 Air 内再覆盖 SkyArea。
+    const AIR_BASE_BIAS: u32 = 1_000_000;
+    const AIR_FLICK_TOP_BIAS: u32 = 1_000_000;
+
+    let mut z = AIR_BASE_BIAS.saturating_add(note_index as u32);
+    if kind == GroundNoteKind::Flick {
+        z = z.saturating_add(AIR_FLICK_TOP_BIAS);
+    }
+    z
 }
 
 fn hit_part_rank(part: HitPart) -> u8 {

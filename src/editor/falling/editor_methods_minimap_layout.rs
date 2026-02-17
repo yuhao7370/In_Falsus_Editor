@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：小地图布局与可视范围计算。
+// 主要功能：计算小地图区域尺寸、窗口映射和定位参数。
+impl FallingGroundEditor {
     fn split_portrait_screens(&self, rect: Rect) -> (Rect, Rect) {
         let gap = (rect.w * 0.04).clamp(10.0, 28.0);
         let max_h_by_width = ((rect.w - gap).max(10.0)) / (2.0 * PORTRAIT_SCREEN_RATIO);

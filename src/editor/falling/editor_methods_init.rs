@@ -1,29 +1,27 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：编辑器初始化与基础状态切换实现。
+// 主要功能：加载谱面、构建时间轴并初始化编辑器运行状态。
+impl FallingGroundEditor {
     pub fn new() -> Self {
         Self::from_chart_path(DEFAULT_CHART_PATH)
     }
 
     pub fn from_chart_path(path: &str) -> Self {
-        let (notes, timeline, timeline_events, status) = match Chart::from_file(path) {
+        let (notes, next_note_id, timeline, timeline_events, status) = match Chart::from_file(path) {
             Ok(chart) => {
+                let extracted = extract_chart_data(&chart);
                 (
-                    extract_ground_notes(&chart),
-                    BpmTimeline::from_chart(&chart),
-                    extract_timeline_events(&chart),
+                    extracted.notes,
+                    extracted.next_note_id,
+                    BpmTimeline::from_source(extracted.bpm_source),
+                    extracted.timeline_events,
                     format!("chart loaded: {path}"),
                 )
             }
             Err(err) => {
                 (
                     Vec::new(),
-                    BpmTimeline {
-                        points: vec![BpmPoint {
-                            time_ms: 0.0,
-                            bpm: 120.0,
-                            beats_per_measure: 4.0,
-                            start_beat: 0.0,
-                        }],
-                    },
+                    1,
+                    BpmTimeline::from_source(BpmSourceData::default()),
                     vec![TimelineEvent {
                         time_ms: 0.0,
                         label: "chart 120.00/4.00".to_owned(),
@@ -33,13 +31,6 @@
                 )
             }
         };
-
-        let next_note_id = notes
-            .iter()
-            .map(|note| note.id)
-            .max()
-            .unwrap_or(0)
-            .saturating_add(1);
 
         Self {
             chart_path: path.to_owned(),

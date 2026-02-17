@@ -1,3 +1,5 @@
+// 文件说明：SkyArea 形状渲染与插值实现。
+// 主要功能：按起止宽度与缓动参数绘制 SkyArea 轮廓和填充。
 impl FallingGroundEditor {
     fn draw_skyarea_shape(
         &self,

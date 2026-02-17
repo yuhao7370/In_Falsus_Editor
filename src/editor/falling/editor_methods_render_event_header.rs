@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：事件头部与顶部信息渲染。
+// 主要功能：绘制谱面事件摘要、状态文本和工具提示信息。
+impl FallingGroundEditor {
     fn draw_event_view(&self, rect: Rect, current_ms: f32) {
         if rect.h <= 8.0 || rect.w <= 8.0 {
             return;

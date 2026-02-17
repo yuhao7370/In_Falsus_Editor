@@ -1,3 +1,5 @@
+// 文件说明：放置光标与预览渲染实现。
+// 主要功能：根据当前工具绘制放置预览形状和辅助指示。
 impl FallingGroundEditor {
     fn draw_place_cursor(&self, rect: Rect, current_ms: f32) {
         let Some(place_type) = self.place_note_type else {

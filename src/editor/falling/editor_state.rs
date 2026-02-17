@@ -1,4 +1,6 @@
-﻿#[derive(Debug, Clone, Copy)]
+﻿// 文件说明：编辑器状态数据结构定义。
+// 主要功能：定义运行时状态、交互上下文与缓存字段。
+#[derive(Debug, Clone, Copy)]
 struct DragState {
     note_id: u64,
     time_offset_ms: f32,

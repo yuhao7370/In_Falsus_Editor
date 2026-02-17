@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：输入命中候选收集逻辑。
+// 主要功能：按鼠标位置收集可交互音符并提供判定优先级。
+impl FallingGroundEditor {
     fn collect_hit_candidates(
         &self,
         mx: f32,
@@ -63,7 +65,7 @@
             let note_w = note_head_width(note, lane_w);
             let note_x = lane_x + (lane_w - note_w) * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-            let z_order = z as u32;
+            let z_order = ground_hit_z_order(z);
             let side_h = self.flick_side_height_px(note.time_ms, rect.h);
 
             let head_rect = if note.kind == GroundNoteKind::Flick {
@@ -144,7 +146,7 @@
             if !is_air_kind(note.kind) {
                 continue;
             }
-            let z_order = z as u32;
+            let z_order = air_hit_z_order(z, note.kind);
             let center_x = split_rect.x + lane_to_air_x_norm(note.lane) * split_rect.w;
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;

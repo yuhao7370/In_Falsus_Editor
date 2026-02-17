@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：编辑器内部通用操作函数集合。
+// 主要功能：封装音符增删改、排序、吸附和状态维护。
+impl FallingGroundEditor {
     fn pointer_to_time(&self, mouse_y: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
         current_ms + (judge_y - mouse_y) / (self.scroll_speed * lane_h).max(1.0) * 1000.0
     }

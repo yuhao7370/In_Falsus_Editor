@@ -1,4 +1,6 @@
-﻿fn draw_selected_note_darken_rect(x: f32, y: f32, w: f32, h: f32) {
+﻿// 文件说明：调试绘制辅助函数集合。
+// 主要功能：绘制选中遮罩、高亮边框等调试可视元素。
+fn draw_selected_note_darken_rect(x: f32, y: f32, w: f32, h: f32) {
     draw_rectangle(
         x,
         y,

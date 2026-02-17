@@ -1,4 +1,6 @@
-﻿#[derive(Debug, Clone, Copy)]
+﻿// 文件说明：音符视觉样式配置与计算。
+// 主要功能：提供音符配色、尺寸和样式映射规则。
+#[derive(Debug, Clone, Copy)]
 struct LaneNotePalette {
     tap: Color,
     hold_head: Color,

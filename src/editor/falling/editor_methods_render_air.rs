@@ -1,4 +1,6 @@
-﻿impl FallingGroundEditor {
+﻿// 文件说明：空中轨道渲染实现。
+// 主要功能：绘制 SKY 视图背景、网格、拍线与空中音符。
+impl FallingGroundEditor {
     fn draw_air_view(&self, rect: Rect, current_ms: f32, overlay_mode: bool, show_spectrum: bool) {
         if rect.h <= 8.0 {
             return;
@@ -88,79 +90,86 @@
             },
         );
 
-        for note in &self.notes {
-            if !is_air_kind(note.kind) {
-                continue;
-            }
-            let x_norm = lane_to_air_x_norm(note.lane);
-            let center_x = split_rect.x + x_norm * split_rect.w;
-            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-            let selected = self.selected_note_id == Some(note.id);
-            let lane_for_palette = note.lane.clamp(0, LANE_COUNT - 1);
-            let palette = lane_note_palette(lane_for_palette);
-
-            let note_w = air_note_width(note, split_rect.w);
-            let note_x = center_x - note_w * 0.5;
-
-            if note.kind == GroundNoteKind::SkyArea {
-                if let Some(shape) = note.skyarea_shape {
-                    self.draw_skyarea_shape(
-                        split_rect,
-                        current_ms,
-                        judge_y,
-                        rect.h,
-                        note,
-                        shape,
-                        selected,
-                    );
+        // 分两次绘制空中音符，保证 Flick 永远在 SkyArea 上层。
+        for flick_pass in [false, true] {
+            for note in &self.notes {
+                if !is_air_kind(note.kind) {
                     continue;
                 }
-            }
+                if flick_pass != (note.kind == GroundNoteKind::Flick) {
+                    continue;
+                }
 
-            if note.has_tail() {
-                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
-                let y1 = head_y.min(tail_y);
-                let y2 = head_y.max(tail_y);
-                if y2 >= rect.y && y1 <= rect.y + rect.h {
-                    let body_y = y1.max(rect.y);
-                    let body_h = (y2.min(rect.y + rect.h) - body_y).max(1.0);
-                    let body_color = match note.kind {
-                        GroundNoteKind::SkyArea => AIR_SKYAREA_BODY_COLOR,
-                        _ => palette.hold_body,
-                    };
-                    draw_rectangle(note_x, body_y, note_w, body_h, body_color);
-                    if selected {
-                        draw_selected_note_darken_rect(note_x, body_y, note_w, body_h);
+                let x_norm = lane_to_air_x_norm(note.lane);
+                let center_x = split_rect.x + x_norm * split_rect.w;
+                let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+                let selected = self.selected_note_id == Some(note.id);
+                let lane_for_palette = note.lane.clamp(0, LANE_COUNT - 1);
+                let palette = lane_note_palette(lane_for_palette);
+
+                let note_w = air_note_width(note, split_rect.w);
+                let note_x = center_x - note_w * 0.5;
+
+                if note.kind == GroundNoteKind::SkyArea {
+                    if let Some(shape) = note.skyarea_shape {
+                        self.draw_skyarea_shape(
+                            split_rect,
+                            current_ms,
+                            judge_y,
+                            rect.h,
+                            note,
+                            shape,
+                            selected,
+                        );
+                        continue;
                     }
                 }
-            }
 
-            if head_y >= rect.y - 24.0 && head_y <= rect.y + rect.h + 24.0 {
-                if note.kind == GroundNoteKind::Flick {
-                    let side_h = self.flick_side_height_px(note.time_ms, rect.h);
-                    draw_flick_curve_shape(note, note_x, note_w, head_y, side_h);
-                    if selected {
-                        let bounds = flick_shape_bounds(note, note_x, note_w, head_y, side_h);
-                        draw_selected_note_darken_rect(bounds.x, bounds.y, bounds.w, bounds.h);
-                        draw_selected_note_outline(bounds.x, bounds.y, bounds.w, bounds.h);
+                if note.has_tail() {
+                    let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                    let y1 = head_y.min(tail_y);
+                    let y2 = head_y.max(tail_y);
+                    if y2 >= rect.y && y1 <= rect.y + rect.h {
+                        let body_y = y1.max(rect.y);
+                        let body_h = (y2.min(rect.y + rect.h) - body_y).max(1.0);
+                        let body_color = match note.kind {
+                            GroundNoteKind::SkyArea => AIR_SKYAREA_BODY_COLOR,
+                            _ => palette.hold_body,
+                        };
+                        draw_rectangle(note_x, body_y, note_w, body_h, body_color);
+                        if selected {
+                            draw_selected_note_darken_rect(note_x, body_y, note_w, body_h);
+                        }
                     }
-                } else {
-                    let head_color = match note.kind {
-                        GroundNoteKind::SkyArea => AIR_SKYAREA_HEAD_COLOR,
-                        _ => palette.tap,
-                    };
-                    draw_rectangle(note_x, head_y - 8.0, note_w, 16.0, head_color);
-                    draw_rectangle(
-                        note_x + 1.0,
-                        head_y - 7.0,
-                        (note_w - 2.0).max(1.0),
-                        5.0,
-                        Color::from_rgba(255, 255, 255, 34),
-                    );
+                }
 
-                    if selected {
-                    draw_selected_note_darken_rect(note_x, head_y - 8.0, note_w, 16.0);
-                    draw_selected_note_outline(note_x, head_y - 8.0, note_w, 16.0);
+                if head_y >= rect.y - 24.0 && head_y <= rect.y + rect.h + 24.0 {
+                    if note.kind == GroundNoteKind::Flick {
+                        let side_h = self.flick_side_height_px(note.time_ms, rect.h);
+                        draw_flick_curve_shape(note, note_x, note_w, head_y, side_h);
+                        if selected {
+                            let bounds = flick_shape_bounds(note, note_x, note_w, head_y, side_h);
+                            draw_selected_note_darken_rect(bounds.x, bounds.y, bounds.w, bounds.h);
+                            draw_selected_note_outline(bounds.x, bounds.y, bounds.w, bounds.h);
+                        }
+                    } else {
+                        let head_color = match note.kind {
+                            GroundNoteKind::SkyArea => AIR_SKYAREA_HEAD_COLOR,
+                            _ => palette.tap,
+                        };
+                        draw_rectangle(note_x, head_y - 8.0, note_w, 16.0, head_color);
+                        draw_rectangle(
+                            note_x + 1.0,
+                            head_y - 7.0,
+                            (note_w - 2.0).max(1.0),
+                            5.0,
+                            Color::from_rgba(255, 255, 255, 34),
+                        );
+
+                        if selected {
+                            draw_selected_note_darken_rect(note_x, head_y - 8.0, note_w, 16.0);
+                            draw_selected_note_outline(note_x, head_y - 8.0, note_w, 16.0);
+                        }
                     }
                 }
             }
