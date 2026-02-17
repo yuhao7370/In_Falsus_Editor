@@ -5,4 +5,5 @@ pub mod note_panel;
 pub mod progress_bar;
 pub mod scale;
 pub mod settings_window;
+pub mod snap_slider;
 pub mod top_menu;

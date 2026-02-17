@@ -46,7 +46,9 @@ pub fn draw_top_progress_bar(
     let mut display_sec = current_sec;
     let mut seek_to_sec = None;
 
-    let top_bar = Rect::new(0.0, menu_height, screen_width(), top_bar_height);
+    // Background spans full width (extends under snap slider panel)
+    let full_w = screen_width();
+    let top_bar = Rect::new(0.0, menu_height, full_w, top_bar_height);
     draw_rectangle(
         top_bar.x,
         top_bar.y,
@@ -57,7 +59,7 @@ pub fn draw_top_progress_bar(
     draw_line(
         0.0,
         top_bar.y + top_bar.h,
-        screen_width(),
+        full_w,
         top_bar.y + top_bar.h,
         (1.0 * ui_scale).max(1.0),
         Color::from_rgba(40, 40, 50, 255),

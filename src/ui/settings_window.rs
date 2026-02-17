@@ -1,4 +1,5 @@
 use crate::i18n::{I18n, Language, TextKey};
+use crate::ui::snap_slider::draw_snap_slider;
 use crate::ui::top_menu::TopMenuAction;
 use egui_macroquad::egui;
 
@@ -118,6 +119,7 @@ pub fn draw_settings_window(
     min_scroll_speed: f32,
     max_scroll_speed: f32,
     scroll_speed_step: f32,
+    current_snap_division: u32,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -236,6 +238,21 @@ pub fn draw_settings_window(
                                     action = Some(TopMenuAction::SetScrollSpeedFinal(new_speed));
                                 }
                             });
+                            ui.add_space(4.0);
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new("Barline Snap")
+                                        .color(egui::Color32::from_rgb(210, 210, 210)),
+                                );
+                                ui.label(
+                                    egui::RichText::new(format!("{}x", current_snap_division))
+                                        .color(egui::Color32::from_rgb(106, 168, 255)),
+                                );
+                            });
+                            let snap_width = (ui.available_width() - 4.0).max(80.0);
+                            if let Some(new_div) = draw_snap_slider(ui, current_snap_division, snap_width) {
+                                action = Some(TopMenuAction::SetSnapDivision(new_div));
+                            }
                         }
                         SettingsCategory::Debug => {
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugHitbox), current_debug_hitbox).clicked() {

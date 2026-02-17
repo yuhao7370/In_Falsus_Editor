@@ -10,7 +10,7 @@ use i18n::{I18n, Language, TextKey};
 use macroquad::prelude::*;
 use ui::fonts::{init_egui_fonts, load_macroquad_cjk_font};
 use ui::info_toast::InfoToastManager;
-use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel};
+use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel, draw_snap_slider_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
 use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
@@ -113,6 +113,10 @@ fn handle_top_menu_action(
             editor.set_scroll_speed(speed);
             audio.status = format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), speed);
         }
+        TopMenuAction::SetSnapDivision(division) => {
+            editor.set_snap_division(division);
+            audio.status = format!("Snap: {}x", division);
+        }
     }
 }
 
@@ -155,6 +159,7 @@ async fn main() {
 
         let mut top_menu_result = TopMenuResult { action: None, any_popup_open: false };
         let mut egui_wants_pointer = false;
+        let mut total_right_panels_px = note_panel_width_px;
         egui_macroquad::ui(|ctx| {
             if !egui_fonts_ready {
                 let _ = init_egui_fonts(ctx);
@@ -185,15 +190,39 @@ async fn main() {
                     editor.min_scroll_speed(),
                     editor.max_scroll_speed(),
                     editor.scroll_speed_step(),
+                    editor.snap_division(),
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }
             }
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
+            let snap_panel_px = draw_snap_slider_panel(ctx, &mut editor);
+            // note_panel_width_px is for progress bar (excludes snap panel).
+            // total_right_panels_px includes snap panel for editor width.
+            total_right_panels_px = note_panel_width_px + snap_panel_px;
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
-            egui_wants_pointer = ctx.is_using_pointer()
+            // Check if pointer is over egui, but exclude the progress bar region
+            // (snap slider panel extends to top but shouldn't block progress bar clicks)
+            let raw_egui_pointer = ctx.is_using_pointer()
                 || ctx.is_pointer_over_area()
                 || top_menu_result.any_popup_open;
+            // If mouse is in the progress bar vertical band (menu_height..menu_height+top_bar_height)
+            // and over the snap panel area, don't count it as egui-blocked so progress bar stays clickable.
+            let progress_band_top = menu_height / ui_scale;
+            let progress_band_bottom = (menu_height + top_bar_height) / ui_scale;
+            let in_progress_band = ctx.input(|i| {
+                if let Some(pos) = i.pointer.interact_pos() {
+                    pos.y >= progress_band_top && pos.y <= progress_band_bottom
+                } else {
+                    false
+                }
+            });
+            egui_wants_pointer = if in_progress_band {
+                // Only block if a popup is open or user is actively using a widget (not just hovering snap panel)
+                ctx.is_using_pointer() || top_menu_result.any_popup_open
+            } else {
+                raw_egui_pointer
+            };
         });
         set_pointer_blocked(egui_wants_pointer);
 
@@ -233,7 +262,7 @@ async fn main() {
         let track_path = audio.track_path().map(|s| s.to_owned());
         let is_playing = audio.is_playing();
         let editor_width =
-            (screen_width() - panel_pad * 2.0 - note_panel_width_px - editor_gap).max(360.0);
+            (screen_width() - panel_pad * 2.0 - total_right_panels_px - editor_gap).max(360.0);
         // 5. Top progress bar
         let progress_output = draw_top_progress_bar(
             ui_scale,

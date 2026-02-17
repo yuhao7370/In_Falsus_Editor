@@ -1,5 +1,5 @@
 use crate::editor::falling::{
-    FallingGroundEditor, PlaceNoteType, SNAP_DIVISION_OPTIONS,
+    FallingGroundEditor, PlaceNoteType,
 };
 use egui_macroquad::egui;
 
@@ -63,24 +63,6 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
             ui.heading("Note Tool");
             ui.label("LMB: Select  RMB: Clear");
             ui.separator();
-            ui.label("Barline Snap");
-            ui.horizontal_wrapped(|ui| {
-                let current = editor.snap_division();
-                for division in SNAP_DIVISION_OPTIONS {
-                    let selected = current == division;
-                    let button = egui::Button::new(format!("{division}x"))
-                        .min_size(egui::vec2(48.0, 26.0))
-                        .fill(if selected {
-                            egui::Color32::from_rgba_unmultiplied(106, 168, 255, 76)
-                        } else {
-                            egui::Color32::from_rgba_unmultiplied(255, 255, 255, 8)
-                        });
-                    if ui.add(button).clicked() {
-                        editor.set_snap_division(division);
-                    }
-                }
-            });
-
             {
                 let mut enabled = editor.track_speed_enabled();
                 if ui.checkbox(&mut enabled, "Track Speed Events").changed() {
@@ -142,6 +124,36 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
             editor.set_place_note_type(None);
         }
     }
+
+    panel.response.rect.width() * ppp
+}
+
+/// Draw a narrow vertical snap slider panel to the left of the note panel.
+/// Must be called BEFORE `draw_note_selector_panel` so egui stacks it to the left.
+/// Returns the panel width in physical pixels.
+pub fn draw_snap_slider_panel(ctx: &egui::Context, editor: &mut FallingGroundEditor) -> f32 {
+    use crate::ui::snap_slider::draw_snap_slider_vertical;
+
+    let ppp = ctx.pixels_per_point().max(0.000_1);
+    let panel_w = 36.0_f32;
+
+    let panel = egui::SidePanel::right("snap_slider_panel")
+        .resizable(false)
+        .show_separator_line(false)
+        .min_width(panel_w)
+        .max_width(panel_w)
+        .frame(
+            egui::Frame::default()
+                .fill(egui::Color32::TRANSPARENT)
+                .stroke(egui::Stroke::NONE)
+                .inner_margin(egui::Margin { left: 0, right: 0, top: 36, bottom: 4 }),
+        )
+        .show(ctx, |ui| {
+            let h = ui.available_height();
+            if let Some(new_div) = draw_snap_slider_vertical(ui, editor.snap_division(), h) {
+                editor.set_snap_division(new_div);
+            }
+        });
 
     panel.response.rect.width() * ppp
 }
