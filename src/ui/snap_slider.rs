@@ -139,31 +139,34 @@ pub fn draw_snap_slider(ui: &mut egui::Ui, current: u32, width: f32) -> Option<u
     }
 }
 
-/// Vertical snap slider: rail runs top-to-bottom, values increase upward (1 at bottom, 64 at top).
+/// Vertical snap slider: rail runs top-to-bottom, values increase downward (1 at top, 64 at bottom).
 /// Every division value is labeled. Returns `Some(new_division)` on change.
+/// All sizes are in egui logical points — scaling is handled by `ctx.set_pixels_per_point()`.
 pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -> Option<u32> {
     let options = &SNAP_DIVISION_OPTIONS;
     let count = options.len();
     let current_idx = options.iter().position(|&v| v == current).unwrap_or(0);
 
-    // Widget dimensions
-    let label_w = 16.0_f32; // space for "64" text
-    let rail_w = 8.0_f32;
-    let widget_w = label_w + rail_w + 2.0;
+    // Widget dimensions in logical points (egui handles scaling via pixels_per_point)
+    let label_w: f32 = 26.0;
+    let rail_w: f32 = 18.0;
+    let gap: f32 = 0.0;
+    let widget_w = label_w + rail_w + gap;
     let desired = egui::vec2(widget_w, height.max(100.0));
     let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::click_and_drag());
 
     let painter = ui.painter_at(rect);
 
     // Vertical rail area
-    let y_pad = 8.0_f32;
+    let y_pad: f32 = 8.0;
     let y_min = rect.top() + y_pad;
     let y_max = rect.bottom() - y_pad;
     let y_range = (y_max - y_min).max(1.0);
 
     // Rail x positions (two vertical lines)
-    let rail_left = rect.left() + label_w + 2.0;
-    let rail_right = rail_left + rail_w;
+    // Clamp rail_right so it doesn't touch the panel edge (avoids being covered by note panel border)
+    let rail_left = rect.left() + label_w + gap;
+    let rail_right = (rail_left + rail_w).min(rect.right() - 1.5);
     let rail_cx = (rail_left + rail_right) * 0.5;
 
     // Map index to y: index 0 (value 1) at top, last index (value 64) at bottom
@@ -179,7 +182,6 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
     let mut new_idx = current_idx;
     if response.dragged() || response.clicked() {
         if let Some(pos) = response.interact_pointer_pos() {
-            // top = index 0 (value 1), bottom = last index (value 64)
             let t = ((pos.y - y_min) / y_range).clamp(0.0, 1.0);
             let float_idx = t * (count - 1) as f32;
             new_idx = float_idx.round() as usize;
@@ -192,33 +194,36 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
     let tick_color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 60);
     let label_color = egui::Color32::from_rgba_unmultiplied(180, 180, 190, 180);
     let label_active = egui::Color32::from_rgb(106, 168, 255);
+    let rail_stroke = egui::Stroke::new(1.0, rail_color);
+    let tick_stroke = egui::Stroke::new(1.0, tick_color);
+
     // Draw left rail
     painter.line_segment(
         [egui::pos2(rail_left, y_min - 2.0), egui::pos2(rail_left, y_max + 2.0)],
-        egui::Stroke::new(1.0, rail_color),
+        rail_stroke,
     );
     // Draw right rail
     painter.line_segment(
         [egui::pos2(rail_right, y_min - 2.0), egui::pos2(rail_right, y_max + 2.0)],
-        egui::Stroke::new(1.0, rail_color),
+        rail_stroke,
     );
 
     // Ticks and labels
-    let tick_len = 3.0_f32;
+    let tick_len: f32 = 3.0;
     let font = egui::FontId::proportional(10.0);
     for i in 0..count {
         let y = idx_to_y(i);
         let val = options[i];
 
-        // Left tick (inward from left rail)
+        // Left tick
         painter.line_segment(
             [egui::pos2(rail_left, y), egui::pos2(rail_left + tick_len, y)],
-            egui::Stroke::new(1.0, tick_color),
+            tick_stroke,
         );
-        // Right tick (inward from right rail)
+        // Right tick
         painter.line_segment(
             [egui::pos2(rail_right, y), egui::pos2(rail_right - tick_len, y)],
-            egui::Stroke::new(1.0, tick_color),
+            tick_stroke,
         );
 
         // Label to the left of the rail
@@ -241,10 +246,9 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
     } else {
         egui::Color32::from_rgb(120, 120, 128)
     };
-    let radius = 5.0_f32;
     painter.circle(
         egui::pos2(rail_cx, thumb_y),
-        radius,
+        5.0,
         fill,
         egui::Stroke::new(1.5, egui::Color32::from_rgb(240, 240, 240)),
     );

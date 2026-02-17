@@ -135,7 +135,7 @@ pub fn draw_snap_slider_panel(ctx: &egui::Context, editor: &mut FallingGroundEdi
     use crate::ui::snap_slider::draw_snap_slider_vertical;
 
     let ppp = ctx.pixels_per_point().max(0.000_1);
-    let panel_w = 36.0_f32;
+    let panel_w: f32 = 56.0;
 
     let panel = egui::SidePanel::right("snap_slider_panel")
         .resizable(false)
