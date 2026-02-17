@@ -8,9 +8,6 @@ const REFERENCE_WIDTH: f32 = 1366.0;
 /// 自适应缩放的参考分辨率高度（设计稿高度）。
 const REFERENCE_HEIGHT: f32 = 768.0;
 
-/// 启动时默认加载的谱面路径。
-const DEFAULT_CHART_PATH: &str = "songs/alamode/alamode3.spc";
-
 /// 新建空中 Flick 的默认归一化宽度（相对空轨区域）。
 const DEFAULT_AIR_WIDTH_NORM: f32 = 0.5;
 /// 新建 SkyArea 的默认归一化宽度（相对空轨区域）。
@@ -26,7 +23,7 @@ const MAX_SCROLL_SPEED: f32 = 4.0;
 const SCROLL_SPEED_STEP: f32 = 0.1;
 
 /// 可选的节拍吸附分母（1/N）。
-pub const SNAP_DIVISION_OPTIONS: [u32; 9] = [2, 3, 4, 6, 8, 12, 16, 24, 32];
+pub const SNAP_DIVISION_OPTIONS: [u32; 10] = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32];
 
 /// SkyArea 头/体/尾的可视化颜色。
 const AIR_SKYAREA_HEAD_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.84);

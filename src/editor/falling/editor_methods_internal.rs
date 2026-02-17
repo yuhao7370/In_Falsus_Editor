@@ -93,8 +93,12 @@ impl FallingGroundEditor {
     }
 
     fn format_measure_label(&self, measure_pos: f32) -> String {
-        let snapped = (measure_pos * 2.0).round() * 0.5 + 1.0;
-        format!("{snapped:.1}")
+        let snapped = (measure_pos * 2.0).round() * 0.5;
+        if (snapped - snapped.round()).abs() < 0.001 {
+            format!("{}", snapped.round() as i32)
+        } else {
+            format!("{snapped:.1}")
+        }
     }
 
     fn resolution_ui_scale(&self) -> f32 {
@@ -110,7 +114,7 @@ impl FallingGroundEditor {
     }
 
     fn title_side_margin_px(&self) -> f32 {
-        self.scaled_ui_px(4.0)
+        self.scaled_ui_px(5.0)
     }
 
     fn title_font_size(&self) -> u16 {

@@ -24,14 +24,6 @@
         self.duration_sec
     }
 
-    pub fn default_track_path() -> &'static str {
-        DEFAULT_TRACK_PATH
-    }
-
-    pub fn load_default(&mut self, autoplay: bool) -> Result<(), PlayerError> {
-        self.load_file(DEFAULT_TRACK_PATH, autoplay)
-    }
-
     pub fn load_file(&mut self, path: impl AsRef<Path>, autoplay: bool) -> Result<(), PlayerError> {
         let path_string = path.as_ref().to_string_lossy().to_string();
         let bytes = std::fs::read(path.as_ref()).map_err(|err| PlayerError::Io {

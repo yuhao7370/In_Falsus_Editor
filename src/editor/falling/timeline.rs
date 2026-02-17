@@ -193,9 +193,18 @@ impl BpmTimeline {
                     BarLineKind::Subdivision
                 };
 
-                let measure_pos = beat / beats_per_measure;
-                let half_step = (measure_pos * 2.0).round();
-                let show_measure_label = (measure_pos * 2.0 - half_step).abs() < 0.001;
+                // Label in global beat space (continuous 1,2,3,4,5...),
+                // instead of resetting every measure.
+                // 1x/odd-x -> every whole beat
+                // even-x(>=2) -> every half beat
+                let label_step_beats = if subdivision > 1 && subdivision % 2 == 0 {
+                    0.5
+                } else {
+                    1.0
+                };
+                let label_grid = (beat / label_step_beats).round();
+                let show_measure_label = (beat / label_step_beats - label_grid).abs() < 0.001;
+                let measure_pos = label_grid * label_step_beats + 1.0;
 
                 output.push(BarLine {
                     time_ms: line_time_ms,

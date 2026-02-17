@@ -1,8 +1,8 @@
 ﻿// 文件说明：编辑器初始化与基础状态切换实现。
 // 主要功能：加载谱面、构建时间轴并初始化编辑器运行状态。
 impl FallingGroundEditor {
-    pub fn new() -> Self {
-        Self::from_chart_path(DEFAULT_CHART_PATH)
+    pub fn new(default_chart_path: &str) -> Self {
+        Self::from_chart_path(default_chart_path)
     }
 
     pub fn from_chart_path(path: &str) -> Self {

@@ -17,6 +17,11 @@ use ui::top_menu::{TopMenuAction, draw_top_menu};
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
+// const DEFAULT_CHART_PATH: &str = "songs/alamode/alamode3.spc";
+// const DEFAULT_AUDIO_TRACK_PATH: &str = "songs/alamode/music.ogg";
+
+const DEFAULT_CHART_PATH: &str = "grievouslady2.spc";
+const DEFAULT_AUDIO_TRACK_PATH: &str = "music.ogg";
 
 fn window_conf() -> Conf {
     Conf {
@@ -87,10 +92,10 @@ fn handle_top_menu_action(
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut editor = FallingGroundEditor::new();
+    let mut editor = FallingGroundEditor::new(DEFAULT_CHART_PATH);
     let mut i18n = I18n::detect();
     let mut egui_fonts_ready = false;
-    let mut audio = AudioController::new(&i18n);
+    let mut audio = AudioController::new(&i18n, DEFAULT_AUDIO_TRACK_PATH);
     let mut top_progress_state = TopProgressBarState::new();
     let mut info_toasts = InfoToastManager::new();
     let macroquad_font = load_macroquad_cjk_font().await;

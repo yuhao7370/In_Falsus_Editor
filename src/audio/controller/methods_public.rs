@@ -1,14 +1,14 @@
 ﻿impl AudioController {
-    pub fn new(i18n: &I18n) -> Self {
+    pub fn new(i18n: &I18n, default_track_path: &str) -> Self {
         let (mut player, status) = match SongPlayer::new() {
             Ok(mut p) => {
-                let s = if let Err(e) = p.load_default(false) {
+                let s = if let Err(e) = p.load_file(default_track_path, false) {
                     format_error(&e, i18n)
                 } else {
                     format!(
                         "{}: {}",
                         i18n.t(TextKey::StatusLoaded),
-                        SongPlayer::default_track_path()
+                        default_track_path
                     )
                 };
                 (Some(p), s)

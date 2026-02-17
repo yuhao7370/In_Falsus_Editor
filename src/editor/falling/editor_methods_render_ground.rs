@@ -18,6 +18,7 @@ impl FallingGroundEditor {
         let barline_label_baseline_offset = self.scaled_ui_px(2.0);
         let judge_label_font_size = self.judge_label_font_size();
         let judge_label_baseline_offset = self.scaled_ui_px(6.0);
+        let mut measure_labels: Vec<(f32, f32)> = Vec::new();
 
         for lane in 0..LANE_COUNT {
             let x = rect.x + lane as f32 * lane_w;
@@ -62,18 +63,7 @@ impl FallingGroundEditor {
             };
             draw_line(rect.x, y, rect.x + rect.w, y, thickness, color);
             if barline.show_measure_label && y >= barline_label_min_y && y <= rect.y + rect.h - barline_label_baseline_offset {
-                let label = self.format_measure_label(barline.measure_pos);
-                draw_text_ex(
-                    &label,
-                    rect.x + self.title_side_margin_px(),
-                    y - barline_label_baseline_offset,
-                    TextParams {
-                        font: self.text_font.as_ref(),
-                        font_size: barline_label_font_size,
-                        color: Color::from_rgba(182, 212, 255, 220),
-                        ..Default::default()
-                    },
-                );
+                measure_labels.push((y, barline.measure_pos));
             }
         }
 
@@ -181,6 +171,20 @@ impl FallingGroundEditor {
                 ..Default::default()
             },
         );
+        for (y, measure_pos) in measure_labels {
+            let label = self.format_measure_label(measure_pos);
+            draw_text_ex(
+                &label,
+                rect.x + self.title_side_margin_px(),
+                y - barline_label_baseline_offset,
+                TextParams {
+                    font: self.text_font.as_ref(),
+                    font_size: barline_label_font_size,
+                    color: Color::from_rgba(182, 212, 255, 240),
+                    ..Default::default()
+                },
+            );
+        }
         self.end_view_clip_rect();
 
     }
