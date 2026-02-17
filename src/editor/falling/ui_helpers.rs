@@ -13,11 +13,6 @@ fn ease_progress(ease: Ease, t: f32) -> f32 {
     }
 }
 
-fn y_to_time_sec(y: f32, rect: Rect, duration_sec: f32) -> f32 {
-    let t = ((y - rect.y) / rect.h).clamp(0.0, 1.0);
-    (1.0 - t) * duration_sec
-}
-
 fn point_in_rect(x: f32, y: f32, rect: Rect) -> bool {
     x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h
 }

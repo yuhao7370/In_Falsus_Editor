@@ -40,19 +40,7 @@ impl FallingGroundEditor {
         let left_inner = inner_rect(left_screen);
         let right_inner = inner_rect(right_screen);
 
-        let progress_w = (right_inner.w * 0.08).clamp(14.0, 24.0);
-        let progress_rect = Rect::new(
-            right_inner.x + right_inner.w - progress_w,
-            right_inner.y,
-            progress_w,
-            right_inner.h,
-        );
-        let lanes_rect = Rect::new(
-            right_inner.x,
-            right_inner.y,
-            (right_inner.w - progress_w - 8.0).max(8.0),
-            right_inner.h,
-        );
+        let lanes_rect = right_inner;
 
         draw_rectangle(area.x, area.y, area.w, area.h, Color::from_rgba(10, 10, 12, 255));
         draw_rectangle_lines(area.x, area.y, area.w, area.h, 1.0, Color::from_rgba(44, 44, 52, 255));
@@ -94,7 +82,6 @@ impl FallingGroundEditor {
 
         self.draw_header(header_rect);
         self.handle_scroll_speed_controls(header_rect);
-        self.handle_vertical_progress_seek(progress_rect, audio_duration_sec, is_playing, &mut actions);
         let duration_sec = self.estimate_duration(audio_duration_sec).max(0.001);
         let mut render_current_sec = if self.waveform_seek_active {
             self.waveform_seek_sec
@@ -127,8 +114,6 @@ impl FallingGroundEditor {
             render_current_sec = target_sec.clamp(0.0, duration_sec);
             current_ms = render_current_sec * 1000.0;
         }
-        self.draw_vertical_progress(progress_rect, render_current_sec, duration_sec);
-
         let (ground_rect, air_rect) = match self.render_scope {
             RenderScope::Both => {
                 self.draw_event_view(left_inner, current_ms);

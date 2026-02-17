@@ -1,69 +1,6 @@
 ﻿// 文件说明：进度条与频谱渲染实现。
 // 主要功能：绘制播放进度、频谱信息及其交互反馈。
 impl FallingGroundEditor {
-    fn draw_vertical_progress(&self, rect: Rect, current_sec: f32, duration_sec: f32) {
-        if rect.h <= 4.0 || rect.w <= 4.0 {
-            return;
-        }
-
-        draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::from_rgba(12, 16, 24, 255));
-        draw_rectangle_lines(
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            1.0,
-            Color::from_rgba(44, 54, 84, 255),
-        );
-
-        let duration = self.estimate_duration(duration_sec).max(0.001);
-        let progress = (current_sec / duration).clamp(0.0, 1.0);
-        let fill_h = rect.h * progress;
-        if fill_h > 0.5 {
-            draw_rectangle(
-                rect.x + 2.0,
-                rect.y + rect.h - fill_h,
-                (rect.w - 4.0).max(1.0),
-                fill_h,
-                Color::from_rgba(74, 134, 210, 165),
-            );
-        }
-
-        let playhead_y = rect.y + rect.h - progress * rect.h;
-        draw_line(
-            rect.x,
-            playhead_y,
-            rect.x + rect.w,
-            playhead_y,
-            2.0,
-            Color::from_rgba(255, 96, 96, 255),
-        );
-        if self.waveform_seek_active {
-            let seek_progress = (self.waveform_seek_sec / duration).clamp(0.0, 1.0);
-            let seek_y = rect.y + rect.h - seek_progress * rect.h;
-            draw_line(
-                rect.x,
-                seek_y,
-                rect.x + rect.w,
-                seek_y,
-                1.6,
-                Color::from_rgba(255, 220, 80, 255),
-            );
-        }
-
-        draw_text_ex(
-            "AUDIO",
-            rect.x + 2.0,
-            rect.y + 16.0,
-            TextParams {
-                font: self.text_font.as_ref(),
-                font_size: 14,
-                color: Color::from_rgba(176, 200, 236, 255),
-                ..Default::default()
-            },
-        );
-    }
-
     fn draw_falling_spectrum(&self, rect: Rect, current_ms: f32, judge_y: f32, tint: Color) {
         let Some(waveform) = &self.waveform else {
             return;

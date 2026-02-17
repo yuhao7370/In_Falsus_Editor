@@ -1,44 +1,6 @@
 ﻿// 文件说明：地面轨道输入与定位处理。
 // 主要功能：处理 Tap/Hold 的放置、续点与时间定位操作。
 impl FallingGroundEditor {
-    fn handle_vertical_progress_seek(
-        &mut self,
-        rect: Rect,
-        audio_duration_sec: f32,
-        is_playing: bool,
-        actions: &mut Vec<FallingEditorAction>,
-    ) {
-        let (mx, my) = mouse_position();
-        let inside = point_in_rect(mx, my, rect);
-        let duration = self.estimate_duration(audio_duration_sec);
-
-        if is_playing {
-            self.waveform_seek_active = false;
-            // While playing: allow click-to-seek, but do not allow drag-to-seek.
-            if is_mouse_button_pressed(MouseButton::Left) && inside {
-                self.waveform_seek_sec = y_to_time_sec(my, rect, duration);
-                actions.push(FallingEditorAction::SeekTo(self.waveform_seek_sec));
-                self.status = format!("seek to {:.2}s", self.waveform_seek_sec);
-            }
-            return;
-        }
-
-        if is_mouse_button_pressed(MouseButton::Left) && inside {
-            self.waveform_seek_active = true;
-            self.waveform_seek_sec = y_to_time_sec(my, rect, duration);
-        }
-
-        if self.waveform_seek_active && is_mouse_button_down(MouseButton::Left) {
-            self.waveform_seek_sec = y_to_time_sec(my, rect, duration);
-        }
-
-        if self.waveform_seek_active && is_mouse_button_released(MouseButton::Left) {
-            self.waveform_seek_active = false;
-            actions.push(FallingEditorAction::SeekTo(self.waveform_seek_sec));
-            self.status = format!("seek to {:.2}s", self.waveform_seek_sec);
-        }
-    }
-
     fn handle_ground_input(&mut self, rect: Rect, current_ms: f32) {
         if rect.h <= 8.0 {
             return;
