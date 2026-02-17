@@ -39,7 +39,7 @@ impl FallingGroundEditor {
             }
 
             let label = format!("#{}", note.id);
-            draw_debug_hitbox_label(head_rect, rect, &label, head_color);
+            draw_debug_hitbox_label(head_rect, rect, &label, head_color, self.text_font.as_ref());
         }
     }
 
@@ -103,7 +103,13 @@ impl FallingGroundEditor {
             }
 
             let label = format!("#{}", note.id);
-            draw_debug_hitbox_label(label_rect, clip_rect, &label, head_color);
+            draw_debug_hitbox_label(
+                label_rect,
+                clip_rect,
+                &label,
+                head_color,
+                self.text_font.as_ref(),
+            );
         }
     }
 

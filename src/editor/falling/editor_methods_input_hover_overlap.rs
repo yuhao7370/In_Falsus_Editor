@@ -50,7 +50,7 @@ impl FallingGroundEditor {
         let text = format!("{}/{}", hint.current_index + 1, hint.total);
         let ui = adaptive_ui_scale();
         let font_size = scaled_font_size(18.0, 12, 42);
-        let metrics = measure_text(&text, None, font_size, 1.0);
+        let metrics = measure_text(&text, self.text_font.as_ref(), font_size, 1.0);
         let box_w = metrics.width + 14.0 * ui;
         let box_h = 24.0 * ui;
         let x = (hint.mouse_x + 14.0 * ui).clamp(4.0 * ui, screen_width() - box_w - 4.0 * ui);
@@ -63,6 +63,7 @@ impl FallingGroundEditor {
             x + 7.0 * ui,
             y + 17.0 * ui,
             TextParams {
+                font: self.text_font.as_ref(),
                 font_size,
                 color: Color::from_rgba(228, 234, 248, 255),
                 ..Default::default()

@@ -60,8 +60,13 @@ impl FallingGroundEditor {
             minimap_last_emit_sec: None,
             minimap_drag_target_sec: None,
             minimap_page: None,
+            text_font: None,
             status,
         }
+    }
+
+    pub fn set_text_font(&mut self, font: Option<Font>) {
+        self.text_font = font;
     }
 
     pub fn place_note_type(&self) -> Option<PlaceNoteType> {

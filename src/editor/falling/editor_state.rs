@@ -157,6 +157,7 @@ pub struct FallingGroundEditor {
     minimap_last_emit_sec: Option<f32>,
     minimap_drag_target_sec: Option<f32>,
     minimap_page: Option<MinimapPageConfig>,
+    text_font: Option<Font>,
     status: String,
 }
 

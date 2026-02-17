@@ -40,7 +40,7 @@ fn draw_debug_hitbox_rect(hit: Rect, clip: Rect, color: Color, thickness: f32) {
     draw_rectangle_lines(x1, y1, x2 - x1, y2 - y1, thickness, color);
 }
 
-fn draw_debug_hitbox_label(hit: Rect, clip: Rect, label: &str, color: Color) {
+fn draw_debug_hitbox_label(hit: Rect, clip: Rect, label: &str, color: Color, font: Option<&Font>) {
     let ui = adaptive_ui_scale();
     let x = hit.x.max(clip.x + 2.0 * ui);
     let y = (hit.y - 3.0 * ui).clamp(clip.y + 10.0 * ui, clip.y + clip.h - 2.0 * ui);
@@ -49,6 +49,7 @@ fn draw_debug_hitbox_label(hit: Rect, clip: Rect, label: &str, color: Color) {
         x,
         y,
         TextParams {
+            font,
             font_size: scaled_font_size(14.0, 10, 34),
             color,
             ..Default::default()

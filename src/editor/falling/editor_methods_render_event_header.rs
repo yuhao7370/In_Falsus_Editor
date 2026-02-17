@@ -21,6 +21,7 @@ impl FallingGroundEditor {
             rect.x + 8.0,
             rect.y + 20.0,
             TextParams {
+                font: self.text_font.as_ref(),
                 font_size: 18,
                 color: Color::from_rgba(198, 218, 250, 255),
                 ..Default::default()
@@ -79,6 +80,7 @@ impl FallingGroundEditor {
                 rect.x + 30.0,
                 y + 5.0,
                 TextParams {
+                    font: self.text_font.as_ref(),
                     font_size: 16,
                     color: event.color,
                     ..Default::default()
@@ -121,6 +123,7 @@ impl FallingGroundEditor {
             rect.x + 10.0,
             rect.y + 24.0,
             TextParams {
+                font: self.text_font.as_ref(),
                 font_size: 22,
                 color: WHITE,
                 ..Default::default()
@@ -161,10 +164,10 @@ impl FallingGroundEditor {
             panel_rect.h - 6.0,
         );
 
-        if draw_small_button(minus_rect, "-") {
+        if draw_small_button(minus_rect, "-", self.text_font.as_ref()) {
             self.adjust_scroll_speed(-SCROLL_SPEED_STEP);
         }
-        if draw_small_button(plus_rect, "+") {
+        if draw_small_button(plus_rect, "+", self.text_font.as_ref()) {
             self.adjust_scroll_speed(SCROLL_SPEED_STEP);
         }
 
@@ -181,6 +184,7 @@ impl FallingGroundEditor {
             panel_rect.x + 42.0,
             panel_rect.y + panel_rect.h * 0.72,
             TextParams {
+                font: self.text_font.as_ref(),
                 font_size: 18,
                 color: Color::from_rgba(220, 226, 240, 255),
                 ..Default::default()

@@ -1,4 +1,5 @@
 use egui_macroquad::egui::{self, FontFamily};
+use macroquad::text::{Font, load_ttf_font};
 use std::{path::Path, sync::Arc};
 
 const PROJECT_FONT_CANDIDATES: &[&str] = &[
@@ -96,4 +97,20 @@ pub fn init_egui_fonts(ctx: &egui::Context) -> bool {
     }
 
     false
+}
+
+pub async fn load_macroquad_cjk_font() -> Option<Font> {
+    for font_path in PROJECT_FONT_CANDIDATES {
+        if let Ok(font) = load_ttf_font(font_path).await {
+            return Some(font);
+        }
+    }
+
+    for font_path in SYSTEM_FONT_CANDIDATES {
+        if let Ok(font) = load_ttf_font(font_path).await {
+            return Some(font);
+        }
+    }
+
+    None
 }

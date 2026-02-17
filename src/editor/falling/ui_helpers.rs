@@ -22,7 +22,7 @@ fn point_in_rect(x: f32, y: f32, rect: Rect) -> bool {
     x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h
 }
 
-fn draw_small_button(rect: Rect, text: &str) -> bool {
+fn draw_small_button(rect: Rect, text: &str, font: Option<&Font>) -> bool {
     let ui = adaptive_ui_scale();
     let (mx, my) = mouse_position();
     let hovered = point_in_rect(mx, my, rect);
@@ -42,12 +42,13 @@ fn draw_small_button(rect: Rect, text: &str) -> bool {
     );
 
     let font_size = scaled_font_size(24.0, 12, 52);
-    let metrics = measure_text(text, None, font_size, 1.0);
+    let metrics = measure_text(text, font, font_size, 1.0);
     draw_text_ex(
         text,
         rect.x + (rect.w - metrics.width) * 0.5,
         rect.y + rect.h * (0.68 + 0.04 / ui),
         TextParams {
+            font,
             font_size,
             color: Color::from_rgba(235, 238, 255, 255),
             ..Default::default()

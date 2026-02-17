@@ -8,7 +8,7 @@ use audio::controller::AudioController;
 use editor::falling::{FallingEditorAction, FallingGroundEditor};
 use i18n::{I18n, Language, TextKey};
 use macroquad::prelude::*;
-use ui::fonts::init_egui_fonts;
+use ui::fonts::{init_egui_fonts, load_macroquad_cjk_font};
 use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel};
 use ui::top_menu::{TopMenuAction, draw_top_menu};
 
@@ -105,6 +105,12 @@ async fn main() {
     let mut i18n = I18n::detect();
     let mut egui_fonts_ready = false;
     let mut audio = AudioController::new(&i18n);
+    let macroquad_font = load_macroquad_cjk_font().await;
+    editor.set_text_font(macroquad_font.clone());
+    if macroquad_font.is_none() {
+        audio.status =
+            "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
+    }
 
     loop {
         clear_background(Color::from_rgba(7, 7, 10, 255));
@@ -185,6 +191,7 @@ async fn main() {
             panel_pad,
             menu_height + 33.0 * ui_scale,
             TextParams {
+                font: macroquad_font.as_ref(),
                 font_size: (22.0 * ui_scale).round().clamp(14.0, 84.0) as u16,
                 color: Color::from_rgba(236, 236, 242, 255),
                 ..Default::default()
@@ -196,6 +203,7 @@ async fn main() {
             panel_pad,
             menu_height + 52.0 * ui_scale,
             TextParams {
+                font: macroquad_font.as_ref(),
                 font_size: (16.0 * ui_scale).round().clamp(11.0, 60.0) as u16,
                 color: Color::from_rgba(170, 170, 185, 255),
                 ..Default::default()
@@ -231,6 +239,7 @@ async fn main() {
             panel_pad,
             screen_height() - status_bottom_pad,
             TextParams {
+                font: macroquad_font.as_ref(),
                 font_size: (18.0 * ui_scale).round().clamp(12.0, 64.0) as u16,
                 color: Color::from_rgba(170, 205, 255, 255),
                 ..Default::default()

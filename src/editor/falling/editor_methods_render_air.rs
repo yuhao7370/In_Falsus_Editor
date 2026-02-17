@@ -80,6 +80,7 @@ impl FallingGroundEditor {
             rect.x + 8.0,
             rect.y + 22.0,
             TextParams {
+                font: self.text_font.as_ref(),
                 font_size: 18,
                 color: if overlay_mode {
                     Color::from_rgba(214, 226, 250, 230)

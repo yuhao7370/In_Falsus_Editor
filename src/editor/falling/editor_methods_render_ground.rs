@@ -26,6 +26,7 @@ impl FallingGroundEditor {
                 x + 8.0,
                 rect.y + 20.0,
                 TextParams {
+                    font: self.text_font.as_ref(),
                     font_size: 18,
                     color: Color::from_rgba(170, 170, 180, 255),
                     ..Default::default()
@@ -79,6 +80,7 @@ impl FallingGroundEditor {
             rect.x + 8.0,
             judge_y - 6.0,
             TextParams {
+                font: self.text_font.as_ref(),
                 font_size: 18,
                 color: Color::from_rgba(255, 170, 140, 255),
                 ..Default::default()
@@ -89,6 +91,7 @@ impl FallingGroundEditor {
             rect.x + rect.w - 112.0,
             rect.y + 22.0,
             TextParams {
+                font: self.text_font.as_ref(),
                 font_size: 18,
                 color: Color::from_rgba(185, 198, 224, 255),
                 ..Default::default()
