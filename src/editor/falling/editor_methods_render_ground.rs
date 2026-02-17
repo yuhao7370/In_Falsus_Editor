@@ -9,7 +9,7 @@ impl FallingGroundEditor {
 
         let lane_w = rect.w / LANE_COUNT as f32;
         let judge_y = rect.y + rect.h * 0.82;
-        let (ahead_ms, behind_ms) = self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
+        let (_ahead_ms, _behind_ms) = self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
         let top_label_baseline = self.title_top_baseline_px();
         let barline_label_font_size = self.barline_label_font_size();
         let barline_label_min_y = rect.y + self.scaled_ui_px(14.0);
@@ -46,11 +46,15 @@ impl FallingGroundEditor {
             );
         }
 
-        for barline in self
-            .timeline
-            .visible_barlines(current_ms, ahead_ms, behind_ms, self.snap_division)
-        {
-            let y = self.time_to_y(barline.time_ms, current_ms, judge_y, rect.h);
+        let current_vb = self.track_timeline.visual_beat_at(current_ms);
+        let pixels_per_ms_bl = (self.scroll_speed * rect.h / 1000.0).max(0.001);
+        // 计算视口对应的 visual_beat 范围（上方和下方）
+        let vb_above = (judge_y - rect.y) / pixels_per_ms_bl;
+        let vb_below = (rect.y + rect.h - judge_y) / pixels_per_ms_bl;
+        let start_vb = current_vb - vb_below - 1.0;
+        let end_vb = current_vb + vb_above + 1.0;
+        for barline in self.visible_barlines_cached(start_vb, end_vb) {
+            let y = judge_y - (barline.visual_beat - current_vb) * pixels_per_ms_bl;
             if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
                 continue;
             }

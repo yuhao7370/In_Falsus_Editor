@@ -47,6 +47,9 @@ impl FallingGroundEditor {
             }
         };
 
+        let initial_subdivision = 4u32;
+        let cached_barlines = timeline.precompute_all_barlines(&track_timeline, 600_000.0, initial_subdivision);
+
         Self {
             chart_path: path.to_owned(),
             notes,
@@ -57,6 +60,8 @@ impl FallingGroundEditor {
             track_timeline,
             track_source,
             track_speed_enabled: true,
+            cached_barlines,
+            cached_barlines_subdivision: initial_subdivision,
             timeline_events,
             selected_event_id: None,
             event_overlap_cycle: None,
@@ -132,6 +137,7 @@ impl FallingGroundEditor {
     pub fn set_snap_division(&mut self, division: u32) {
         if SNAP_DIVISION_OPTIONS.contains(&division) {
             self.snap_division = division;
+            self.rebuild_barline_cache();
             self.status = format!("snap division: {}x", division);
         }
     }
@@ -228,6 +234,7 @@ impl FallingGroundEditor {
             TrackSourceData::default()
         };
         self.track_timeline = TrackTimeline::from_source(&self.timeline, source);
+        self.rebuild_barline_cache();
         self.status = format!(
             "track speed {}",
             if enabled { "enabled" } else { "disabled" }

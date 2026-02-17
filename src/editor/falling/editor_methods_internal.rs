@@ -19,11 +19,14 @@ impl FallingGroundEditor {
 
     /// 计算当前视口中可见的时间范围（考虑 track speed 变化）。
     /// 返回 (ahead_ms, behind_ms)，ahead 是判定线上方的时间跨度，behind 是下方的。
+    /// 当 track speed 为负时，top/bottom 时间可能反转，取 min/max 保证覆盖完整范围。
     fn visible_ahead_behind_ms(&self, rect_y: f32, rect_h: f32, current_ms: f32, judge_y: f32) -> (f32, f32) {
         let top_time = self.pointer_to_time(rect_y, current_ms, judge_y, rect_h);
         let bottom_time = self.pointer_to_time(rect_y + rect_h, current_ms, judge_y, rect_h);
-        let ahead_ms = (top_time - current_ms).max(0.0);
-        let behind_ms = (current_ms - bottom_time).max(0.0);
+        let min_time = top_time.min(bottom_time);
+        let max_time = top_time.max(bottom_time);
+        let ahead_ms = (max_time - current_ms).max(0.0);
+        let behind_ms = (current_ms - min_time).max(0.0);
         (ahead_ms, behind_ms)
     }
 
@@ -47,6 +50,28 @@ impl FallingGroundEditor {
         let subdivision_ms = beat_ms / 16.0;
         let pixels_per_sec = (self.scroll_speed * lane_h).max(1.0);
         subdivision_ms / 1000.0 * pixels_per_sec
+    }
+
+    /// 重建小节线缓存。在 BPM/track/subdivision 变化时调用。
+    fn rebuild_barline_cache(&mut self) {
+        self.cached_barlines = self.timeline.precompute_all_barlines(
+            &self.track_timeline,
+            600_000.0,
+            self.snap_division,
+        );
+        self.cached_barlines_subdivision = self.snap_division;
+    }
+
+    /// 用二分查找从缓存中获取 visual_beat 在 [start_vb, end_vb] 范围内的小节线切片。
+    /// 缓存已按 visual_beat 排序。
+    fn visible_barlines_cached(&self, start_vb: f32, end_vb: f32) -> &[BarLine] {
+        let lines = &self.cached_barlines;
+        if lines.is_empty() {
+            return &[];
+        }
+        let lo = lines.partition_point(|bl| bl.visual_beat < start_vb - 0.001);
+        let hi = lines.partition_point(|bl| bl.visual_beat <= end_vb + 0.001);
+        &lines[lo..hi]
     }
 
     fn apply_snap(&self, time_ms: f32) -> f32 {

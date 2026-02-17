@@ -11,6 +11,7 @@ struct BpmPoint {
 #[derive(Debug, Clone, Copy)]
 struct BarLine {
     time_ms: f32,
+    visual_beat: f32,
     kind: BarLineKind,
     measure_pos: f32,
     show_measure_label: bool,
@@ -230,6 +231,7 @@ impl BpmTimeline {
 
                 output.push(BarLine {
                     time_ms: line_time_ms,
+                    visual_beat: 0.0, // visible_barlines 不预算 visual_beat
                     kind,
                     measure_pos,
                     show_measure_label,
@@ -280,6 +282,25 @@ impl BpmTimeline {
             Err(0) => 0,
             Err(next_idx) => next_idx.saturating_sub(1),
         }
+    }
+
+    /// 预计算从 0 到 duration_ms 的所有小节线（含 visual_beat），按 visual_beat 排序。
+    /// 渲染时可用二分查找按 visual_beat 范围快速过滤。
+    fn precompute_all_barlines(
+        &self,
+        track_timeline: &TrackTimeline,
+        duration_ms: f32,
+        subdivision: u32,
+    ) -> Vec<BarLine> {
+        let raw = self.visible_barlines(duration_ms * 0.5, duration_ms * 0.5 + 1000.0, duration_ms * 0.5, subdivision);
+        let mut result = Vec::with_capacity(raw.len());
+        for mut bl in raw {
+            bl.visual_beat = track_timeline.visual_beat_at(bl.time_ms);
+            result.push(bl);
+        }
+        // 按 visual_beat 排序，使渲染端可用二分查找按视觉位置过滤
+        result.sort_by(|a, b| a.visual_beat.total_cmp(&b.visual_beat));
+        result
     }
 }
 
@@ -384,22 +405,39 @@ impl TrackTimeline {
     }
 
     /// 从视觉位移反查时间（用于 pointer_to_time）。
+    ///
+    /// 负 track speed 会让 start_visual_beat 非单调递增，
+    /// 因此不能简单地用 "start_vb <= target" 线性扫描。
+    /// 改为检查每段的 [start_vb, end_vb] 范围（考虑正/负方向）。
     fn visual_beat_to_time(&self, target_vb: f32) -> f32 {
         if self.points.is_empty() {
             return 0.0;
         }
 
-        // 找到 target_vb 所在的段
-        let mut idx = 0;
-        for i in 0..self.points.len() {
-            if self.points[i].start_visual_beat <= target_vb + 0.000_1 {
-                idx = i;
+        let len = self.points.len();
+        let mut best_idx = len - 1; // 默认最后一段
+
+        for i in 0..len {
+            let seg_start_vb = self.points[i].start_visual_beat;
+            let seg_end_vb = if i + 1 < len {
+                self.points[i + 1].start_visual_beat
             } else {
+                // 最后一段：按速度方向无限延伸
+                if self.points[i].speed >= 0.0 {
+                    f32::INFINITY
+                } else {
+                    f32::NEG_INFINITY
+                }
+            };
+            let lo = seg_start_vb.min(seg_end_vb);
+            let hi = seg_start_vb.max(seg_end_vb);
+            if target_vb >= lo - 0.001 && target_vb <= hi + 0.001 {
+                best_idx = i;
                 break;
             }
         }
 
-        let pt = self.points[idx];
+        let pt = self.points[best_idx];
         let rate = pt.speed;
 
         if rate.abs() < 0.000_001 {

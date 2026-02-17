@@ -173,6 +173,8 @@ pub struct FallingGroundEditor {
     track_timeline: TrackTimeline,
     track_source: TrackSourceData,
     track_speed_enabled: bool,
+    cached_barlines: Vec<BarLine>,
+    cached_barlines_subdivision: u32,
     timeline_events: Vec<TimelineEvent>,
     selected_event_id: Option<u64>,
     event_overlap_cycle: Option<EventOverlapCycle>,
