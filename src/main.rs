@@ -15,7 +15,7 @@ use ui::top_menu::{TopMenuAction, draw_top_menu};
 const BASE_WIDTH: f32 = 1366.0;
 const BASE_HEIGHT: f32 = 768.0;
 const TOP_BAR_HEIGHT: f32 = 56.0;
-const EGUI_MENU_BASE_HEIGHT: f32 = 42.0;
+const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
 
 fn window_conf() -> Conf {
     Conf {

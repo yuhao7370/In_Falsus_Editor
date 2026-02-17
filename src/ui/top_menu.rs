@@ -17,7 +17,7 @@ pub enum TopMenuAction {
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
-const TOP_MENU_BUTTON_HEIGHT: f32 = 34.0;
+const TOP_MENU_BUTTON_HEIGHT: f32 = 28.0;
 const POPUP_ITEM_HEIGHT: f32 = 30.0;
 
 fn draw_popup_row(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
@@ -141,7 +141,7 @@ pub fn draw_top_menu(
             egui::Frame::default()
                 .fill(egui::Color32::from_rgb(8, 8, 8))
                 .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(24, 24, 24)))
-                .inner_margin(egui::Margin::same(3)),
+                .inner_margin(egui::Margin::same(2)),
         )
         .resizable(false)
         .show(ctx, |ui| {
