@@ -117,6 +117,7 @@ pub enum TextKey {
     SettingsCategoryDebug,
     SettingsFlowSpeed,
     SettingsBarlineSnap,
+    NotePanelTrackSpeedEvents,
 }
 
 impl TextKey {
@@ -183,6 +184,7 @@ impl TextKey {
             TextKey::SettingsCategoryDebug => "settings_category_debug",
             TextKey::SettingsFlowSpeed => "settings_flow_speed",
             TextKey::SettingsBarlineSnap => "settings_barline_snap",
+            TextKey::NotePanelTrackSpeedEvents => "note_panel_track_speed_events",
         }
     }
 }

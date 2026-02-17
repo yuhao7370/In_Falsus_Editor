@@ -200,7 +200,7 @@ async fn main() {
                     top_menu_result.action = Some(settings_action);
                 }
             }
-            note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
+            note_panel_width_px = draw_note_selector_panel(ctx, &i18n, &mut editor);
             let snap_panel_px = draw_snap_slider_panel(
                 ctx,
                 &mut editor,

@@ -59,5 +59,6 @@
   "settings_category_display": "👁 显示",
   "settings_category_debug": "🔧 调试",
   "settings_flow_speed": "流速",
-  "settings_barline_snap": "节拍细分"
+  "settings_barline_snap": "节拍细分",
+  "note_panel_track_speed_events": "渲染速度事件"
 }

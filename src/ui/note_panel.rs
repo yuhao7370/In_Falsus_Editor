@@ -1,6 +1,7 @@
 use crate::editor::falling::{
     FallingGroundEditor, PlaceNoteType,
 };
+use crate::i18n::{I18n, TextKey};
 use egui_macroquad::egui;
 
 pub const NOTE_PANEL_BASE_WIDTH_POINTS: f32 = 280.0;
@@ -42,7 +43,11 @@ fn draw_tool_row(ui: &mut egui::Ui, label: &str, selected: bool) -> egui::Respon
     response
 }
 
-pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundEditor) -> f32 {
+pub fn draw_note_selector_panel(
+    ctx: &egui::Context,
+    i18n: &I18n,
+    editor: &mut FallingGroundEditor,
+) -> f32 {
     let ppp = ctx.pixels_per_point().max(0.000_1);
     let panel_width_points = NOTE_PANEL_BASE_WIDTH_POINTS;
 
@@ -60,14 +65,6 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
                 .inner_margin(egui::Margin::same(8)),
         )
         .show(ctx, |ui| {
-            {
-                let mut enabled = editor.track_speed_enabled();
-                if ui.checkbox(&mut enabled, "Track Speed Events").changed() {
-                    editor.set_track_speed_enabled(enabled);
-                }
-            }
-
-            ui.separator();
             ui.label("Place");
 
             let current = editor.place_note_type();
@@ -110,6 +107,17 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
                     .color(egui::Color32::from_rgb(160, 160, 170))
                     .size(12.0),
                 );
+                ui.separator();
+                let mut enabled = editor.track_speed_enabled();
+                let track_speed_label = egui::RichText::new(i18n.t(TextKey::NotePanelTrackSpeedEvents))
+                    .size(14.0)
+                    .color(egui::Color32::from_rgb(220, 220, 230));
+                if ui
+                    .add(egui::Checkbox::new(&mut enabled, track_speed_label))
+                    .changed()
+                {
+                    editor.set_track_speed_enabled(enabled);
+                }
                 ui.separator();
             });
         });
