@@ -51,5 +51,7 @@
   "action_debug_hitbox_on": "命中框调试已开启",
   "action_debug_hitbox_off": "命中框调试已关闭",
   "action_minimap_on": "Minimap 已开启",
-  "action_minimap_off": "Minimap 已关闭"
+  "action_minimap_off": "Minimap 已关闭",
+  "render_merge": "合并视图",
+  "render_split": "分离视图"
 }

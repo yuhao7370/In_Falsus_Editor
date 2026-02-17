@@ -1,3 +1,4 @@
+use crate::editor::falling::RenderScope;
 use crate::i18n::{I18n, Language, TextKey};
 use egui_macroquad::egui;
 
@@ -16,6 +17,7 @@ pub enum TopMenuAction {
     SetAutoPlay(bool),
     SetShowSpectrum(bool),
     SetMinimapVisible(bool),
+    SetRenderScope(RenderScope),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
@@ -150,6 +152,7 @@ pub fn draw_top_menu(
     current_autoplay: bool,
     current_show_spectrum: bool,
     current_show_minimap: bool,
+    current_render_scope: RenderScope,
 ) -> TopMenuResult {
     let mut action = None;
     let mut any_popup_open = false;
@@ -308,6 +311,123 @@ pub fn draw_top_menu(
                         }
                     },
                 );
+
+                // ── Right-aligned render scope toggle switch (animated) ──
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let label_both = i18n.t(TextKey::RenderMerge);
+                    let label_split = i18n.t(TextKey::RenderSplit);
+                    let is_split = current_render_scope == RenderScope::Split;
+
+                    let font = egui::TextStyle::Button.resolve(ui.style());
+                    let both_galley = ui.painter().layout_no_wrap(label_both.to_owned(), font.clone(), egui::Color32::WHITE);
+                    let split_galley = ui.painter().layout_no_wrap(label_split.to_owned(), font.clone(), egui::Color32::WHITE);
+                    let text_h = both_galley.size().y.max(split_galley.size().y);
+
+                    let half_w = both_galley.size().x.max(split_galley.size().x) + 16.0;
+                    let gap = 2.0_f32;
+                    let total_w = half_w * 2.0 + gap;
+                    let h = (text_h + 8.0).max(TOP_MENU_BUTTON_HEIGHT);
+
+                    let (rect, response) = ui.allocate_exact_size(
+                        egui::vec2(total_w, h),
+                        egui::Sense::click(),
+                    );
+
+                    // Animate t: 0.0 = Both (left), 1.0 = Split (right)
+                    // Manual ease-out animation (fast start, slow end), ~100ms duration
+                    let anim_id = ui.id().with("render_scope_toggle");
+                    let target = if is_split { 1.0_f32 } else { 0.0_f32 };
+                    let dt = ctx.input(|i| i.stable_dt).min(0.05);
+                    let anim_duration = 0.10_f32; // 100ms
+                    let speed = 1.0 / anim_duration;
+                    let (raw_t, needs_repaint) = ctx.data_mut(|d| {
+                        let current = d.get_temp_mut_or(anim_id, target);
+                        // Move current toward target
+                        if (*current - target).abs() < 0.001 {
+                            *current = target;
+                            (*current, false)
+                        } else {
+                            let dir = if target > *current { 1.0 } else { -1.0 };
+                            *current += dir * speed * dt;
+                            *current = if dir > 0.0 {
+                                current.min(target)
+                            } else {
+                                current.max(target)
+                            };
+                            (*current, true)
+                        }
+                    });
+                    if needs_repaint {
+                        ctx.request_repaint();
+                    }
+                    // Ease-out cubic: 1 - (1 - x)^3
+                    let linear_t = if target > 0.5 { raw_t } else { 1.0 - raw_t };
+                    let eased = 1.0 - (1.0 - linear_t).powi(3);
+                    let t = if target > 0.5 { eased } else { 1.0 - eased };
+
+                    // Background pill
+                    let rounding = egui::CornerRadius::same((h / 2.0) as u8);
+                    ui.painter().rect_filled(
+                        rect,
+                        rounding,
+                        egui::Color32::from_rgba_unmultiplied(255, 255, 255, 12),
+                    );
+
+                    // Animated highlight slider
+                    let slider_x = rect.min.x + t * (half_w + gap);
+                    let slider_rect = egui::Rect::from_min_size(
+                        egui::pos2(slider_x, rect.min.y),
+                        egui::vec2(half_w, h),
+                    );
+                    ui.painter().rect_filled(
+                        slider_rect,
+                        rounding,
+                        egui::Color32::from_rgba_unmultiplied(106, 168, 255, 80),
+                    );
+
+                    // Text positions (fixed, not animated)
+                    let left_center = egui::pos2(rect.min.x + half_w * 0.5, rect.center().y);
+                    let right_center = egui::pos2(rect.min.x + half_w + gap + half_w * 0.5, rect.center().y);
+
+                    // Interpolate text colors
+                    let lerp_u8 = |a: u8, b: u8, f: f32| -> u8 {
+                        (a as f32 + (b as f32 - a as f32) * f).round() as u8
+                    };
+                    let bright = 255_u8;
+                    let dim = 160_u8;
+                    let both_lum = lerp_u8(bright, dim, t);
+                    let split_lum = lerp_u8(dim, bright, t);
+
+                    ui.painter().text(
+                        left_center,
+                        egui::Align2::CENTER_CENTER,
+                        label_both,
+                        font.clone(),
+                        egui::Color32::from_rgb(both_lum, both_lum, both_lum),
+                    );
+                    ui.painter().text(
+                        right_center,
+                        egui::Align2::CENTER_CENTER,
+                        label_split,
+                        font,
+                        egui::Color32::from_rgb(split_lum, split_lum, split_lum),
+                    );
+
+                    // Click handling
+                    if response.clicked() {
+                        if let Some(pos) = response.interact_pointer_pos() {
+                            let mid_x = rect.min.x + half_w + gap * 0.5;
+                            let clicked_scope = if pos.x < mid_x {
+                                RenderScope::Both
+                            } else {
+                                RenderScope::Split
+                            };
+                            if clicked_scope != current_render_scope {
+                                action = Some(TopMenuAction::SetRenderScope(clicked_scope));
+                            }
+                        }
+                    }
+                });
             });
         });
 

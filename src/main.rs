@@ -98,6 +98,9 @@ fn handle_top_menu_action(
                 i18n.t(TextKey::ActionMinimapOff).to_owned()
             };
         }
+        TopMenuAction::SetRenderScope(scope) => {
+            editor.set_render_scope(scope);
+        }
     }
 }
 
@@ -154,6 +157,7 @@ async fn main() {
                 editor.autoplay_enabled(),
                 editor.show_spectrum(),
                 editor.show_minimap(),
+                editor.render_scope(),
             );
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
@@ -164,8 +168,11 @@ async fn main() {
         set_pointer_blocked(egui_wants_pointer);
 
         if let Some(action) = top_menu_result.action {
+            audio.status.clear();
             handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n);
-            info_toasts.push(audio.status.clone());
+            if !audio.status.is_empty() {
+                info_toasts.push(audio.status.clone());
+            }
         }
 
         if is_key_pressed(KeyCode::F8) {

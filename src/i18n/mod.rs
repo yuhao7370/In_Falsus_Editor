@@ -109,6 +109,8 @@ pub enum TextKey {
     ActionDebugHitboxOff,
     ActionMinimapOn,
     ActionMinimapOff,
+    RenderMerge,
+    RenderSplit,
 }
 
 impl TextKey {
@@ -167,6 +169,8 @@ impl TextKey {
             TextKey::ActionDebugHitboxOff => "action_debug_hitbox_off",
             TextKey::ActionMinimapOn => "action_minimap_on",
             TextKey::ActionMinimapOff => "action_minimap_off",
+            TextKey::RenderMerge => "render_merge",
+            TextKey::RenderSplit => "render_split",
         }
     }
 }

@@ -51,5 +51,7 @@
   "action_debug_hitbox_on": "Hitbox debug enabled",
   "action_debug_hitbox_off": "Hitbox debug disabled",
   "action_minimap_on": "Minimap enabled",
-  "action_minimap_off": "Minimap disabled"
+  "action_minimap_off": "Minimap disabled",
+  "render_merge": "Merge",
+  "render_split": "Split"
 }

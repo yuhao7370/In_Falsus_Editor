@@ -1,5 +1,5 @@
 use crate::editor::falling::{
-    FallingGroundEditor, PlaceNoteType, RenderScope, SNAP_DIVISION_OPTIONS,
+    FallingGroundEditor, PlaceNoteType, SNAP_DIVISION_OPTIONS,
 };
 use egui_macroquad::egui;
 
@@ -62,15 +62,6 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
         .show(ctx, |ui| {
             ui.heading("Note Tool");
             ui.label("LMB: Select  RMB: Clear");
-            ui.separator();
-            ui.label("Render");
-            let scope = editor.render_scope();
-            for s in [RenderScope::Both, RenderScope::Split] {
-                if draw_tool_row(ui, s.label(), scope == s).clicked() {
-                    editor.set_render_scope(s);
-                }
-            }
-
             ui.separator();
             ui.label("Barline Snap");
             ui.horizontal_wrapped(|ui| {
