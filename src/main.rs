@@ -75,6 +75,12 @@ fn handle_top_menu_action(
         TopMenuAction::SetVolume(volume) => {
             audio.set_volume(volume, i18n);
         }
+        TopMenuAction::SetAutoPlay(enabled) => {
+            editor.set_autoplay_enabled(enabled);
+        }
+        TopMenuAction::SetShowSpectrum(enabled) => {
+            editor.set_show_spectrum(enabled);
+        }
         TopMenuAction::SetDebugHitbox(enabled) => {
             editor.set_debug_show_hitboxes(enabled);
             audio.status = if enabled {
@@ -143,6 +149,8 @@ async fn main() {
                 volume,
                 audio.has_player(),
                 editor.debug_show_hitboxes(),
+                editor.autoplay_enabled(),
+                editor.show_spectrum(),
                 editor.show_minimap(),
             );
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);

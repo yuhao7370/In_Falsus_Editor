@@ -181,6 +181,7 @@ impl BpmTimeline {
                 continue;
             }
 
+            let is_negative_bpm = point.bpm < 0.0;
             let bpm = point.bpm.abs().max(0.001);
             let beat_ms = 60_000.0 / bpm;
             let sub_ms = beat_ms / subdivision as f32;
@@ -198,7 +199,11 @@ impl BpmTimeline {
                     continue;
                 }
 
-                let beat = point.start_beat + n as f32 / subdivision as f32;
+                let beat = if is_negative_bpm {
+                    point.start_beat - n as f32 / subdivision as f32
+                } else {
+                    point.start_beat + n as f32 / subdivision as f32
+                };
                 let measure_phase = beat / beats_per_measure;
                 let is_measure = (measure_phase - measure_phase.round()).abs() < 0.001;
                 let is_beat = n % subdivision_i == 0;

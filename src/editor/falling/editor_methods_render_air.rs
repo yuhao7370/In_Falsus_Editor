@@ -84,6 +84,15 @@ impl FallingGroundEditor {
                     continue;
                 }
 
+                // AutoPlay: 已被判定的音符不显示（或裁剪判定线以下部分）
+                let judged = self.autoplay_enabled && note.time_ms <= current_ms;
+                if judged && !note.has_tail() {
+                    continue;
+                }
+                if judged && note.has_tail() && note.end_time_ms() <= current_ms {
+                    continue;
+                }
+
                 let x_norm = lane_to_air_x_norm(note.lane);
                 let center_x = split_rect.x + x_norm * split_rect.w;
                 let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
@@ -115,19 +124,27 @@ impl FallingGroundEditor {
                     let y2 = head_y.max(tail_y);
                     if y2 >= rect.y && y1 <= rect.y + rect.h {
                         let body_y = y1.max(rect.y);
-                        let body_h = (y2.min(rect.y + rect.h) - body_y).max(1.0);
-                        let body_color = match note.kind {
-                            GroundNoteKind::SkyArea => AIR_SKYAREA_BODY_COLOR,
-                            _ => palette.hold_body,
-                        };
-                        draw_rectangle(note_x, body_y, note_w, body_h, body_color);
-                        if selected {
-                            draw_selected_note_darken_rect(note_x, body_y, note_w, body_h);
+                        let mut body_end = y2.min(rect.y + rect.h);
+                        // AutoPlay: 裁剪判定线以下部分
+                        if judged {
+                            body_end = body_end.min(judge_y);
+                        }
+                        let body_h = (body_end - body_y).max(0.0);
+                        if body_h > 0.0 {
+                            let body_color = match note.kind {
+                                GroundNoteKind::SkyArea => AIR_SKYAREA_BODY_COLOR,
+                                _ => palette.hold_body,
+                            };
+                            draw_rectangle(note_x, body_y, note_w, body_h, body_color);
+                            if selected {
+                                draw_selected_note_darken_rect(note_x, body_y, note_w, body_h);
+                            }
                         }
                     }
                 }
 
-                if head_y >= rect.y - 24.0 && head_y <= rect.y + rect.h + 24.0 {
+                // AutoPlay: head 已判定则不画 head
+                if !judged && head_y >= rect.y - 24.0 && head_y <= rect.y + rect.h + 24.0 {
                     if note.kind == GroundNoteKind::Flick {
                         let side_h = self.flick_side_height_px(note.time_ms, rect.h);
                         draw_flick_curve_shape(note, note_x, note_w, head_y, side_h);

@@ -188,6 +188,8 @@ pub struct FallingGroundEditor {
     overlap_cycle: Option<OverlapCycleState>,
     hover_overlap_hint: Option<HoverOverlapHint>,
     debug_show_hitboxes: bool,
+    autoplay_enabled: bool,
+    show_spectrum: bool,
     show_minimap: bool,
     waveform: Option<Waveform>,
     waveform_error: Option<String>,

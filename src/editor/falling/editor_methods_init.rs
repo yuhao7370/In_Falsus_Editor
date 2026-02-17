@@ -72,6 +72,8 @@ impl FallingGroundEditor {
             overlap_cycle: None,
             hover_overlap_hint: None,
             debug_show_hitboxes: false,
+            autoplay_enabled: true,
+            show_spectrum: true,
             show_minimap: false,
             waveform: None,
             waveform_error: None,
@@ -177,6 +179,24 @@ impl FallingGroundEditor {
     pub fn set_debug_show_hitboxes(&mut self, enabled: bool) {
         self.debug_show_hitboxes = enabled;
         self.status = format!("debug hitbox {}", if enabled { "on" } else { "off" });
+    }
+
+    pub fn autoplay_enabled(&self) -> bool {
+        self.autoplay_enabled
+    }
+
+    pub fn set_autoplay_enabled(&mut self, enabled: bool) {
+        self.autoplay_enabled = enabled;
+        self.status = format!("autoplay {}", if enabled { "on" } else { "off" });
+    }
+
+    pub fn show_spectrum(&self) -> bool {
+        self.show_spectrum
+    }
+
+    pub fn set_show_spectrum(&mut self, enabled: bool) {
+        self.show_spectrum = enabled;
+        self.status = format!("spectrum {}", if enabled { "on" } else { "off" });
     }
 
     pub fn show_minimap(&self) -> bool {

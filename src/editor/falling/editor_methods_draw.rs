@@ -160,7 +160,7 @@ impl FallingGroundEditor {
         match self.render_scope {
             RenderScope::Both => {
                 if let Some(rect) = ground_rect {
-                    self.draw_ground_view(rect, current_ms, true);
+                    self.draw_ground_view(rect, current_ms, self.show_spectrum);
                 }
                 if let Some(rect) = air_rect {
                     self.draw_air_view(rect, current_ms, true, false);
@@ -168,10 +168,10 @@ impl FallingGroundEditor {
             }
             RenderScope::Split => {
                 if let Some(rect) = air_rect {
-                    self.draw_air_view(rect, current_ms, false, true);
+                    self.draw_air_view(rect, current_ms, false, self.show_spectrum);
                 }
                 if let Some(rect) = ground_rect {
-                    self.draw_ground_view(rect, current_ms, true);
+                    self.draw_ground_view(rect, current_ms, self.show_spectrum);
                 }
             }
         }

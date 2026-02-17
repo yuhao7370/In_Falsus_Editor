@@ -69,6 +69,18 @@ impl FallingGroundEditor {
             if !is_ground_kind(note.kind) {
                 continue;
             }
+
+            // AutoPlay: 已被判定的音符不显示（或裁剪判定线以下部分）
+            let judged = self.autoplay_enabled && note.time_ms <= current_ms;
+            if judged && !note.has_tail() {
+                // 无尾音符：已判定则完全跳过
+                continue;
+            }
+            if judged && note.has_tail() && note.end_time_ms() <= current_ms {
+                // 有尾音符：尾部也已判定，完全跳过
+                continue;
+            }
+
             let lane_x = rect.x + lane_w * note.lane as f32;
             let note_w = note_head_width(note, lane_w);
             let note_x = lane_x + (lane_w - note_w) * 0.5;
@@ -99,15 +111,24 @@ impl FallingGroundEditor {
                         ),
                     };
                     let body_y = y1.max(rect.y);
-                    let body_h = (y2.min(rect.y + rect.h) - body_y).max(1.0);
-                    draw_rectangle(body_x, body_y, body_w, body_h, body_color);
-                    if selected {
-                        draw_selected_note_darken_rect(body_x, body_y, body_w, body_h);
+                    let mut body_end = y2.min(rect.y + rect.h);
+                    // AutoPlay: 裁剪判定线以下部分（head 已过判定线）
+                    if judged {
+                        // 判定线以下不显示：body 底部截断到 judge_y
+                        body_end = body_end.min(judge_y);
+                    }
+                    let body_h = (body_end - body_y).max(0.0);
+                    if body_h > 0.0 {
+                        draw_rectangle(body_x, body_y, body_w, body_h, body_color);
+                        if selected {
+                            draw_selected_note_darken_rect(body_x, body_y, body_w, body_h);
+                        }
                     }
                 }
             }
 
-            if head_y >= rect.y - 28.0 && head_y <= rect.y + rect.h + 28.0 {
+            // AutoPlay: head 已判定则不画 head
+            if !judged && head_y >= rect.y - 28.0 && head_y <= rect.y + rect.h + 28.0 {
                 let head_color = match note.kind {
                     GroundNoteKind::Tap => palette.tap,
                     GroundNoteKind::Hold => palette.hold_head,

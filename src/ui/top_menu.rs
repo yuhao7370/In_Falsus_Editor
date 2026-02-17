@@ -13,6 +13,8 @@ pub enum TopMenuAction {
     SetLanguage(Language),
     SetVolume(f32),
     SetDebugHitbox(bool),
+    SetAutoPlay(bool),
+    SetShowSpectrum(bool),
     SetMinimapVisible(bool),
 }
 
@@ -132,6 +134,8 @@ pub fn draw_top_menu(
     current_volume: f32,
     volume_enabled: bool,
     current_debug_hitbox: bool,
+    current_autoplay: bool,
+    current_show_spectrum: bool,
     current_show_minimap: bool,
 ) -> Option<TopMenuAction> {
     let mut action = None;
@@ -242,6 +246,21 @@ pub fn draw_top_menu(
                         let response = ui.add_enabled(volume_enabled, slider);
                         if response.changed() && volume_enabled {
                             action = Some(TopMenuAction::SetVolume(volume));
+                        }
+
+                        ui.separator();
+                        if draw_popup_row(ui, i18n.t(TextKey::SettingsAutoPlay), current_autoplay)
+                            .clicked()
+                        {
+                            action = Some(TopMenuAction::SetAutoPlay(!current_autoplay));
+                            ui.memory_mut(|mem| mem.close_popup());
+                        }
+
+                        if draw_popup_row(ui, i18n.t(TextKey::SettingsShowSpectrum), current_show_spectrum)
+                            .clicked()
+                        {
+                            action = Some(TopMenuAction::SetShowSpectrum(!current_show_spectrum));
+                            ui.memory_mut(|mem| mem.close_popup());
                         }
 
                         ui.separator();

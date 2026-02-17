@@ -1,4 +1,4 @@
-﻿{
+{
   "banner_title": "你好，世界！(macroquad + sasa)",
   "player_window_title": "播放器",
   "player_btn_load": "加载",
@@ -11,6 +11,8 @@
   "menu_select": "选择",
   "menu_settings": "设置",
   "settings_language": "语言",
+  "settings_autoplay": "AutoPlay",
+  "settings_show_spectrum": "显示频谱",
   "settings_debug_hitbox": "命中框调试",
   "settings_show_minimap": "绘制 Minimap",
   "language_chinese": "中文",
