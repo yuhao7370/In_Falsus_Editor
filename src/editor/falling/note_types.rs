@@ -1,4 +1,4 @@
-﻿// 文件说明：下落编辑器音符与工具类型定义。
+// 文件说明：下落编辑器音符与工具类型定义。
 // 主要功能：定义音符枚举、编辑动作和共用数据结构。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaceNoteType {
@@ -61,6 +61,7 @@ fn is_air_tool(tool: PlaceNoteType) -> bool {
 #[derive(Debug, Clone, Copy)]
 pub enum FallingEditorAction {
     SeekTo(f32),
+    MinimapSeekTo(f32),
 }
 
 #[derive(Debug, Clone)]

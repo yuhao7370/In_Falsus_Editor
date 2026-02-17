@@ -1,4 +1,4 @@
-﻿// 文件说明：小地图交互输入处理实现。
+// 文件说明：小地图交互输入处理实现。
 // 主要功能：处理小地图拖拽、点击跳转和同步状态更新。
 impl FallingGroundEditor {
     fn handle_minimap_seek_drag(
@@ -79,7 +79,7 @@ impl FallingGroundEditor {
                 .map(|last| (last - target_sec).abs() >= MINIMAP_DRAG_EMIT_EPS_SEC)
                 .unwrap_or(true);
             if should_emit {
-                actions.push(FallingEditorAction::SeekTo(target_sec));
+                actions.push(FallingEditorAction::MinimapSeekTo(target_sec));
                 self.minimap_last_emit_sec = Some(target_sec);
                 self.status = format!("minimap seek {:.2}s", target_sec);
             }

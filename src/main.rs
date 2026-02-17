@@ -218,6 +218,9 @@ async fn main() {
                     audio.handle_editor_seek(sec, &i18n);
                     info_toasts.push(format!("seek {:.2}s", sec));
                 }
+                FallingEditorAction::MinimapSeekTo(sec) => {
+                    audio.handle_editor_seek(sec, &i18n);
+                }
             }
         }
 
