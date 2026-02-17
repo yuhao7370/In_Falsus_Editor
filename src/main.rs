@@ -201,33 +201,21 @@ async fn main() {
                 }
             }
             note_panel_width_px = draw_note_selector_panel(ctx, &mut editor);
-            let snap_panel_px = draw_snap_slider_panel(ctx, &mut editor);
+            let snap_panel_px = draw_snap_slider_panel(
+                ctx,
+                &mut editor,
+                note_panel_width_px,
+                menu_height + top_bar_height + 4.0 * ui_scale,
+            );
             // note_panel_width_px is for progress bar (excludes snap panel).
             // total_right_panels_px includes snap panel for editor width.
             total_right_panels_px = note_panel_width_px + snap_panel_px;
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
-            // Check if pointer is over egui, but exclude the progress bar region
-            // (snap slider panel extends to top but shouldn't block progress bar clicks)
+            // Check if pointer is over egui widgets/panels.
             let raw_egui_pointer = ctx.is_using_pointer()
                 || ctx.is_pointer_over_area()
                 || top_menu_result.any_popup_open;
-            // If mouse is in the progress bar vertical band (menu_height..menu_height+top_bar_height)
-            // and over the snap panel area, don't count it as egui-blocked so progress bar stays clickable.
-            let progress_band_top = menu_height / ui_scale;
-            let progress_band_bottom = (menu_height + top_bar_height) / ui_scale;
-            let in_progress_band = ctx.input(|i| {
-                if let Some(pos) = i.pointer.interact_pos() {
-                    pos.y >= progress_band_top && pos.y <= progress_band_bottom
-                } else {
-                    false
-                }
-            });
-            egui_wants_pointer = if in_progress_band {
-                // Only block if a popup is open or user is actively using a widget (not just hovering snap panel)
-                ctx.is_using_pointer() || top_menu_result.any_popup_open
-            } else {
-                raw_egui_pointer
-            };
+            egui_wants_pointer = raw_egui_pointer;
         });
         set_pointer_blocked(egui_wants_pointer);
 

@@ -1,5 +1,8 @@
 use macroquad::prelude::*;
-use super::input_state::{is_pointer_blocked, safe_mouse_button_pressed, safe_mouse_button_down, safe_mouse_button_released};
+use super::input_state::{
+    is_pointer_blocked, safe_mouse_button_down, safe_mouse_button_pressed,
+    safe_mouse_button_released,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TopProgressBarState {
@@ -43,6 +46,7 @@ pub fn draw_top_progress_bar(
     state: &mut TopProgressBarState,
 ) -> TopProgressBarOutput {
     let pointer_blocked = is_pointer_blocked();
+    let dragging_progress = state.drag_active;
     let mut display_sec = current_sec;
     let mut seek_to_sec = None;
 
@@ -74,14 +78,12 @@ pub fn draw_top_progress_bar(
         progress_h,
     );
     let (mx, my) = mouse_position();
-    let inside_progress = !pointer_blocked
+    // If the drag started on the progress bar, keep tracking even when pointer enters egui panels.
+    let inside_progress = (!pointer_blocked || dragging_progress)
         && mx >= progress_rect.x
         && mx <= progress_rect.x + progress_rect.w
         && my >= progress_rect.y
         && my <= progress_rect.y + progress_rect.h;
-    if pointer_blocked {
-        state.drag_active = false;
-    }
     let frame_border = if inside_progress || state.drag_active {
         Color::from_rgba(108, 122, 154, 255)
     } else {
@@ -144,10 +146,21 @@ pub fn draw_top_progress_bar(
                 state.drag_active = true;
                 state.seek_sec = mouse_seek_sec;
             }
-            if state.drag_active && safe_mouse_button_down(MouseButton::Left) {
+            // Continue drag with raw input when crossing into egui areas after drag has started.
+            let drag_down = if state.drag_active {
+                is_mouse_button_down(MouseButton::Left)
+            } else {
+                safe_mouse_button_down(MouseButton::Left)
+            };
+            if state.drag_active && drag_down {
                 state.seek_sec = mouse_seek_sec;
             }
-            if state.drag_active && safe_mouse_button_released(MouseButton::Left) {
+            let drag_released = if state.drag_active {
+                is_mouse_button_released(MouseButton::Left)
+            } else {
+                safe_mouse_button_released(MouseButton::Left)
+            };
+            if state.drag_active && drag_released {
                 state.drag_active = false;
                 seek_to_sec = Some(state.seek_sec);
                 display_sec = state.seek_sec.clamp(0.0, duration_sec);

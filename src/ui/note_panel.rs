@@ -129,31 +129,35 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
 }
 
 /// Draw a narrow vertical snap slider panel to the left of the note panel.
-/// Must be called BEFORE `draw_note_selector_panel` so egui stacks it to the left.
+/// Uses a fixed area so it only occupies the editor region (not the top progress band).
 /// Returns the panel width in physical pixels.
-pub fn draw_snap_slider_panel(ctx: &egui::Context, editor: &mut FallingGroundEditor) -> f32 {
+pub fn draw_snap_slider_panel(
+    ctx: &egui::Context,
+    editor: &mut FallingGroundEditor,
+    note_panel_width_px: f32,
+    top_offset_px: f32,
+) -> f32 {
     use crate::ui::snap_slider::draw_snap_slider_vertical;
 
     let ppp = ctx.pixels_per_point().max(0.000_1);
     let panel_w: f32 = 56.0;
+    let note_panel_width = note_panel_width_px / ppp;
+    let top_offset = top_offset_px / ppp;
+    let screen_rect = ctx.input(|i| i.screen_rect());
 
-    let panel = egui::SidePanel::right("snap_slider_panel")
-        .resizable(false)
-        .show_separator_line(false)
-        .min_width(panel_w)
-        .max_width(panel_w)
-        .frame(
-            egui::Frame::default()
-                .fill(egui::Color32::TRANSPARENT)
-                .stroke(egui::Stroke::NONE)
-                .inner_margin(egui::Margin { left: 0, right: 0, top: 36, bottom: 4 }),
-        )
+    let panel_x = screen_rect.right() - note_panel_width - panel_w;
+    let panel_y = screen_rect.top() + top_offset;
+    let panel_h = (screen_rect.bottom() - panel_y - 4.0).max(100.0);
+
+    egui::Area::new(egui::Id::new("snap_slider_panel_area"))
+        .fixed_pos(egui::pos2(panel_x, panel_y))
         .show(ctx, |ui| {
-            let h = ui.available_height();
-            if let Some(new_div) = draw_snap_slider_vertical(ui, editor.snap_division(), h) {
+            ui.set_min_width(panel_w);
+            ui.set_max_width(panel_w);
+            if let Some(new_div) = draw_snap_slider_vertical(ui, editor.snap_division(), panel_h) {
                 editor.set_snap_division(new_div);
             }
         });
 
-    panel.response.rect.width() * ppp
+    panel_w * ppp
 }
