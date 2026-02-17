@@ -20,11 +20,11 @@ const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
 // const DEFAULT_CHART_PATH: &str = "songs/alamode/alamode3.spc";
 // const DEFAULT_AUDIO_TRACK_PATH: &str = "songs/alamode/music.ogg";
 
-// const DEFAULT_CHART_PATH: &str = "grievouslady2.spc";
-// const DEFAULT_AUDIO_TRACK_PATH: &str = "music.ogg";
+const DEFAULT_CHART_PATH: &str = "grievouslady2.spc";
+const DEFAULT_AUDIO_TRACK_PATH: &str = "music.ogg";
 
-const DEFAULT_CHART_PATH: &str = "astralquant_infalsus/astralquant2.spc";
-const DEFAULT_AUDIO_TRACK_PATH: &str = "astralquant_infalsus/music.ogg";
+// const DEFAULT_CHART_PATH: &str = "astralquant_infalsus/astralquant2.spc";
+// const DEFAULT_AUDIO_TRACK_PATH: &str = "astralquant_infalsus/music.ogg";
 
 
 fn window_conf() -> Conf {

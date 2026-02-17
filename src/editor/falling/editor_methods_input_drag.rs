@@ -66,9 +66,21 @@ impl FallingGroundEditor {
                 note.time_ms
             };
 
+        // 将 time_offset 量化到当前 snap 网格的整数倍，
+        // 避免拖拽中 apply_snap 因非网格偏移产生不对称吸附。
+        let raw_offset = drag_anchor_time_ms - pointer_time_ms;
+        let quantized_offset = if self.snap_enabled && self.snap_division > 0 {
+            let point = self.timeline.point_at_time(drag_anchor_time_ms);
+            let bpm = point.bpm.abs().max(0.001);
+            let sub_ms = 60_000.0 / bpm / self.snap_division as f32;
+            (raw_offset / sub_ms).round() * sub_ms
+        } else {
+            raw_offset
+        };
+
         self.drag_state = Some(DragState {
             note_id: candidate.note_id,
-            time_offset_ms: drag_anchor_time_ms - pointer_time_ms,
+            time_offset_ms: quantized_offset,
             start_time_sec: get_time(),
             start_mouse_x: mx,
             start_mouse_y: my,

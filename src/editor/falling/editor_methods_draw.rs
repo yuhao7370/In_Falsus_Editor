@@ -183,7 +183,7 @@ impl FallingGroundEditor {
                     ground_rect.map(|r| point_in_rect(mx, my, r)).unwrap_or(false)
                 }
                 Some(tool) if is_air_tool(tool) => {
-                    air_rect.map(|r| point_in_rect(mx, my, r)).unwrap_or(false)
+                    air_rect.map(|r| point_in_rect(mx, my, air_split_rect(r))).unwrap_or(false)
                 }
                 _ => false,
             }
