@@ -6,7 +6,7 @@ impl FallingGroundEditor {
     }
 
     pub fn from_chart_path(path: &str) -> Self {
-        let (notes, next_note_id, timeline, track_timeline, track_source, timeline_events, status) = match Chart::from_file(path) {
+        let (notes, next_note_id, timeline, track_timeline, track_source, timeline_events, next_event_id, status) = match Chart::from_file(path) {
             Ok(chart) => {
                 let extracted = extract_chart_data(&chart);
                 let bpm_tl = BpmTimeline::from_source(extracted.bpm_source);
@@ -19,6 +19,7 @@ impl FallingGroundEditor {
                     track_tl,
                     track_src,
                     extracted.timeline_events,
+                    extracted.next_event_id,
                     format!("chart loaded: {path}"),
                 )
             }
@@ -33,10 +34,14 @@ impl FallingGroundEditor {
                     track_tl,
                     track_src,
                     vec![TimelineEvent {
+                        id: 1,
+                        kind: TimelineEventKind::Bpm,
+                        source_index: 0,
                         time_ms: 0.0,
                         label: "chart 120.00/4.00".to_owned(),
                         color: Color::from_rgba(140, 214, 255, 255),
                     }],
+                    2,
                     format!("failed to load chart: {err}"),
                 )
             }
@@ -53,6 +58,10 @@ impl FallingGroundEditor {
             track_source,
             track_speed_enabled: true,
             timeline_events,
+            selected_event_id: None,
+            event_overlap_cycle: None,
+            event_hover_hint: None,
+            next_event_id,
             snap_enabled: true,
             snap_division: 4,
             scroll_speed: DEFAULT_SCROLL_SPEED,

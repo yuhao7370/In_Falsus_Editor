@@ -85,11 +85,45 @@ struct PendingSkyAreaPlacement {
     start_center_norm: f32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TimelineEventKind {
+    Bpm,
+    Track,
+    Lane,
+}
+
 #[derive(Debug, Clone)]
 struct TimelineEvent {
+    id: u64,
+    kind: TimelineEventKind,
+    source_index: usize,
     time_ms: f32,
     label: String,
     color: Color,
+}
+
+#[derive(Debug, Clone)]
+struct EventOverlapCycle {
+    /// 当前列内重叠候选的 event id 列表
+    candidates: Vec<u64>,
+    /// 当前选中在 candidates 中的索引
+    current_index: usize,
+    /// 所属列 (0=Bpm, 1=Track, 2=Lane)
+    col: usize,
+    /// 锚点 y（量化后）
+    anchor_y: i32,
+    /// 上次点击时间（秒）
+    last_click_time_sec: f64,
+    /// 是否已准备好双击切换
+    double_click_armed: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct EventHoverOverlapHint {
+    mouse_x: f32,
+    mouse_y: f32,
+    current_index: usize,
+    total: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,6 +174,10 @@ pub struct FallingGroundEditor {
     track_source: TrackSourceData,
     track_speed_enabled: bool,
     timeline_events: Vec<TimelineEvent>,
+    selected_event_id: Option<u64>,
+    event_overlap_cycle: Option<EventOverlapCycle>,
+    event_hover_hint: Option<EventHoverOverlapHint>,
+    next_event_id: u64,
     snap_enabled: bool,
     snap_division: u32,
     scroll_speed: f32,

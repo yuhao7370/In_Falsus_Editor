@@ -4,6 +4,7 @@ struct ExtractedChartData {
     notes: Vec<GroundNote>,
     next_note_id: u64,
     timeline_events: Vec<TimelineEvent>,
+    next_event_id: u64,
     bpm_source: BpmSourceData,
     track_source: TrackSourceData,
 }
@@ -26,15 +27,20 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
     let mut has_chart_base = false;
 
     let mut next_id = 1_u64;
+    let mut next_event_id = 1_u64;
 
-    for event in &chart.events {
+    for (ev_index, event) in chart.events.iter().enumerate() {
         match event {
             ChartEvent::Chart { bpm, beats } => {
                 timeline_events.push(TimelineEvent {
+                    id: next_event_id,
+                    kind: TimelineEventKind::Bpm,
+                    source_index: ev_index,
                     time_ms: 0.0,
                     label: format!("chart {:.2}/{:.2}", bpm, beats),
                     color: Color::from_rgba(126, 210, 255, 255),
                 });
+                next_event_id += 1;
 
                 if !has_chart_base {
                     bpm_source.base_bpm = *bpm as f32;
@@ -49,10 +55,14 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 ..
             } => {
                 timeline_events.push(TimelineEvent {
+                    id: next_event_id,
+                    kind: TimelineEventKind::Bpm,
+                    source_index: ev_index,
                     time_ms: *time as f32,
                     label: format!("bpm {:.2} (beats {:.2})", bpm, beats),
                     color: Color::from_rgba(124, 226, 255, 255),
                 });
+                next_event_id += 1;
                 bpm_source
                     .bpm_events
                     .push((*time as f32, *bpm as f32, (*beats as f32).max(1.0)));
@@ -64,20 +74,28 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                     Color::from_rgba(255, 168, 128, 255)
                 };
                 timeline_events.push(TimelineEvent {
+                    id: next_event_id,
+                    kind: TimelineEventKind::Track,
+                    source_index: ev_index,
                     time_ms: *time as f32,
                     label: format!("track x{:.2}", speed),
                     color,
                 });
+                next_event_id += 1;
                 track_source
                     .track_events
                     .push((*time as f32, *speed as f32));
             }
             ChartEvent::Lane { time, lane, enable } => {
                 timeline_events.push(TimelineEvent {
+                    id: next_event_id,
+                    kind: TimelineEventKind::Lane,
+                    source_index: ev_index,
                     time_ms: *time as f32,
                     label: format!("lane {} {}", lane, if *enable { "on" } else { "off" }),
                     color: Color::from_rgba(232, 198, 124, 255),
                 });
+                next_event_id += 1;
             }
             ChartEvent::Tap { time, width, lane } => {
                 if *lane >= 0 && (*lane as usize) < LANE_COUNT {
@@ -200,6 +218,7 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
         notes,
         next_note_id: next_id,
         timeline_events,
+        next_event_id,
         bpm_source,
         track_source,
     }
