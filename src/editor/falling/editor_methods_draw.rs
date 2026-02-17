@@ -124,19 +124,24 @@ impl FallingGroundEditor {
         if allow_editor_input {
             if safe_mouse_button_pressed(MouseButton::Right)
                 && (self.place_note_type.is_some()
+                    || self.place_event_type.is_some()
                     || self.pending_hold.is_some()
                     || self.pending_skyarea.is_some())
             {
                 self.place_note_type = None;
+                self.place_event_type = None;
                 self.pending_hold = None;
                 self.pending_skyarea = None;
                 self.drag_state = None;
                 self.overlap_cycle = None;
                 self.hover_overlap_hint = None;
+                self.selected_event_id = None;
+                self.event_overlap_cycle = None;
+                self.event_hover_hint = None;
                 self.status = "place mode cleared".to_owned();
             }
 
-            if self.place_note_type.is_none() {
+            if self.place_note_type.is_none() && self.place_event_type.is_none() {
                 self.handle_note_selection_click(ground_rect, air_rect, current_ms);
                 self.update_hover_overlap_hint(ground_rect, air_rect, current_ms);
             } else {

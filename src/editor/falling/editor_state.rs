@@ -185,6 +185,7 @@ pub struct FallingGroundEditor {
     scroll_speed: f32,
     render_scope: RenderScope,
     place_note_type: Option<PlaceNoteType>,
+    place_event_type: Option<PlaceEventType>,
     pending_hold: Option<PendingHoldPlacement>,
     pending_skyarea: Option<PendingSkyAreaPlacement>,
     overlap_cycle: Option<OverlapCycleState>,

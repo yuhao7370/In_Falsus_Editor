@@ -94,8 +94,103 @@ impl FallingGroundEditor {
     fn push_note(&mut self, note: GroundNote) {
         self.next_note_id = self.next_note_id.saturating_add(1);
         self.selected_note_id = Some(note.id);
+        self.selected_event_id = None;
+        self.event_overlap_cycle = None;
+        self.event_hover_hint = None;
         self.notes.push(note);
         self.sort_notes();
+    }
+
+    fn push_timeline_event(&mut self, event: TimelineEvent) {
+        self.next_event_id = self.next_event_id.saturating_add(1);
+        self.selected_event_id = Some(event.id);
+        self.selected_note_id = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
+        self.timeline_events.push(event);
+        self.timeline_events.sort_by(|a, b| {
+            a.time_ms
+                .total_cmp(&b.time_ms)
+                .then_with(|| a.label.cmp(&b.label))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+    }
+
+    fn place_timeline_event(&mut self, tool: PlaceEventType, time_ms: f32) {
+        let time_ms = time_ms.max(0.0);
+        match tool {
+            PlaceEventType::Bpm => {
+                let point = self.timeline.point_at_time(time_ms);
+                let bpm = point.bpm.abs().max(0.001);
+                let beats = point.beats_per_measure.max(1.0);
+                let mut bpm_source = BpmSourceData {
+                    base_bpm: self.timeline.points[0].bpm,
+                    base_beats_per_measure: self.timeline.points[0].beats_per_measure,
+                    bpm_events: self
+                        .timeline
+                        .points
+                        .iter()
+                        .skip(1)
+                        .map(|p| (p.time_ms, p.bpm, p.beats_per_measure))
+                        .collect(),
+                };
+                bpm_source.bpm_events.push((time_ms, bpm, beats));
+                self.timeline = BpmTimeline::from_source(bpm_source);
+                let track_source = if self.track_speed_enabled {
+                    self.track_source.clone()
+                } else {
+                    TrackSourceData::default()
+                };
+                self.track_timeline = TrackTimeline::from_source(&self.timeline, track_source);
+                self.rebuild_barline_cache();
+                self.push_timeline_event(TimelineEvent {
+                    id: self.next_event_id,
+                    kind: TimelineEventKind::Bpm,
+                    source_index: 0,
+                    time_ms,
+                    label: format!("bpm {:.2} (beats {:.2})", bpm, beats),
+                    color: Color::from_rgba(124, 226, 255, 255),
+                });
+                self.status = format!("new bpm event {:.0}ms", time_ms.round());
+            }
+            PlaceEventType::Track => {
+                let idx = self.track_timeline.point_index_at_or_before(time_ms);
+                let speed = self.track_timeline.points[idx].speed;
+                self.track_source.track_events.push((time_ms, speed));
+                let track_source = if self.track_speed_enabled {
+                    self.track_source.clone()
+                } else {
+                    TrackSourceData::default()
+                };
+                self.track_timeline = TrackTimeline::from_source(&self.timeline, track_source);
+                self.rebuild_barline_cache();
+                let color = if speed >= 0.0 {
+                    Color::from_rgba(150, 240, 170, 255)
+                } else {
+                    Color::from_rgba(255, 168, 128, 255)
+                };
+                self.push_timeline_event(TimelineEvent {
+                    id: self.next_event_id,
+                    kind: TimelineEventKind::Track,
+                    source_index: 0,
+                    time_ms,
+                    label: format!("track x{:.2}", speed),
+                    color,
+                });
+                self.status = format!("new track event {:.0}ms", time_ms.round());
+            }
+            PlaceEventType::Lane => {
+                self.push_timeline_event(TimelineEvent {
+                    id: self.next_event_id,
+                    kind: TimelineEventKind::Lane,
+                    source_index: 0,
+                    time_ms,
+                    label: "lane 0 on".to_owned(),
+                    color: Color::from_rgba(232, 198, 124, 255),
+                });
+                self.status = format!("new lane event {:.0}ms", time_ms.round());
+            }
+        }
     }
 
     fn sort_notes(&mut self) {

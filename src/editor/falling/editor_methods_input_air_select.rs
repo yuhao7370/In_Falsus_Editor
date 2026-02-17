@@ -275,6 +275,9 @@ impl FallingGroundEditor {
 
         let selected = candidates[selected_index];
         self.selected_note_id = Some(selected.note_id);
+        self.selected_event_id = None;
+        self.event_overlap_cycle = None;
+        self.event_hover_hint = None;
         self.start_drag_for_candidate(selected, mx, my, current_ms, ground_rect, air_rect);
         if candidates.len() > 1 && did_cycle {
             self.status = format!(

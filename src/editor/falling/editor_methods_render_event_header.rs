@@ -80,10 +80,104 @@ impl FallingGroundEditor {
             && mouse.1 >= rect.y
             && mouse.1 <= rect.y + rect.h;
         let clicked = mouse_in_rect && safe_mouse_button_pressed(MouseButton::Left);
+        let right_clicked = mouse_in_rect && safe_mouse_button_pressed(MouseButton::Right);
+        if right_clicked {
+            self.selected_event_id = None;
+            self.event_overlap_cycle = None;
+            self.event_hover_hint = None;
+        }
         let event_hit_half_h = 9.0_f32 * ui;
         let font_size = ((14.0 * ui).round() as u16).clamp(9, 32);
         let time_font_size = ((10.0 * ui).round() as u16).clamp(7, 22);
         let min_gap = event_hit_half_h * 2.2;
+        let placement_clip_top = 28.0 * ui;
+        let placement_clip_bottom = 4.0 * ui;
+        let mut consumed_click_for_placement = false;
+        if clicked {
+            if let Some(event_tool) = self.place_event_type {
+                let y_min = rect.y + placement_clip_top;
+                let y_max = rect.y + rect.h - placement_clip_bottom;
+                if mouse.1 >= y_min && mouse.1 <= y_max {
+                    let pixels_per_ms = (self.scroll_speed * rect.h / 1000.0).max(0.001);
+                    let placed_time_ms = self.apply_snap(
+                        (current_ms + (judge_y - mouse.1) / pixels_per_ms).max(0.0),
+                    );
+                    self.place_timeline_event(event_tool, placed_time_ms);
+                    self.selected_event_id = None;
+                    self.event_overlap_cycle = None;
+                    self.event_hover_hint = None;
+                    consumed_click_for_placement = true;
+                }
+            }
+        }
+
+        // Placement preview for event tools (Bpm/Track/Lane), aligned to snapped time.
+        if let Some(event_tool) = self.place_event_type {
+            let y_min = rect.y + placement_clip_top;
+            let y_max = rect.y + rect.h - placement_clip_bottom;
+            if mouse_in_rect && mouse.1 >= y_min && mouse.1 <= y_max {
+                let pixels_per_ms = (self.scroll_speed * rect.h / 1000.0).max(0.001);
+                let preview_time_ms = self.apply_snap(
+                    (current_ms + (judge_y - mouse.1) / pixels_per_ms).max(0.0),
+                );
+                let preview_y = self.time_to_y_linear(preview_time_ms, current_ms, judge_y, rect.h);
+                let (col_idx, color) = match event_tool {
+                    PlaceEventType::Bpm => (0usize, Color::from_rgba(124, 226, 255, 220)),
+                    PlaceEventType::Track => (1usize, Color::from_rgba(150, 240, 170, 220)),
+                    PlaceEventType::Lane => (2usize, Color::from_rgba(232, 198, 124, 220)),
+                };
+                let col_x = rect.x + col_w * col_idx as f32;
+                let sub_x = col_x + 1.0;
+                let sub_w = col_w - 2.0;
+
+                draw_line(
+                    rect.x + 6.0 * ui,
+                    preview_y,
+                    rect.x + rect.w - 6.0 * ui,
+                    preview_y,
+                    1.2,
+                    Color::new(color.r, color.g, color.b, 0.72),
+                );
+                draw_rectangle(
+                    sub_x,
+                    preview_y - event_hit_half_h,
+                    sub_w,
+                    event_hit_half_h * 2.0,
+                    Color::new(color.r, color.g, color.b, 0.22),
+                );
+
+                let label = event_tool.label();
+                let label_metrics = measure_text(label, self.text_font.as_ref(), font_size, 1.0);
+                let label_x = sub_x + (sub_w - label_metrics.width) * 0.5;
+                draw_text_ex(
+                    label,
+                    label_x,
+                    preview_y + 4.0 * ui,
+                    TextParams {
+                        font: self.text_font.as_ref(),
+                        font_size,
+                        color,
+                        ..Default::default()
+                    },
+                );
+
+                let time_str = format!("{:05.0}", preview_time_ms);
+                let time_metrics = measure_text(&time_str, self.text_font.as_ref(), time_font_size, 1.0);
+                let time_x = sub_x + (sub_w - time_metrics.width) * 0.5;
+                let time_y = preview_y + 4.0 * ui + (font_size as f32) * 0.7;
+                draw_text_ex(
+                    &time_str,
+                    time_x,
+                    time_y,
+                    TextParams {
+                        font: self.text_font.as_ref(),
+                        font_size: time_font_size,
+                        color: Color::new(color.r, color.g, color.b, 0.62),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
 
         // 为每列计算左右错开偏移: 0=居中, -1=偏左, 1=偏右
         let mut col_offsets: [Vec<i8>; 3] = [Vec::new(), Vec::new(), Vec::new()];
@@ -208,7 +302,8 @@ impl FallingGroundEditor {
         }
 
         // 悬停提示：显示 N/M
-        if hover_candidates.len() > 1 {
+        if !consumed_click_for_placement {
+            if hover_candidates.len() > 1 {
             let mut current_index = 0_usize;
             if let Some(ref cycle) = self.event_overlap_cycle {
                 let ids: Vec<u64> = hover_candidates.iter().map(|c| c.0).collect();
@@ -222,12 +317,12 @@ impl FallingGroundEditor {
                 current_index,
                 total: hover_candidates.len(),
             });
-        } else {
-            self.event_hover_hint = None;
-        }
+            } else {
+                self.event_hover_hint = None;
+            }
 
         // 双击切换选中逻辑（与 note 一致）
-        if clicked && !click_candidates.is_empty() {
+            if clicked && !click_candidates.is_empty() {
             let anchor_y = (mouse.1 * 0.5) as i32;
             let col = click_candidates[0].1;
             let ids: Vec<u64> = click_candidates.iter().map(|c| c.0).collect();
@@ -265,11 +360,14 @@ impl FallingGroundEditor {
                     }
                 }
 
-                self.selected_event_id = Some(ids[index]);
-                self.event_overlap_cycle = Some(EventOverlapCycle {
-                    candidates: ids.clone(),
-                    current_index: index,
-                    col,
+                    self.selected_event_id = Some(ids[index]);
+                    self.selected_note_id = None;
+                    self.overlap_cycle = None;
+                    self.hover_overlap_hint = None;
+                    self.event_overlap_cycle = Some(EventOverlapCycle {
+                        candidates: ids.clone(),
+                        current_index: index,
+                        col,
                     anchor_y,
                     last_click_time_sec: now_sec,
                     double_click_armed,
@@ -285,20 +383,23 @@ impl FallingGroundEditor {
                     self.status = format!("selected event: {}", ev.label);
                 }
             } else {
-                self.selected_event_id = Some(ids[0]);
-                self.event_overlap_cycle = None;
-                if let Some(ev) = self.timeline_events.iter().find(|e| e.id == ids[0]) {
-                    self.status = format!("selected event: {}", ev.label);
-                }
+                    self.selected_event_id = Some(ids[0]);
+                    self.selected_note_id = None;
+                    self.overlap_cycle = None;
+                    self.hover_overlap_hint = None;
+                    self.event_overlap_cycle = None;
+                    if let Some(ev) = self.timeline_events.iter().find(|e| e.id == ids[0]) {
+                        self.status = format!("selected event: {}", ev.label);
+                    }
             }
-        } else if clicked {
-            self.selected_event_id = None;
-            self.event_overlap_cycle = None;
-        }
+            } else if clicked {
+                self.selected_event_id = None;
+                self.event_overlap_cycle = None;
+            }
 
         // 绘制悬停提示框
-        if let Some(hint) = self.event_hover_hint {
-            if hint.total > 1 {
+            if let Some(hint) = self.event_hover_hint {
+                if hint.total > 1 {
                 let text = format!("{}/{}", hint.current_index + 1, hint.total);
                 let ui = adaptive_ui_scale();
                 let hint_font_size = scaled_font_size(18.0, 12, 42);
@@ -320,6 +421,7 @@ impl FallingGroundEditor {
                         ..Default::default()
                     },
                 );
+                }
             }
         }
 

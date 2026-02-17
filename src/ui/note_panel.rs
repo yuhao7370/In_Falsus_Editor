@@ -1,5 +1,5 @@
 use crate::editor::falling::{
-    FallingGroundEditor, PlaceNoteType,
+    FallingGroundEditor, PlaceEventType, PlaceNoteType,
 };
 use crate::i18n::{I18n, TextKey};
 use egui_macroquad::egui;
@@ -8,10 +8,18 @@ pub const NOTE_PANEL_BASE_WIDTH_POINTS: f32 = 280.0;
 
 fn tool_caption(tool: PlaceNoteType) -> &'static str {
     match tool {
-        PlaceNoteType::Tap => "Tap (Ground)",
-        PlaceNoteType::Hold => "Hold (Ground, 2 Clicks)",
-        PlaceNoteType::Flick => "Flick (Air)",
-        PlaceNoteType::SkyArea => "SkyArea (Air, 2 Clicks)",
+        PlaceNoteType::Tap => "Tap",
+        PlaceNoteType::Hold => "Hold",
+        PlaceNoteType::Flick => "Flick",
+        PlaceNoteType::SkyArea => "SkyArea",
+    }
+}
+
+fn event_caption(tool: PlaceEventType) -> &'static str {
+    match tool {
+        PlaceEventType::Bpm => "Bpm",
+        PlaceEventType::Track => "Track",
+        PlaceEventType::Lane => "Lane",
     }
 }
 
@@ -65,16 +73,17 @@ pub fn draw_note_selector_panel(
                 .inner_margin(egui::Margin::same(8)),
         )
         .show(ctx, |ui| {
-            ui.label("Place");
+            ui.label("Note");
 
-            let current = editor.place_note_type();
+            let current_note = editor.place_note_type();
+            let current_event = editor.place_event_type();
             for tool in [
                 PlaceNoteType::Tap,
                 PlaceNoteType::Hold,
                 PlaceNoteType::Flick,
                 PlaceNoteType::SkyArea,
             ] {
-                let response = draw_tool_row(ui, tool_caption(tool), current == Some(tool));
+                let response = draw_tool_row(ui, tool_caption(tool), current_note == Some(tool));
                 if response.clicked() {
                     editor.set_place_note_type(Some(tool));
                 }
@@ -84,7 +93,26 @@ pub fn draw_note_selector_panel(
             }
 
             ui.separator();
-            let mode_text = current.map(tool_caption).unwrap_or("None");
+            ui.label("Event");
+            for tool in [
+                PlaceEventType::Bpm,
+                PlaceEventType::Track,
+                PlaceEventType::Lane,
+            ] {
+                let response = draw_tool_row(ui, event_caption(tool), current_event == Some(tool));
+                if response.clicked() {
+                    editor.set_place_event_type(Some(tool));
+                }
+                if response.secondary_clicked() {
+                    editor.set_place_event_type(None);
+                }
+            }
+
+            ui.separator();
+            let mode_text = current_note
+                .map(tool_caption)
+                .or_else(|| current_event.map(event_caption))
+                .unwrap_or("None");
             ui.label(format!("Current: {mode_text}"));
             if let Some(head_time_ms) = editor.pending_hold_head_time_ms() {
                 ui.label(format!("Hold head: {:.0}ms", head_time_ms));
@@ -127,6 +155,7 @@ pub fn draw_note_selector_panel(
             && panel.response.rect.contains(pointer_pos);
         if cancel_on_panel {
             editor.set_place_note_type(None);
+            editor.set_place_event_type(None);
         }
     }
 

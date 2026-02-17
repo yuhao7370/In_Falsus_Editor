@@ -20,6 +20,23 @@ impl PlaceNoteType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlaceEventType {
+    Bpm,
+    Track,
+    Lane,
+}
+
+impl PlaceEventType {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Bpm => "Bpm",
+            Self::Track => "Track",
+            Self::Lane => "Lane",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderScope {
     Split,
     Both,
