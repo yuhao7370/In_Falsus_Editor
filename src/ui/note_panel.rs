@@ -60,9 +60,6 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
                 .inner_margin(egui::Margin::same(8)),
         )
         .show(ctx, |ui| {
-            ui.heading("Note Tool");
-            ui.label("LMB: Select  RMB: Clear");
-            ui.separator();
             {
                 let mut enabled = editor.track_speed_enabled();
                 if ui.checkbox(&mut enabled, "Track Speed Events").changed() {
