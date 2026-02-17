@@ -17,13 +17,13 @@ impl FallingGroundEditor {
         );
 
         let judge_y = rect.y + rect.h * 0.82;
-        let (ahead_ms, behind_ms) = self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
+        let (ahead_ms, behind_ms) = self.visible_ahead_behind_ms_linear(rect.y, rect.h, current_ms, judge_y);
 
         for barline in self
             .timeline
             .visible_barlines(current_ms, ahead_ms, behind_ms, self.snap_division)
         {
-            let y = self.time_to_y(barline.time_ms, current_ms, judge_y, rect.h);
+            let y = self.time_to_y_linear(barline.time_ms, current_ms, judge_y, rect.h);
             if y < rect.y + self.scaled_ui_px(22.0) || y > rect.y + rect.h + 1.0 {
                 continue;
             }
@@ -37,25 +37,34 @@ impl FallingGroundEditor {
 
         let start_ms = current_ms - behind_ms;
         let end_ms = current_ms + ahead_ms;
-        let mut drawn = 0_u32;
-        let mut last_y = f32::NEG_INFINITY;
-        for event in &self.timeline_events {
+
+        // 收集可见 event 的 y 坐标，按 y 升序排列后去重绘制
+        let mut visible: Vec<(f32, usize)> = Vec::new();
+        for (i, event) in self.timeline_events.iter().enumerate() {
             if event.time_ms < start_ms - 0.001 || event.time_ms > end_ms + 0.001 {
                 continue;
             }
-            let y = self.time_to_y(event.time_ms, current_ms, judge_y, rect.h);
+            let y = self.time_to_y_linear(event.time_ms, current_ms, judge_y, rect.h);
             if y < rect.y + 28.0 || y > rect.y + rect.h - 4.0 {
                 continue;
             }
-            if y - last_y < 12.0 {
+            visible.push((y, i));
+        }
+        visible.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+        let mut drawn = 0_u32;
+        let mut last_y = f32::NEG_INFINITY;
+        for (y, idx) in &visible {
+            if *y - last_y < 12.0 {
                 continue;
             }
-            draw_circle(rect.x + 10.0, y, 2.8, event.color);
-            draw_line(rect.x + 14.0, y, rect.x + 26.0, y, 1.4, event.color);
+            let event = &self.timeline_events[*idx];
+            draw_circle(rect.x + 10.0, *y, 2.8, event.color);
+            draw_line(rect.x + 14.0, *y, rect.x + 26.0, *y, 1.4, event.color);
             draw_text_ex(
                 &event.label,
                 rect.x + 30.0,
-                y + 5.0,
+                *y + 5.0,
                 TextParams {
                     font: self.text_font.as_ref(),
                     font_size: 16,
@@ -63,7 +72,7 @@ impl FallingGroundEditor {
                     ..Default::default()
                 },
             );
-            last_y = y;
+            last_y = *y;
             drawn += 1;
             if drawn >= 90 {
                 break;

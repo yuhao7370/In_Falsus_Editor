@@ -27,6 +27,20 @@ impl FallingGroundEditor {
         (ahead_ms, behind_ms)
     }
 
+    /// 纯线性时间→Y 坐标（不受 track speed 影响，等效 speed=1）。
+    fn time_to_y_linear(&self, note_time_ms: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
+        let pixels_per_ms = (self.scroll_speed * lane_h / 1000.0).max(0.001);
+        judge_y - (note_time_ms - current_ms) * pixels_per_ms
+    }
+
+    /// 纯线性可见时间范围（不受 track speed 影响）。
+    fn visible_ahead_behind_ms_linear(&self, rect_y: f32, rect_h: f32, _current_ms: f32, judge_y: f32) -> (f32, f32) {
+        let pixels_per_ms = (self.scroll_speed * rect_h / 1000.0).max(0.001);
+        let ahead_ms = (judge_y - rect_y) / pixels_per_ms;
+        let behind_ms = (rect_y + rect_h - judge_y) / pixels_per_ms;
+        (ahead_ms.max(0.0), behind_ms.max(0.0))
+    }
+
     fn flick_side_height_px(&self, _note_time_ms: f32, lane_h: f32) -> f32 {
         let base_bpm = self.timeline.points[0].bpm.abs().max(0.001);
         let beat_ms = 60_000.0 / base_bpm;
