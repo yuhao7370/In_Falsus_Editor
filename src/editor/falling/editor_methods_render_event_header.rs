@@ -175,6 +175,22 @@ impl FallingGroundEditor {
                     },
                 );
 
+                // debug hitbox: 绘制 event 点击判定区域
+                if self.debug_show_hitboxes {
+                    let hit_rect = Rect {
+                        x: sub_x + 1.0,
+                        y: *y - event_hit_half_h,
+                        w: sub_w - 2.0,
+                        h: event_hit_half_h * 2.0,
+                    };
+                    let hitbox_color = match event.kind {
+                        TimelineEventKind::Bpm => Color::from_rgba(255, 180, 80, 200),
+                        TimelineEventKind::Track => Color::from_rgba(80, 220, 255, 200),
+                        TimelineEventKind::Lane => Color::from_rgba(180, 255, 120, 200),
+                    };
+                    draw_debug_hitbox_rect(hit_rect, rect, hitbox_color, 1.2);
+                }
+
                 // 悬停/点击候选收集（使用偏移后的子区域）
                 let in_sub = mouse.0 >= sub_x && mouse.0 < sub_x + sub_w;
                 if in_sub {

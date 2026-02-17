@@ -1,4 +1,4 @@
-﻿// 文件说明：命中区域调试渲染实现。
+// 文件说明：命中区域调试渲染实现。
 // 主要功能：可视化音符命中盒与交互判定区域，便于调试。
 impl FallingGroundEditor {
     fn draw_ground_hitbox_overlay(&self, rect: Rect, current_ms: f32) {
@@ -11,6 +11,9 @@ impl FallingGroundEditor {
         let tail_color = Color::from_rgba(255, 164, 88, 228);
         let body_color = Color::from_rgba(138, 255, 152, 218);
 
+        let view_top = rect.y - 40.0;
+        let view_bottom = rect.y + rect.h + 40.0;
+
         for note in &self.notes {
             if !is_ground_kind(note.kind) {
                 continue;
@@ -19,6 +22,19 @@ impl FallingGroundEditor {
             let note_w = note_head_width(note, lane_w);
             let note_x = lane_x + (lane_w - note_w) * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+
+            // 屏幕外裁剪：无尾音符只看 head，有尾音符看 head+tail 范围
+            if note.has_tail() {
+                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                let y_min = head_y.min(tail_y);
+                let y_max = head_y.max(tail_y);
+                if y_max < view_top || y_min > view_bottom {
+                    continue;
+                }
+            } else if head_y < view_top || head_y > view_bottom {
+                continue;
+            }
+
             let head_rect = note_end_hit_rect(note_x, note_w, head_y);
             draw_debug_hitbox_rect(head_rect, rect, head_color, 1.3);
 
@@ -54,8 +70,24 @@ impl FallingGroundEditor {
         let tail_color = Color::from_rgba(246, 186, 114, 228);
         let body_color = Color::from_rgba(176, 144, 255, 214);
 
+        let view_top = rect.y - 40.0;
+        let view_bottom = rect.y + rect.h + 40.0;
+
         for note in &self.notes {
             if !is_air_kind(note.kind) {
+                continue;
+            }
+
+            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            // 屏幕外裁剪
+            if note.has_tail() {
+                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                let y_min = head_y.min(tail_y);
+                let y_max = head_y.max(tail_y);
+                if y_max < view_top || y_min > view_bottom {
+                    continue;
+                }
+            } else if head_y < view_top || head_y > view_bottom {
                 continue;
             }
 
