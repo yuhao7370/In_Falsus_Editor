@@ -6,28 +6,32 @@ impl FallingGroundEditor {
     }
 
     pub fn from_chart_path(path: &str) -> Self {
-        let (notes, next_note_id, timeline, track_timeline, timeline_events, status) = match Chart::from_file(path) {
+        let (notes, next_note_id, timeline, track_timeline, track_source, timeline_events, status) = match Chart::from_file(path) {
             Ok(chart) => {
                 let extracted = extract_chart_data(&chart);
                 let bpm_tl = BpmTimeline::from_source(extracted.bpm_source);
-                let track_tl = TrackTimeline::from_source(&bpm_tl, extracted.track_source);
+                let track_src = extracted.track_source;
+                let track_tl = TrackTimeline::from_source(&bpm_tl, track_src.clone());
                 (
                     extracted.notes,
                     extracted.next_note_id,
                     bpm_tl,
                     track_tl,
+                    track_src,
                     extracted.timeline_events,
                     format!("chart loaded: {path}"),
                 )
             }
             Err(err) => {
                 let bpm_tl = BpmTimeline::from_source(BpmSourceData::default());
-                let track_tl = TrackTimeline::from_source(&bpm_tl, TrackSourceData::default());
+                let track_src = TrackSourceData::default();
+                let track_tl = TrackTimeline::from_source(&bpm_tl, track_src.clone());
                 (
                     Vec::new(),
                     1,
                     bpm_tl,
                     track_tl,
+                    track_src,
                     vec![TimelineEvent {
                         time_ms: 0.0,
                         label: "chart 120.00/4.00".to_owned(),
@@ -46,6 +50,8 @@ impl FallingGroundEditor {
             drag_state: None,
             timeline,
             track_timeline,
+            track_source,
+            track_speed_enabled: true,
             timeline_events,
             snap_enabled: true,
             snap_division: 4,
@@ -178,7 +184,25 @@ impl FallingGroundEditor {
         }
     }
 
+    pub fn track_speed_enabled(&self) -> bool {
+        self.track_speed_enabled
+    }
 
-
+    pub fn set_track_speed_enabled(&mut self, enabled: bool) {
+        if self.track_speed_enabled == enabled {
+            return;
+        }
+        self.track_speed_enabled = enabled;
+        let source = if enabled {
+            self.track_source.clone()
+        } else {
+            TrackSourceData::default()
+        };
+        self.track_timeline = TrackTimeline::from_source(&self.timeline, source);
+        self.status = format!(
+            "track speed {}",
+            if enabled { "enabled" } else { "disabled" }
+        );
+    }
 }
 

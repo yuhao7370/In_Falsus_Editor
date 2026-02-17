@@ -120,6 +120,13 @@ pub fn draw_note_selector_panel(ctx: &egui::Context, editor: &mut FallingGroundE
             });
             ui.label(format!("Current: {:.2}H/s", editor.scroll_speed()));
 
+            {
+                let mut enabled = editor.track_speed_enabled();
+                if ui.checkbox(&mut enabled, "Track Speed Events").changed() {
+                    editor.set_track_speed_enabled(enabled);
+                }
+            }
+
             ui.separator();
             ui.label("Place");
 

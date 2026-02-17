@@ -137,6 +137,8 @@ pub struct FallingGroundEditor {
     drag_state: Option<DragState>,
     timeline: BpmTimeline,
     track_timeline: TrackTimeline,
+    track_source: TrackSourceData,
+    track_speed_enabled: bool,
     timeline_events: Vec<TimelineEvent>,
     snap_enabled: bool,
     snap_division: u32,
