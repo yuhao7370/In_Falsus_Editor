@@ -128,9 +128,26 @@ impl BpmTimeline {
         if division == 0 {
             return time_ms.max(0.0);
         }
-        let beat = self.time_to_beat(time_ms);
-        let snapped = (beat * division as f32).round() / division as f32;
-        self.beat_to_time(snapped).max(0.0)
+        // 与 visible_barlines 一致：在当前 BPM 段内按 sub_ms 网格吸附
+        let idx = self.point_index_at_or_before_time(time_ms);
+        let point = self.points[idx];
+        let bpm = point.bpm.abs().max(0.001);
+        let beat_ms = 60_000.0 / bpm;
+        let sub_ms = beat_ms / division as f32;
+        let offset = time_ms - point.time_ms;
+        let n = (offset / sub_ms).round() as i32;
+        let snapped = point.time_ms + n as f32 * sub_ms;
+        // 如果 snap 结果超出当前段（进入下一段），则 clamp 到段边界
+        if idx + 1 < self.points.len() && snapped > self.points[idx + 1].time_ms {
+            // 比较段边界和前一个网格点，取更近的
+            let boundary = self.points[idx + 1].time_ms;
+            let prev = point.time_ms + (n - 1).max(0) as f32 * sub_ms;
+            if (boundary - time_ms).abs() < (prev - time_ms).abs() {
+                return boundary.max(0.0);
+            }
+            return prev.max(0.0);
+        }
+        snapped.max(0.0)
     }
 
     fn visible_barlines(

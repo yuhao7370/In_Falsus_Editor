@@ -6,6 +6,8 @@ impl FallingGroundEditor {
             return;
         }
 
+        let ui = self.resolution_ui_scale();
+
         draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::from_rgba(9, 11, 19, 255));
         draw_rectangle_lines(
             rect.x,
@@ -24,7 +26,7 @@ impl FallingGroundEditor {
             .visible_barlines(current_ms, ahead_ms, behind_ms, self.snap_division)
         {
             let y = self.time_to_y_linear(barline.time_ms, current_ms, judge_y, rect.h);
-            if y < rect.y + self.scaled_ui_px(22.0) || y > rect.y + rect.h + 1.0 {
+            if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
                 continue;
             }
             let (thickness, color) = match barline.kind {
@@ -32,7 +34,8 @@ impl FallingGroundEditor {
                 BarLineKind::Beat => (1.1, Color::from_rgba(78, 104, 146, 152)),
                 BarLineKind::Subdivision => (0.8, Color::from_rgba(58, 78, 112, 112)),
             };
-            draw_line(rect.x + 6.0, y, rect.x + rect.w - 6.0, y, thickness, color);
+            let margin = 6.0 * ui;
+            draw_line(rect.x + margin, y, rect.x + rect.w - margin, y, thickness, color);
         }
 
         let start_ms = current_ms - behind_ms;
@@ -48,7 +51,9 @@ impl FallingGroundEditor {
                 continue;
             }
             let y = self.time_to_y_linear(event.time_ms, current_ms, judge_y, rect.h);
-            if y < rect.y + 28.0 || y > rect.y + rect.h - 4.0 {
+            let clip_top = 28.0 * ui;
+            let clip_bottom = 4.0 * ui;
+            if y < rect.y + clip_top || y > rect.y + rect.h - clip_bottom {
                 continue;
             }
             let col = match event.kind {
@@ -65,7 +70,7 @@ impl FallingGroundEditor {
         // 绘制列分隔线
         for ci in 1..col_count {
             let lx = rect.x + col_w * ci as f32;
-            draw_line(lx, rect.y + 22.0, lx, rect.y + rect.h, 0.6, Color::from_rgba(36, 48, 72, 180));
+            draw_line(lx, rect.y + self.scaled_ui_px(22.0), lx, rect.y + rect.h, 0.6, Color::from_rgba(36, 48, 72, 180));
         }
 
         // 点击检测
@@ -75,35 +80,70 @@ impl FallingGroundEditor {
             && mouse.1 >= rect.y
             && mouse.1 <= rect.y + rect.h;
         let clicked = mouse_in_rect && is_mouse_button_pressed(MouseButton::Left);
-        let event_hit_half_h = 9.0_f32;
-        let font_size = 16_u16;
+        let event_hit_half_h = 9.0_f32 * ui;
+        let font_size = ((14.0 * ui).round() as u16).clamp(9, 32);
+        let time_font_size = ((10.0 * ui).round() as u16).clamp(7, 22);
+        let min_gap = event_hit_half_h * 2.2;
+
+        // 为每列计算左右错开偏移: 0=居中, -1=偏左, 1=偏右
+        let mut col_offsets: [Vec<i8>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+        for ci in 0..3 {
+            let events = &cols[ci];
+            let mut offsets = vec![0i8; events.len()];
+            let mut i = 0;
+            while i < events.len() {
+                // 找出一组连续靠近的事件
+                let mut j = i + 1;
+                while j < events.len() && (events[j].0 - events[j - 1].0).abs() < min_gap {
+                    j += 1;
+                }
+                if j - i > 1 {
+                    // 这组事件需要错开
+                    for k in i..j {
+                        offsets[k] = if (k - i) % 2 == 0 { -1 } else { 1 };
+                    }
+                }
+                i = j;
+            }
+            col_offsets[ci] = offsets;
+        }
 
         // 全部渲染 + 收集悬停/点击候选
-        let mut hover_candidates: Vec<(u64, usize)> = Vec::new(); // (id, col)
-        let mut click_candidates: Vec<(u64, usize)> = Vec::new(); // (id, col)
+        let mut hover_candidates: Vec<(u64, usize)> = Vec::new();
+        let mut click_candidates: Vec<(u64, usize)> = Vec::new();
         for (ci, col_events) in cols.iter().enumerate() {
             let col_x = rect.x + col_w * ci as f32;
-            for (y, idx) in col_events {
+            for (ei, (y, idx)) in col_events.iter().enumerate() {
                 let event = &self.timeline_events[*idx];
                 let is_selected = self.selected_event_id == Some(event.id);
+                let offset = col_offsets[ci][ei];
+
+                // 计算实际渲染子区域
+                let (sub_x, sub_w) = match offset {
+                    -1 => (col_x, col_w * 0.5),          // 偏左半列
+                    1 => (col_x + col_w * 0.5, col_w * 0.5), // 偏右半列
+                    _ => (col_x, col_w),                  // 居中整列
+                };
 
                 if is_selected {
                     draw_rectangle(
-                        col_x + 1.0,
+                        sub_x + 1.0,
                         *y - event_hit_half_h,
-                        col_w - 2.0,
+                        sub_w - 2.0,
                         event_hit_half_h * 2.0,
                         Color::from_rgba(80, 160, 255, 48),
                     );
                 }
 
-                // 居中绘制
-                let metrics = measure_text(&event.label, self.text_font.as_ref(), font_size, 1.0);
-                let text_x = col_x + (col_w - metrics.width) * 0.5;
+                // 绘制关键字（只显示第一个词）
+                let display_text = event.label.split_whitespace().next().unwrap_or(&event.label);
+                let metrics = measure_text(display_text, self.text_font.as_ref(), font_size, 1.0);
+                let text_x = sub_x + (sub_w - metrics.width) * 0.5;
+                let text_baseline_offset = 4.0 * ui;
                 draw_text_ex(
-                    &event.label,
+                    display_text,
                     text_x,
-                    *y + 6.0,
+                    *y + text_baseline_offset,
                     TextParams {
                         font: self.text_font.as_ref(),
                         font_size,
@@ -112,9 +152,32 @@ impl FallingGroundEditor {
                     },
                 );
 
-                // 悬停/点击候选收集
-                let in_col = mouse.0 >= col_x && mouse.0 < col_x + col_w;
-                if in_col {
+                // 绘制时间标注（在关键字下方，五位毫秒）
+                let time_str = format!("{:05.0}", event.time_ms);
+                let time_metrics = measure_text(&time_str, self.text_font.as_ref(), time_font_size, 1.0);
+                let time_x = sub_x + (sub_w - time_metrics.width) * 0.5;
+                let time_y = *y + text_baseline_offset + (font_size as f32) * 0.7;
+                let time_color = Color::from_rgba(
+                    event.color.r.min(1.0).max(0.0).mul_add(255.0, 0.0) as u8,
+                    event.color.g.min(1.0).max(0.0).mul_add(255.0, 0.0) as u8,
+                    event.color.b.min(1.0).max(0.0).mul_add(255.0, 0.0) as u8,
+                    120,
+                );
+                draw_text_ex(
+                    &time_str,
+                    time_x,
+                    time_y,
+                    TextParams {
+                        font: self.text_font.as_ref(),
+                        font_size: time_font_size,
+                        color: time_color,
+                        ..Default::default()
+                    },
+                );
+
+                // 悬停/点击候选收集（使用偏移后的子区域）
+                let in_sub = mouse.0 >= sub_x && mouse.0 < sub_x + sub_w;
+                if in_sub {
                     let dy = (mouse.1 - *y).abs();
                     if dy <= event_hit_half_h {
                         if mouse_in_rect {
@@ -244,10 +307,11 @@ impl FallingGroundEditor {
             }
         }
 
+        let judge_margin = 6.0 * ui;
         draw_line(
-            rect.x + 6.0,
+            rect.x + judge_margin,
             judge_y,
-            rect.x + rect.w - 6.0,
+            rect.x + rect.w - judge_margin,
             judge_y,
             2.2,
             Color::from_rgba(255, 146, 114, 240),

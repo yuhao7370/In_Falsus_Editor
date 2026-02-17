@@ -1,4 +1,4 @@
-﻿// 文件说明：空中轨道的选择与放置输入处理。
+// 文件说明：空中轨道的选择与放置输入处理。
 // 主要功能：处理 Flick/SkyArea 的点击、放置和选中逻辑。
 impl FallingGroundEditor {
     fn handle_air_input(&mut self, rect: Rect, current_ms: f32) {
@@ -100,10 +100,6 @@ impl FallingGroundEditor {
                     self.pointer_to_time(my, current_ms, judge_y, rect.h) + drag.time_offset_ms;
                 let snapped_time = self.apply_snap(new_time.max(0.0));
                 let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
-                let dx = mx - drag.start_mouse_x;
-                let dy = my - drag.start_mouse_y;
-                let vertical_drag = dy.abs() >= scaled_px(SKYAREA_VERTICAL_DRAG_THRESHOLD_PX)
-                    && dy.abs() > dx.abs();
                 if let Some(note) = self
                     .notes
                     .iter_mut()
@@ -150,21 +146,17 @@ impl FallingGroundEditor {
                                     shape.start_left_norm = (start_center - start_half_now).clamp(0.0, 1.0);
                                     shape.start_right_norm = (start_center + start_half_now).clamp(0.0, 1.0);
 
-                                    if vertical_drag {
-                                        let new_start = snapped_time.min(old_tail);
-                                        note.time_ms = new_start.max(0.0);
-                                        note.duration_ms = (old_tail - note.time_ms).max(0.0);
-                                    }
+                                    let new_start = snapped_time.min(old_tail);
+                                    note.time_ms = new_start.max(0.0);
+                                    note.duration_ms = (old_tail - note.time_ms).max(0.0);
                                 }
                                 AirDragTarget::SkyTail => {
                                     let end_center = x_norm.clamp(end_half_now, 1.0 - end_half_now);
                                     shape.end_left_norm = (end_center - end_half_now).clamp(0.0, 1.0);
                                     shape.end_right_norm = (end_center + end_half_now).clamp(0.0, 1.0);
 
-                                    if vertical_drag {
-                                        let tail_time = snapped_time.max(note.time_ms);
-                                        note.duration_ms = (tail_time - note.time_ms).max(0.0);
-                                    }
+                                    let tail_time = snapped_time.max(note.time_ms);
+                                    note.duration_ms = (tail_time - note.time_ms).max(0.0);
                                 }
                             }
 

@@ -1,4 +1,4 @@
-﻿// 文件说明：音符拖拽编辑行为实现。
+// 文件说明：音符拖拽编辑行为实现。
 // 主要功能：处理拖拽中的位置更新、尾部调整和约束校验。
 impl FallingGroundEditor {
     fn start_drag_for_candidate(
@@ -36,7 +36,8 @@ impl FallingGroundEditor {
             }
         };
 
-        let pointer_time_ms = self.pointer_to_time(my, current_ms, judge_y, lane_h);
+        let raw_pointer_time_ms = self.pointer_to_time(my, current_ms, judge_y, lane_h);
+        let pointer_time_ms = self.apply_snap(raw_pointer_time_ms.max(0.0));
         let (sky_start_center_norm, sky_end_center_norm, sky_start_half_norm, sky_end_half_norm) =
             if note.kind == GroundNoteKind::SkyArea {
                 if let Some(shape) = note.skyarea_shape {

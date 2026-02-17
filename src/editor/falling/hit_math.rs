@@ -1,4 +1,4 @@
-﻿// 文件说明：命中测试与坐标换算数学工具。
+// 文件说明：命中测试与坐标换算数学工具。
 // 主要功能：提供轨道映射、距离计算和命中判定辅助函数。
 fn lane_from_x(x: f32, lanes_x: f32, lane_w: f32) -> usize {
     ((x - lanes_x) / lane_w).floor().clamp(0.0, (LANE_COUNT as f32) - 1.0) as usize
