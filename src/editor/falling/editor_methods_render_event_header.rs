@@ -1,4 +1,4 @@
-﻿// 文件说明：事件头部与顶部信息渲染。
+// 文件说明：事件头部与顶部信息渲染。
 // 主要功能：绘制谱面事件摘要、状态文本和工具提示信息。
 impl FallingGroundEditor {
     fn draw_event_view(&self, rect: Rect, current_ms: f32) {
@@ -17,9 +17,7 @@ impl FallingGroundEditor {
         );
 
         let judge_y = rect.y + rect.h * 0.82;
-        let pixels_per_sec = (self.scroll_speed * rect.h).max(1.0);
-        let ahead_ms = ((judge_y - rect.y) / pixels_per_sec * 1000.0).max(0.0);
-        let behind_ms = (((rect.y + rect.h) - judge_y) / pixels_per_sec * 1000.0).max(0.0);
+        let (ahead_ms, behind_ms) = self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
 
         for barline in self
             .timeline

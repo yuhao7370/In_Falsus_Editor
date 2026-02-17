@@ -1,4 +1,4 @@
-﻿// 文件说明：编辑器状态数据结构定义。
+// 文件说明：编辑器状态数据结构定义。
 // 主要功能：定义运行时状态、交互上下文与缓存字段。
 #[derive(Debug, Clone, Copy)]
 struct DragState {
@@ -136,6 +136,7 @@ pub struct FallingGroundEditor {
     selected_note_id: Option<u64>,
     drag_state: Option<DragState>,
     timeline: BpmTimeline,
+    track_timeline: TrackTimeline,
     timeline_events: Vec<TimelineEvent>,
     snap_enabled: bool,
     snap_division: u32,

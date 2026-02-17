@@ -1,22 +1,35 @@
-﻿// 文件说明：编辑器内部通用操作函数集合。
+// 文件说明：编辑器内部通用操作函数集合。
 // 主要功能：封装音符增删改、排序、吸附和状态维护。
 impl FallingGroundEditor {
     fn pointer_to_time(&self, mouse_y: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
-        current_ms + (judge_y - mouse_y) / (self.scroll_speed * lane_h).max(1.0) * 1000.0
+        // scroll_speed 单位：屏高/秒，visual_beat 单位：毫秒等效（speed=1 时 = dt_ms）
+        let pixels_per_ms = (self.scroll_speed * lane_h / 1000.0).max(0.001);
+        let current_vb = self.track_timeline.visual_beat_at(current_ms);
+        let delta_vb = (judge_y - mouse_y) / pixels_per_ms;
+        let target_vb = current_vb + delta_vb;
+        self.track_timeline.visual_beat_to_time(target_vb)
     }
 
     fn time_to_y(&self, note_time_ms: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
-        judge_y - (note_time_ms - current_ms) / 1000.0 * (self.scroll_speed * lane_h)
+        let pixels_per_ms = (self.scroll_speed * lane_h / 1000.0).max(0.001);
+        let note_vb = self.track_timeline.visual_beat_at(note_time_ms);
+        let current_vb = self.track_timeline.visual_beat_at(current_ms);
+        judge_y - (note_vb - current_vb) * pixels_per_ms
     }
 
-    fn flick_side_height_px(&self, note_time_ms: f32, lane_h: f32) -> f32 {
-        let bpm = self
-            .timeline
-            .point_at_time(note_time_ms.max(0.0))
-            .bpm
-            .abs()
-            .max(0.001);
-        let beat_ms = 60_000.0 / bpm;
+    /// 计算当前视口中可见的时间范围（考虑 track speed 变化）。
+    /// 返回 (ahead_ms, behind_ms)，ahead 是判定线上方的时间跨度，behind 是下方的。
+    fn visible_ahead_behind_ms(&self, rect_y: f32, rect_h: f32, current_ms: f32, judge_y: f32) -> (f32, f32) {
+        let top_time = self.pointer_to_time(rect_y, current_ms, judge_y, rect_h);
+        let bottom_time = self.pointer_to_time(rect_y + rect_h, current_ms, judge_y, rect_h);
+        let ahead_ms = (top_time - current_ms).max(0.0);
+        let behind_ms = (current_ms - bottom_time).max(0.0);
+        (ahead_ms, behind_ms)
+    }
+
+    fn flick_side_height_px(&self, _note_time_ms: f32, lane_h: f32) -> f32 {
+        let base_bpm = self.timeline.points[0].bpm.abs().max(0.001);
+        let beat_ms = 60_000.0 / base_bpm;
         let subdivision_ms = beat_ms / 16.0;
         let pixels_per_sec = (self.scroll_speed * lane_h).max(1.0);
         subdivision_ms / 1000.0 * pixels_per_sec

@@ -1,4 +1,4 @@
-﻿// 文件说明：空中轨道渲染实现。
+// 文件说明：空中轨道渲染实现。
 // 主要功能：绘制 SKY 视图背景、网格、拍线与空中音符。
 impl FallingGroundEditor {
     fn draw_air_view(&self, rect: Rect, current_ms: f32, overlay_mode: bool, show_spectrum: bool) {
@@ -35,9 +35,7 @@ impl FallingGroundEditor {
         }
 
         let judge_y = rect.y + rect.h * 0.82;
-        let pixels_per_sec = (self.scroll_speed * rect.h).max(1.0);
-        let ahead_ms = ((judge_y - rect.y) / pixels_per_sec * 1000.0).max(0.0);
-        let behind_ms = (((rect.y + rect.h) - judge_y) / pixels_per_sec * 1000.0).max(0.0);
+        let (ahead_ms, behind_ms) = self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
         let top_label_baseline = self.title_top_baseline_px();
         let barline_label_font_size = self.barline_label_font_size();
         let barline_label_min_y = rect.y + self.scaled_ui_px(14.0);

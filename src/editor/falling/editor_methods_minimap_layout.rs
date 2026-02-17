@@ -1,4 +1,4 @@
-﻿// 文件说明：小地图布局与可视范围计算。
+// 文件说明：小地图布局与可视范围计算。
 // 主要功能：计算小地图区域尺寸、窗口映射和定位参数。
 impl FallingGroundEditor {
     fn split_portrait_screens(&self, rect: Rect) -> (Rect, Rect) {
@@ -38,9 +38,7 @@ impl FallingGroundEditor {
             };
         }
         let judge_y = render_rect.y + render_rect.h * 0.82;
-        let pixels_per_sec = (self.scroll_speed * render_rect.h).max(1.0);
-        let ahead_ms = ((judge_y - render_rect.y) / pixels_per_sec * 1000.0).max(0.0);
-        let behind_ms = (((render_rect.y + render_rect.h) - judge_y) / pixels_per_sec * 1000.0).max(0.0);
+        let (ahead_ms, behind_ms) = self.visible_ahead_behind_ms(render_rect.y, render_rect.h, current_ms, judge_y);
         let start_ms = (current_ms - behind_ms).max(0.0);
         let end_ms = (current_ms + ahead_ms).max(start_ms);
         TimeWindowMs {

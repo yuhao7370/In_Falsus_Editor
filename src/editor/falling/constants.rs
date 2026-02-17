@@ -13,8 +13,8 @@ const DEFAULT_AIR_WIDTH_NORM: f32 = 0.5;
 /// 新建 SkyArea 的默认归一化宽度（相对空轨区域）。
 const DEFAULT_SKYAREA_WIDTH_NORM: f32 = 0.25;
 
-/// 默认下落速度（单位：屏高/秒）。
-const DEFAULT_SCROLL_SPEED: f32 = 1.25;
+/// 默认下落速度（单位：屏高/visual beat）。
+const DEFAULT_SCROLL_SPEED: f32 = 1.0;
 /// 下落速度下限，防止过慢导致编辑反馈滞后。
 const MIN_SCROLL_SPEED: f32 = 0.2;
 /// 下落速度上限，防止过快导致无法精确操作。

@@ -1,10 +1,11 @@
-﻿// 文件说明：从谱面事件中提取编辑器可直接使用的数据。
+// 文件说明：从谱面事件中提取编辑器可直接使用的数据。
 // 主要功能：单次遍历构建音符列表、时间轴事件和 BPM 源数据。
 struct ExtractedChartData {
     notes: Vec<GroundNote>,
     next_note_id: u64,
     timeline_events: Vec<TimelineEvent>,
     bpm_source: BpmSourceData,
+    track_source: TrackSourceData,
 }
 
 fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
@@ -17,6 +18,10 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
     let mut bpm_source = BpmSourceData::default();
     bpm_source
         .bpm_events
+        .reserve(chart.events.len().saturating_div(8));
+    let mut track_source = TrackSourceData::default();
+    track_source
+        .track_events
         .reserve(chart.events.len().saturating_div(8));
     let mut has_chart_base = false;
 
@@ -63,6 +68,9 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                     label: format!("track x{:.2}", speed),
                     color,
                 });
+                track_source
+                    .track_events
+                    .push((*time as f32, *speed as f32));
             }
             ChartEvent::Lane { time, lane, enable } => {
                 timeline_events.push(TimelineEvent {
@@ -193,6 +201,7 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
         next_note_id: next_id,
         timeline_events,
         bpm_source,
+        track_source,
     }
 }
 

@@ -1,4 +1,4 @@
-﻿// 文件说明：BPM 时间轴模型与节拍换算实现。
+// 文件说明：BPM 时间轴模型与节拍换算实现。
 // 主要功能：处理毫秒与拍点转换、吸附和可见拍线生成。
 #[derive(Debug, Clone, Copy)]
 struct BpmPoint {
@@ -253,6 +253,145 @@ impl BpmTimeline {
         match self
             .points
             .binary_search_by(|point| point.start_beat.total_cmp(&beat))
+        {
+            Ok(idx) => idx,
+            Err(0) => 0,
+            Err(next_idx) => next_idx.saturating_sub(1),
+        }
+    }
+}
+
+
+// ─── TrackTimeline: 视觉位移积分（纯 track_speed）───
+//
+// 视觉速度完全由 track speed 决定，与 BPM 无关。
+// BPM 只用于计算小节线的时间位置（BpmTimeline 负责）。
+// 小节线和音符的 Y 坐标都通过 TrackTimeline 计算。
+//
+// visual_velocity(t) = track_speed(t)
+// visual_position(t) = ∫ track_speed(τ) dτ
+//
+// 默认 track speed = 1.0（没有 track 事件时匀速）。
+// 负 track speed 表示倒流（音符从下往上走）。
+
+/// 一个 track speed 变化点。
+#[derive(Debug, Clone, Copy)]
+struct TrackPoint {
+    time_ms: f32,
+    speed: f32,
+    /// 从 t=0 到此点的累计视觉位移（单位：拍）。
+    start_visual_beat: f32,
+}
+
+/// Track 速度事件的原始数据。
+#[derive(Debug, Clone)]
+struct TrackSourceData {
+    track_events: Vec<(f32, f32)>, // (time_ms, speed)
+}
+
+impl Default for TrackSourceData {
+    fn default() -> Self {
+        Self {
+            track_events: Vec::new(),
+        }
+    }
+}
+
+/// 视觉位移时间轴：通过 track_speed 的分段积分，
+/// 将时间映射到视觉位置（单位：毫秒等效）。
+///
+/// - 小节线位置由 BpmTimeline 决定（纯 BPM）
+/// - 音符和小节线的 Y 坐标都由 TrackTimeline 决定
+#[derive(Debug, Clone)]
+struct TrackTimeline {
+    points: Vec<TrackPoint>,
+}
+
+impl TrackTimeline {
+    /// 从 track 事件构建视觉位移时间轴。
+    /// bpm_timeline 参数保留以备将来扩展，当前不使用。
+    fn from_source(_bpm_timeline: &BpmTimeline, source: TrackSourceData) -> Self {
+        // 构建 track speed 查找表（按时间排序）
+        let mut speed_points: Vec<(f32, f32)> = vec![(0.0, 1.0)];
+        let mut sorted_events = source.track_events.clone();
+        sorted_events.sort_by(|a, b| a.0.total_cmp(&b.0));
+        for (t, s) in sorted_events {
+            if t <= 0.0 {
+                speed_points[0].1 = s;
+            } else if speed_points.last().map(|p| (p.0 - t).abs() < 0.000_1).unwrap_or(false) {
+                speed_points.last_mut().unwrap().1 = s;
+            } else {
+                speed_points.push((t, s));
+            }
+        }
+
+        // 构建 TrackPoint 列表，计算累计视觉位移
+        let mut points = Vec::with_capacity(speed_points.len());
+        points.push(TrackPoint {
+            time_ms: 0.0,
+            speed: speed_points[0].1,
+            start_visual_beat: 0.0,
+        });
+
+        for i in 1..speed_points.len() {
+            let prev_time = speed_points[i - 1].0;
+            let prev_speed = speed_points[i - 1].1;
+            let curr_time = speed_points[i].0;
+            let dt = (curr_time - prev_time).max(0.0);
+            let prev_visual = points.last().unwrap().start_visual_beat;
+
+            // 积分：track_speed * dt_ms（纯 track speed，不含 BPM）
+            let delta_visual = prev_speed * dt;
+
+            points.push(TrackPoint {
+                time_ms: curr_time,
+                speed: speed_points[i].1,
+                start_visual_beat: prev_visual + delta_visual,
+            });
+        }
+
+        Self { points }
+    }
+
+    /// 计算从 t=0 到 time_ms 的视觉位移。
+    fn visual_beat_at(&self, time_ms: f32) -> f32 {
+        let idx = self.point_index_at_or_before(time_ms);
+        let pt = self.points[idx];
+        let dt = (time_ms - pt.time_ms).max(0.0);
+        pt.start_visual_beat + pt.speed * dt
+    }
+
+    /// 从视觉位移反查时间（用于 pointer_to_time）。
+    fn visual_beat_to_time(&self, target_vb: f32) -> f32 {
+        if self.points.is_empty() {
+            return 0.0;
+        }
+
+        // 找到 target_vb 所在的段
+        let mut idx = 0;
+        for i in 0..self.points.len() {
+            if self.points[i].start_visual_beat <= target_vb + 0.000_1 {
+                idx = i;
+            } else {
+                break;
+            }
+        }
+
+        let pt = self.points[idx];
+        let rate = pt.speed;
+
+        if rate.abs() < 0.000_001 {
+            // 速度为 0，无法反推，返回段起始时间
+            return pt.time_ms;
+        }
+
+        pt.time_ms + (target_vb - pt.start_visual_beat) / rate
+    }
+
+    fn point_index_at_or_before(&self, time_ms: f32) -> usize {
+        match self
+            .points
+            .binary_search_by(|p| p.time_ms.total_cmp(&time_ms))
         {
             Ok(idx) => idx,
             Err(0) => 0,
