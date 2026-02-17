@@ -241,7 +241,7 @@ pub fn draw_settings_window(
                             ui.add_space(4.0);
                             ui.horizontal(|ui| {
                                 ui.label(
-                                    egui::RichText::new("Barline Snap")
+                                    egui::RichText::new(i18n.t(TextKey::SettingsBarlineSnap))
                                         .color(egui::Color32::from_rgb(210, 210, 210)),
                                 );
                                 ui.label(
@@ -250,8 +250,18 @@ pub fn draw_settings_window(
                                 );
                             });
                             let snap_width = (ui.available_width() - 4.0).max(80.0);
-                            if let Some(new_div) = draw_snap_slider(ui, current_snap_division, snap_width) {
+                            let (changed, finished) = draw_snap_slider(ui, current_snap_division, snap_width);
+                            if let Some(new_div) = changed {
+                                // While dragging, update value silently (no toast)
                                 action = Some(TopMenuAction::SetSnapDivision(new_div));
+                            }
+                            if finished {
+                                // On release / click, trigger toast
+                                action = Some(TopMenuAction::SetSnapDivisionFinal(current_snap_division));
+                            }
+                            // If both changed and finished on the same frame, final wins
+                            if changed.is_some() && finished {
+                                action = Some(TopMenuAction::SetSnapDivisionFinal(changed.unwrap()));
                             }
                         }
                         SettingsCategory::Debug => {

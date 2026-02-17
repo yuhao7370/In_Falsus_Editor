@@ -7,17 +7,17 @@ const WIDGET_HEIGHT: f32 = 38.0;
 const RAIL_GAP: f32 = 14.0;
 /// Tick mark length protruding inward from each rail line.
 const TICK_LEN: f32 = 3.5;
-/// Diamond (rhombus) half-size for the thumb indicator.
+/// Circle thumb radius.
 const DIAMOND_HALF: f32 = 5.0;
 /// Label font size.
 const LABEL_SIZE: f32 = 10.0;
-/// Only show labels for these divisions to avoid clutter.
-const LABEL_DIVISIONS: &[u32] = &[1, 4, 8, 16, 32, 64];
 
 /// A custom discrete snap-division slider styled after RotaenoChartTool.
-/// Two horizontal rail lines with tick marks and a diamond thumb.
-/// Returns `Some(new_division)` when the user changes the value.
-pub fn draw_snap_slider(ui: &mut egui::Ui, current: u32, width: f32) -> Option<u32> {
+/// Two horizontal rail lines with tick marks and a circle thumb.
+/// Returns `(Option<new_division>, finished)`:
+/// - first element is `Some(val)` when the value changed,
+/// - second element is `true` when the user released the drag or clicked (for toast).
+pub fn draw_snap_slider(ui: &mut egui::Ui, current: u32, width: f32) -> (Option<u32>, bool) {
     let options = &SNAP_DIVISION_OPTIONS;
     let count = options.len();
     let current_idx = options.iter().position(|&v| v == current).unwrap_or(0);
@@ -33,7 +33,7 @@ pub fn draw_snap_slider(ui: &mut egui::Ui, current: u32, width: f32) -> Option<u
     let rail_bottom = rail_top + RAIL_GAP;
     let rail_cy = (rail_top + rail_bottom) * 0.5;
 
-    // Horizontal inset so diamond doesn't clip
+    // Horizontal inset so thumb doesn't clip
     let x_pad = DIAMOND_HALF + 4.0;
     let x_min = rect.left() + x_pad;
     let x_max = rect.right() - x_pad;
@@ -64,8 +64,6 @@ pub fn draw_snap_slider(ui: &mut egui::Ui, current: u32, width: f32) -> Option<u
     let tick_color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 80);
     let label_color = egui::Color32::from_rgba_unmultiplied(200, 200, 210, 180);
     let label_active_color = egui::Color32::from_rgb(106, 168, 255);
-    let diamond_color = egui::Color32::from_rgb(106, 168, 255);
-    let diamond_hover = egui::Color32::from_rgb(150, 200, 255);
     let rail_stroke = egui::Stroke::new(1.0, rail_color);
     let tick_stroke = egui::Stroke::new(1.0, tick_color);
 
@@ -97,46 +95,39 @@ pub fn draw_snap_slider(ui: &mut egui::Ui, current: u32, width: f32) -> Option<u
             tick_stroke,
         );
 
-        // Label (only for key divisions)
-        if LABEL_DIVISIONS.contains(&val) {
-            let text = format!("x{}", val);
-            let is_active = i == new_idx;
-            let color = if is_active { label_active_color } else { label_color };
-            painter.text(
-                egui::pos2(x, rail_top - 2.0),
-                egui::Align2::CENTER_BOTTOM,
-                &text,
-                font.clone(),
-                color,
-            );
-        }
+        // Label for every division
+        let text = format!("x{}", val);
+        let is_active = i == new_idx;
+        let color = if is_active { label_active_color } else { label_color };
+        painter.text(
+            egui::pos2(x, rail_top - 2.0),
+            egui::Align2::CENTER_BOTTOM,
+            &text,
+            font.clone(),
+            color,
+        );
     }
 
-    // Draw diamond thumb at current position
+    // Draw circle thumb at current position
     let thumb_x = idx_to_x(new_idx);
     let is_hot = response.hovered() || response.dragged();
-    let dc = if is_hot { diamond_hover } else { diamond_color };
-
-    // Diamond as a rotated square (4 vertices)
-    let diamond_points = vec![
-        egui::pos2(thumb_x, rail_cy - DIAMOND_HALF),       // top
-        egui::pos2(thumb_x + DIAMOND_HALF, rail_cy),       // right
-        egui::pos2(thumb_x, rail_cy + DIAMOND_HALF),       // bottom
-        egui::pos2(thumb_x - DIAMOND_HALF, rail_cy),       // left
-    ];
-    painter.add(egui::Shape::convex_polygon(
-        diamond_points,
-        dc,
-        egui::Stroke::new(1.0, egui::Color32::from_rgba_unmultiplied(255, 255, 255, 80)),
-    ));
-
-    // Return changed value
-    let new_val = options[new_idx];
-    if new_val != current {
-        Some(new_val)
+    let fill = if is_hot {
+        egui::Color32::from_rgb(160, 160, 168)
     } else {
-        None
-    }
+        egui::Color32::from_rgb(120, 120, 128)
+    };
+    painter.circle(
+        egui::pos2(thumb_x, rail_cy),
+        DIAMOND_HALF,
+        fill,
+        egui::Stroke::new(1.5, egui::Color32::from_rgb(240, 240, 240)),
+    );
+
+    // Return (changed_value, interaction_finished)
+    let finished = response.drag_stopped() || response.clicked();
+    let new_val = options[new_idx];
+    let changed = if new_val != current { Some(new_val) } else { None };
+    (changed, finished)
 }
 
 /// Vertical snap slider: rail runs top-to-bottom, values increase downward (1 at top, 64 at bottom).
@@ -147,7 +138,6 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
     let count = options.len();
     let current_idx = options.iter().position(|&v| v == current).unwrap_or(0);
 
-    // Widget dimensions in logical points (egui handles scaling via pixels_per_point)
     let label_w: f32 = 26.0;
     let rail_w: f32 = 18.0;
     let gap: f32 = 0.0;
@@ -157,19 +147,15 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
 
     let painter = ui.painter_at(rect);
 
-    // Vertical rail area
     let y_pad: f32 = 8.0;
     let y_min = rect.top() + y_pad;
     let y_max = rect.bottom() - y_pad;
     let y_range = (y_max - y_min).max(1.0);
 
-    // Rail x positions (two vertical lines)
-    // Clamp rail_right so it doesn't touch the panel edge (avoids being covered by note panel border)
     let rail_left = rect.left() + label_w + gap;
     let rail_right = (rail_left + rail_w).min(rect.right() - 1.5);
     let rail_cx = (rail_left + rail_right) * 0.5;
 
-    // Map index to y: index 0 (value 1) at top, last index (value 64) at bottom
     let idx_to_y = |idx: usize| -> f32 {
         if count <= 1 {
             (y_min + y_max) * 0.5
@@ -178,7 +164,6 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
         }
     };
 
-    // Interaction
     let mut new_idx = current_idx;
     if response.dragged() || response.clicked() {
         if let Some(pos) = response.interact_pointer_pos() {
@@ -189,7 +174,6 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
         }
     }
 
-    // Colors
     let rail_color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 80);
     let tick_color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 60);
     let label_color = egui::Color32::from_rgba_unmultiplied(180, 180, 190, 180);
@@ -197,48 +181,41 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
     let rail_stroke = egui::Stroke::new(1.0, rail_color);
     let tick_stroke = egui::Stroke::new(1.0, tick_color);
 
-    // Draw left rail
     painter.line_segment(
         [egui::pos2(rail_left, y_min - 2.0), egui::pos2(rail_left, y_max + 2.0)],
         rail_stroke,
     );
-    // Draw right rail
     painter.line_segment(
         [egui::pos2(rail_right, y_min - 2.0), egui::pos2(rail_right, y_max + 2.0)],
         rail_stroke,
     );
 
-    // Ticks and labels
     let tick_len: f32 = 3.0;
     let font = egui::FontId::proportional(10.0);
     for i in 0..count {
         let y = idx_to_y(i);
         let val = options[i];
 
-        // Left tick
         painter.line_segment(
             [egui::pos2(rail_left, y), egui::pos2(rail_left + tick_len, y)],
             tick_stroke,
         );
-        // Right tick
         painter.line_segment(
             [egui::pos2(rail_right, y), egui::pos2(rail_right - tick_len, y)],
             tick_stroke,
         );
 
-        // Label to the left of the rail
         let is_active = i == new_idx;
         let color = if is_active { label_active } else { label_color };
         painter.text(
             egui::pos2(rail_left - 3.0, y),
             egui::Align2::RIGHT_CENTER,
-            format!("{}", val),
+            format!("x{}", val),
             font.clone(),
             color,
         );
     }
 
-    // Circle thumb (gray fill + white stroke)
     let thumb_y = idx_to_y(new_idx);
     let is_hot = response.hovered() || response.dragged();
     let fill = if is_hot {

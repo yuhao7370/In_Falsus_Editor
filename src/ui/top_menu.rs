@@ -21,6 +21,7 @@ pub enum TopMenuAction {
     SetScrollSpeed(f32),
     SetScrollSpeedFinal(f32),
     SetSnapDivision(u32),
+    SetSnapDivisionFinal(u32),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;

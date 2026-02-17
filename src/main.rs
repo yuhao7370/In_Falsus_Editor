@@ -115,7 +115,12 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetSnapDivision(division) => {
             editor.set_snap_division(division);
-            audio.status = format!("Snap: {}x", division);
+            // Dragging — no toast
+            audio.status.clear();
+        }
+        TopMenuAction::SetSnapDivisionFinal(division) => {
+            editor.set_snap_division(division);
+            audio.status = format!("{}: {}x", i18n.t(TextKey::SettingsBarlineSnap), division);
         }
     }
 }

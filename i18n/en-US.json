@@ -58,5 +58,6 @@
   "settings_category_audio": "🔊 Audio",
   "settings_category_display": "👁 Display",
   "settings_category_debug": "🔧 Debug",
-  "settings_flow_speed": "Speed"
+  "settings_flow_speed": "Speed",
+  "settings_barline_snap": "Barline Snap"
 }

@@ -116,6 +116,7 @@ pub enum TextKey {
     SettingsCategoryDisplay,
     SettingsCategoryDebug,
     SettingsFlowSpeed,
+    SettingsBarlineSnap,
 }
 
 impl TextKey {
@@ -181,6 +182,7 @@ impl TextKey {
             TextKey::SettingsCategoryDisplay => "settings_category_display",
             TextKey::SettingsCategoryDebug => "settings_category_debug",
             TextKey::SettingsFlowSpeed => "settings_flow_speed",
+            TextKey::SettingsBarlineSnap => "settings_barline_snap",
         }
     }
 }
