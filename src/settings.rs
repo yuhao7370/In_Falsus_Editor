@@ -49,7 +49,7 @@ fn default_true() -> bool {
     true
 }
 fn default_scroll_speed() -> f32 {
-    8.0
+    1.0
 }
 fn default_snap_division() -> u32 {
     4
