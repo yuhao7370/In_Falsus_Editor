@@ -122,6 +122,15 @@ pub enum TextKey {
     SettingsHitsoundTapVolume,
     SettingsHitsoundArcVolume,
     SettingsHitsoundDelay,
+    CreateProjectTitle,
+    CreateProjectName,
+    CreateProjectNameHint,
+    CreateProjectAudio,
+    CreateProjectBrowse,
+    CreateProjectNoFile,
+    CreateProjectBpl,
+    CreateProjectCreate,
+    CreateProjectCancel,
 }
 
 impl TextKey {
@@ -193,6 +202,15 @@ impl TextKey {
             TextKey::SettingsHitsoundTapVolume => "settings_hitsound_tap_volume",
             TextKey::SettingsHitsoundArcVolume => "settings_hitsound_arc_volume",
             TextKey::SettingsHitsoundDelay => "settings_hitsound_delay",
+            TextKey::CreateProjectTitle => "create_project_title",
+            TextKey::CreateProjectName => "create_project_name",
+            TextKey::CreateProjectNameHint => "create_project_name_hint",
+            TextKey::CreateProjectAudio => "create_project_audio",
+            TextKey::CreateProjectBrowse => "create_project_browse",
+            TextKey::CreateProjectNoFile => "create_project_no_file",
+            TextKey::CreateProjectBpl => "create_project_bpl",
+            TextKey::CreateProjectCreate => "create_project_create",
+            TextKey::CreateProjectCancel => "create_project_cancel",
         }
     }
 }

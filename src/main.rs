@@ -18,18 +18,16 @@ use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 use ui::settings_window::{SettingsCategory, draw_settings_window};
 use ui::open_project_window::{OpenProjectState, draw_open_project_window};
+use ui::create_project_window::{CreateProjectState, draw_create_project_window};
 use settings::AppSettings;
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
-const DEFAULT_CHART_PATH: &str = "songs/alamode/alamode3.spc";
-const DEFAULT_AUDIO_TRACK_PATH: &str = "songs/alamode/music.ogg";
 
-// const DEFAULT_CHART_PATH: &str = "testchart/grievouslady2.spc";
-// const DEFAULT_AUDIO_TRACK_PATH: &str = "testchart/music.ogg";
-
-// const DEFAULT_CHART_PATH: &str = "astralquant_infalsus/astralquant2.spc";
-// const DEFAULT_AUDIO_TRACK_PATH: &str = "astralquant_infalsus/music.ogg";
+/// 开发模式：设为 true 时启动自动加载下方指定的谱面和音频，方便调试。
+const DEV_MODE: bool = false;
+const DEV_CHART_PATH: &str = "songs/alamode/alamode3.spc";
+const DEV_AUDIO_PATH: &str = "songs/alamode/music.ogg";
 
 
 fn window_conf() -> Conf {
@@ -202,15 +200,27 @@ fn handle_top_menu_action(
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut app_settings = AppSettings::load();
-    let mut editor = FallingGroundEditor::new(DEFAULT_CHART_PATH);
     let mut i18n = I18n::new(app_settings.language_enum());
     let mut egui_fonts_ready = false;
-    let mut audio = AudioController::new(&i18n, DEFAULT_AUDIO_TRACK_PATH);
+
+    // DEV_MODE: 自动加载指定谱面和音频；否则启动空编辑器
+    let (mut editor, mut audio) = if DEV_MODE {
+        (
+            FallingGroundEditor::new(DEV_CHART_PATH),
+            AudioController::new(&i18n, DEV_AUDIO_PATH),
+        )
+    } else {
+        (
+            FallingGroundEditor::from_chart_path(""),
+            AudioController::new_empty(&i18n),
+        )
+    };
     let mut top_progress_state = TopProgressBarState::new();
     let mut settings_open = false;
     let mut settings_category = SettingsCategory::Display;
     let mut info_toasts = InfoToastManager::new();
     let mut open_project_state = OpenProjectState::new();
+    let mut create_project_state = CreateProjectState::new();
     let mut prop_edit_state = PropertyEditState::default();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
@@ -234,7 +244,7 @@ async fn main() {
         audio.status =
             "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
     }
-    info_toasts.push("Info toasts enabled. Press F8 for multi-toast test.");
+    // info_toasts.push("Info toasts enabled. Press F8 for multi-toast test.");
 
     loop {
         clear_background(Color::from_rgba(7, 7, 10, 255));
@@ -259,6 +269,7 @@ async fn main() {
         let mut egui_wants_pointer = false;
         let mut total_right_panels_px = note_panel_width_px;
         let mut open_project_result: Option<(String, String)> = None;
+        let mut create_project_result: Option<(String, String)> = None;
         egui_macroquad::ui(|ctx| {
             if !egui_fonts_ready {
                 let _ = init_egui_fonts(ctx);
@@ -315,6 +326,8 @@ async fn main() {
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
             // Draw open project window (if open)
             open_project_result = draw_open_project_window(ctx, &i18n, &mut open_project_state);
+            // Draw create project window (if open)
+            create_project_result = draw_create_project_window(ctx, &i18n, &mut create_project_state);
             // Check if pointer is over egui widgets/panels.
             let raw_egui_pointer = ctx.is_using_pointer()
                 || ctx.is_pointer_over_area()
@@ -322,6 +335,13 @@ async fn main() {
             egui_wants_pointer = raw_egui_pointer;
         });
         set_pointer_blocked(egui_wants_pointer);
+
+        // Handle CreateProject action: open the create project window
+        if top_menu_result.action == Some(TopMenuAction::CreateProject) {
+            create_project_state.reset();
+            create_project_state.open = true;
+            top_menu_result.action = None; // consume it
+        }
 
         // Handle OpenProject action: open the project window
         if top_menu_result.action == Some(TopMenuAction::OpenProject) {
@@ -346,6 +366,15 @@ async fn main() {
             editor.set_text_font(font_backup);
             audio.load_audio_file(&audio_path, &i18n);
             info_toasts.push(format!("项目已加载: {}", chart_path));
+        }
+
+        // Handle create project result
+        if let Some((chart_path, audio_path)) = create_project_result {
+            let font_backup = macroquad_font.clone();
+            editor = FallingGroundEditor::from_chart_path(&chart_path);
+            editor.set_text_font(font_backup);
+            audio.load_audio_file(&audio_path, &i18n);
+            info_toasts.push(format!("项目已创建: {}", chart_path));
         }
 
         // Ctrl+S: save chart, Ctrl+Z: undo, Ctrl+Y: redo
@@ -377,11 +406,11 @@ async fn main() {
             }
         }
 
-        if is_key_pressed(KeyCode::F8) {
-            info_toasts.push("Info A: multi-toast test");
-            info_toasts.push("Info B: animation should be smooth");
-            info_toasts.push("Info C: dismisses in queue order");
-        }
+        // if is_key_pressed(KeyCode::F8) {
+        //     info_toasts.push("Info A: multi-toast test");
+        //     info_toasts.push("Info B: animation should be smooth");
+        //     info_toasts.push("Info C: dismisses in queue order");
+        // }
 
         // 4. Wheel: Ctrl+wheel = flow speed (free, ignores egui block), otherwise seek
         let (_, free_wheel_y) = free_mouse_wheel();

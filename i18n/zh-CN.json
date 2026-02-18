@@ -64,5 +64,14 @@
   "settings_hitsound_enabled": "打击音",
   "settings_hitsound_tap_volume": "地面打击音量",
   "settings_hitsound_arc_volume": "天空打击音量",
-  "settings_hitsound_delay": "打击音延迟 (负值提前，正值延后)"
+  "settings_hitsound_delay": "打击音延迟 (负值提前，正值延后)",
+  "create_project_title": "创建项目",
+  "create_project_name": "项目名称",
+  "create_project_name_hint": "输入项目名称...",
+  "create_project_audio": "音频文件 (.ogg/.mp3/.wav)",
+  "create_project_browse": "选择...",
+  "create_project_no_file": "未选择",
+  "create_project_bpl": "每小节拍数 (BPL)",
+  "create_project_create": "  创建  ",
+  "create_project_cancel": "  取消  "
 }

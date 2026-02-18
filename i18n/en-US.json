@@ -64,5 +64,14 @@
   "settings_hitsound_enabled": "Hitsound",
   "settings_hitsound_tap_volume": "Tap Hitsound Volume",
   "settings_hitsound_arc_volume": "Arc Hitsound Volume",
-  "settings_hitsound_delay": "Hitsound Delay (negative = early, positive = late)"
+  "settings_hitsound_delay": "Hitsound Delay (negative = early, positive = late)",
+  "create_project_title": "Create Project",
+  "create_project_name": "Project Name",
+  "create_project_name_hint": "Enter project name...",
+  "create_project_audio": "Audio File (.ogg/.mp3/.wav)",
+  "create_project_browse": "Browse...",
+  "create_project_no_file": "Not selected",
+  "create_project_bpl": "Beats Per Line (BPL)",
+  "create_project_create": "  Create  ",
+  "create_project_cancel": "  Cancel  "
 }

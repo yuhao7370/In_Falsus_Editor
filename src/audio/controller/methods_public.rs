@@ -40,6 +40,28 @@ impl AudioController {
         }
     }
 
+    /// 创建一个不加载任何音频文件的空控制器（仅初始化音频后端）。
+    pub fn new_empty(i18n: &I18n) -> Self {
+        let (player, status) = match SongPlayer::new() {
+            Ok(p) => (Some(p), String::new()),
+            Err(e) => (None, format_error(&e, i18n)),
+        };
+
+        Self {
+            player,
+            status,
+            anchor_pos: 0.0,
+            anchor_time: get_time(),
+            playing: false,
+            duration_sec: 0.0,
+            track_path: None,
+            music_volume: 1.0,
+            master_volume: 1.0,
+            hitsound_player: HitSoundPlayer::new(),
+            hitsound_trigger: HitSoundTrigger::new(),
+        }
+    }
+
     // Per-frame update
 
     /// Call once per frame. Polls player events (end-of-track, backend
