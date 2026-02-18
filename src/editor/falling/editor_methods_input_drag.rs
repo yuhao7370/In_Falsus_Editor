@@ -78,6 +78,19 @@ impl FallingGroundEditor {
             raw_offset
         };
 
+        // 计算拖拽开始时鼠标所在轨道与音符 lane 的偏移
+        let lane_offset = if candidate.scope == HitScope::Ground {
+            if let Some(rect) = ground_rect {
+                let lane_w = rect.w / LANE_COUNT as f32;
+                let mouse_lane = lane_from_x(mx, rect.x, lane_w) as i32;
+                mouse_lane - note.lane as i32
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
         self.snapshot_for_undo();
         self.drag_state = Some(DragState {
             note_id: candidate.note_id,
@@ -85,6 +98,7 @@ impl FallingGroundEditor {
             start_time_sec: get_time(),
             start_mouse_x: mx,
             start_mouse_y: my,
+            lane_offset,
             sky_start_center_norm,
             sky_end_center_norm,
             sky_start_half_norm,

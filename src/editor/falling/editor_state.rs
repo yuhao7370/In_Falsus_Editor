@@ -7,6 +7,8 @@ struct DragState {
     start_time_sec: f64,
     start_mouse_x: f32,
     start_mouse_y: f32,
+    /// 拖拽开始时鼠标所在轨道与音符 lane 的偏移（mouse_lane - note.lane）。
+    lane_offset: i32,
     sky_start_center_norm: f32,
     sky_end_center_norm: f32,
     sky_start_half_norm: f32,

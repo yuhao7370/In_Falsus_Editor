@@ -80,7 +80,7 @@ impl FallingGroundEditor {
                 if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {
                     return;
                 }
-                let lane = lane_from_x(mx, rect.x, lane_w);
+                let mouse_lane = lane_from_x(mx, rect.x, lane_w) as i32;
                 let new_time =
                     self.pointer_to_time(my, current_ms, judge_y, rect.h) + drag.time_offset_ms;
                 let snapped_time = self.apply_snap(new_time.max(0.0));
@@ -89,6 +89,14 @@ impl FallingGroundEditor {
                     .iter_mut()
                     .find(|note| note.id == drag.note_id && is_ground_kind(note.kind))
                 {
+                    let target_lane = mouse_lane - drag.lane_offset;
+                    let eff_w = ground_note_effective_width(note.lane, note.width);
+                    let lane = if eff_w > 1 {
+                        // 宽音符只能在 1 到 5-eff_w 范围内
+                        target_lane.clamp(1, (5 - eff_w as i32).max(1)) as usize
+                    } else {
+                        target_lane.clamp(0, (LANE_COUNT as i32) - 1) as usize
+                    };
                     note.lane = lane;
                     note.time_ms = snapped_time;
                     self.status = format!("dragging lane={} time={:.0}ms", lane, note.time_ms);
