@@ -1,16 +1,9 @@
 {
-  "banner_title": "你好，世界！(macroquad + sasa)",
-  "player_window_title": "播放器",
-  "player_btn_load": "加载",
-  "player_btn_play": "播放",
-  "player_btn_pause": "暂停",
-  "player_btn_stop": "停止",
   "player_label_volume": "音量",
   "menu_file": "文件",
   "menu_edit": "编辑",
   "menu_select": "选择",
   "menu_settings": "设置",
-  "settings_language": "语言",
   "settings_autoplay": "AutoPlay",
   "settings_show_spectrum": "显示频谱",
   "settings_debug_hitbox": "Hitbox调试",
@@ -41,7 +34,6 @@
   "status_seek_failed": "定位失败",
   "status_volume_updated": "音量已更新",
   "action_create_project": "点击了：创建项目",
-  "action_open_project": "点击了：打开项目",
   "action_undo": "点击了：撤销",
   "action_redo": "点击了：恢复",
   "action_cut": "点击了：剪切",
@@ -63,7 +55,7 @@
   "settings_category_debug": "🔧 调试",
   "settings_flow_speed": "流速",
   "settings_barline_snap": "节拍细分",
-    "note_panel_render_speed_events": "渲染速度事件",
-    "settings_x_split": "坐标分母 (X Split)",
-    "settings_xsplit_editable": "允许编辑 XSplit"
+  "note_panel_render_speed_events": "渲染速度事件",
+  "settings_x_split": "坐标分母 (X Split)",
+  "settings_xsplit_editable": "允许编辑 XSplit"
 }

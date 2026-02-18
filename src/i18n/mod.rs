@@ -56,18 +56,11 @@ impl Language {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextKey {
-    BannerTitle,
-    PlayerWindowTitle,
-    PlayerBtnLoad,
-    PlayerBtnPlay,
-    PlayerBtnPause,
-    PlayerBtnStop,
     PlayerLabelVolume,
     MenuFile,
     MenuEdit,
     MenuSelect,
     MenuSettings,
-    SettingsLanguage,
     SettingsAutoPlay,
     SettingsShowSpectrum,
     SettingsDebugHitbox,
@@ -98,7 +91,6 @@ pub enum TextKey {
     StatusSeekFailed,
     StatusVolumeUpdated,
     ActionCreateProject,
-    ActionOpenProject,
     ActionUndo,
     ActionRedo,
     ActionCut,
@@ -128,18 +120,11 @@ pub enum TextKey {
 impl TextKey {
     pub fn as_str(self) -> &'static str {
         match self {
-            TextKey::BannerTitle => "banner_title",
-            TextKey::PlayerWindowTitle => "player_window_title",
-            TextKey::PlayerBtnLoad => "player_btn_load",
-            TextKey::PlayerBtnPlay => "player_btn_play",
-            TextKey::PlayerBtnPause => "player_btn_pause",
-            TextKey::PlayerBtnStop => "player_btn_stop",
             TextKey::PlayerLabelVolume => "player_label_volume",
             TextKey::MenuFile => "menu_file",
             TextKey::MenuEdit => "menu_edit",
             TextKey::MenuSelect => "menu_select",
             TextKey::MenuSettings => "menu_settings",
-            TextKey::SettingsLanguage => "settings_language",
             TextKey::SettingsAutoPlay => "settings_autoplay",
             TextKey::SettingsShowSpectrum => "settings_show_spectrum",
             TextKey::SettingsDebugHitbox => "settings_debug_hitbox",
@@ -170,7 +155,6 @@ impl TextKey {
             TextKey::StatusSeekFailed => "status_seek_failed",
             TextKey::StatusVolumeUpdated => "status_volume_updated",
             TextKey::ActionCreateProject => "action_create_project",
-            TextKey::ActionOpenProject => "action_open_project",
             TextKey::ActionUndo => "action_undo",
             TextKey::ActionRedo => "action_redo",
             TextKey::ActionCut => "action_cut",
