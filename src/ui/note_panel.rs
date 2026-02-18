@@ -326,6 +326,15 @@ pub fn draw_note_selector_panel(
         prop_state.editing_event_id = None;
     }
 
+    // 拖拽期间实时刷新属性面板数据
+    if editor.is_dragging_note() {
+        if let Some(fresh) = &sel_note {
+            if prop_state.editing_note_id == Some(fresh.id) {
+                prop_state.note_data = Some(fresh.clone());
+            }
+        }
+    }
+
     let show_note_props = prop_state.note_data.is_some();
     let show_event_props = prop_state.event_data.is_some();
 

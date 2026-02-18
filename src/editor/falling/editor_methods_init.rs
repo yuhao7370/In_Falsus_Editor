@@ -835,6 +835,10 @@ impl FallingGroundEditor {
         self.editing_event_backup.is_some()
     }
 
+    pub fn is_dragging_note(&self) -> bool {
+        self.drag_state.is_some()
+    }
+
     /// Returns all note head times as `(time_ms, is_ground)` for hitsound triggering.
     /// Ground = Tap/Hold, Air = Flick/SkyArea.
     pub fn note_head_times(&self) -> Vec<(f32, bool)> {
