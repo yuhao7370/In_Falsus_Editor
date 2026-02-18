@@ -544,12 +544,17 @@ impl FallingGroundEditor {
 
     /// Cancel: restore the backup and deselect.
     pub fn cancel_note_edit(&mut self) {
+        self.restore_note_edit_backup();
+        self.deselect_note();
+    }
+
+    /// Restore the note backup without deselecting (used when selection changes during overlap cycling).
+    pub fn restore_note_edit_backup(&mut self) {
         if let Some(backup) = self.editing_note_backup.take() {
             if let Some(note) = self.notes.iter_mut().find(|n| n.id == backup.id) {
                 *note = backup;
             }
         }
-        self.deselect_note();
     }
 
     pub fn deselect_note(&mut self) {
@@ -603,12 +608,17 @@ impl FallingGroundEditor {
     }
 
     pub fn cancel_event_edit(&mut self) {
+        self.restore_event_edit_backup();
+        self.deselect_event();
+    }
+
+    /// Restore the event backup without deselecting (used when selection changes during overlap cycling).
+    pub fn restore_event_edit_backup(&mut self) {
         if let Some(backup) = self.editing_event_backup.take() {
             if let Some(event) = self.timeline_events.iter_mut().find(|e| e.id == backup.id) {
                 *event = backup;
             }
         }
-        self.deselect_event();
     }
 
     pub fn deselect_event(&mut self) {

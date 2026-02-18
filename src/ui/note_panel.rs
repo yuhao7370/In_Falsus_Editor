@@ -88,14 +88,15 @@ pub fn draw_note_selector_panel(
     let sel_note_id = sel_note.as_ref().map(|n| n.id);
     let sel_event_id = sel_event.as_ref().map(|e| e.id);
 
-    // If selection changed while editing, cancel the old edit
+    // If selection changed while editing, restore the old backup without deselecting
+    // (deselecting would clear overlap_cycle and break double-click cycling)
     if prop_state.editing_note_id.is_some() && prop_state.editing_note_id != sel_note_id {
-        editor.cancel_note_edit();
+        editor.restore_note_edit_backup();
         prop_state.note_data = None;
         prop_state.editing_note_id = None;
     }
     if prop_state.editing_event_id.is_some() && prop_state.editing_event_id != sel_event_id {
-        editor.cancel_event_edit();
+        editor.restore_event_edit_backup();
         prop_state.event_data = None;
         prop_state.editing_event_id = None;
     }
