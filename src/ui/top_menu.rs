@@ -6,6 +6,7 @@ use egui_macroquad::egui;
 pub enum TopMenuAction {
     CreateProject,
     OpenProject,
+    CurrentProject,
     SaveChart,
     Undo,
     Redo,
@@ -195,6 +196,12 @@ pub fn draw_top_menu(
                         &mut action,
                         TopMenuAction::OpenProject,
                         i18n.t(TextKey::FileOpenProject),
+                    );
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::CurrentProject,
+                        i18n.t(TextKey::FileCurrentProject),
                     );
                     ui.separator();
                     draw_popup_item(

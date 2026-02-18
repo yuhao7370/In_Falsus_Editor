@@ -73,5 +73,14 @@
   "create_project_no_file": "Not selected",
   "create_project_bpl": "Beats Per Line (BPL)",
   "create_project_create": "  Create  ",
-  "create_project_cancel": "  Cancel  "
+  "create_project_cancel": "  Cancel  ",
+  "file_current_project": "Current Project",
+  "current_project_title": "Current Project",
+  "current_project_chart": "Chart File",
+  "current_project_audio": "Audio File",
+  "current_project_close": "  Close  ",
+  "current_project_no_project": "No project loaded",
+  "current_project_load_chart": "Load Chart...",
+  "current_project_load_audio": "Load Audio...",
+  "current_project_missing": "(missing)"
 }

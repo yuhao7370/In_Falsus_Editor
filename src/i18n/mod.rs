@@ -131,6 +131,15 @@ pub enum TextKey {
     CreateProjectBpl,
     CreateProjectCreate,
     CreateProjectCancel,
+    FileCurrentProject,
+    CurrentProjectTitle,
+    CurrentProjectChart,
+    CurrentProjectAudio,
+    CurrentProjectClose,
+    CurrentProjectNoProject,
+    CurrentProjectLoadChart,
+    CurrentProjectLoadAudio,
+    CurrentProjectMissing,
 }
 
 impl TextKey {
@@ -211,6 +220,15 @@ impl TextKey {
             TextKey::CreateProjectBpl => "create_project_bpl",
             TextKey::CreateProjectCreate => "create_project_create",
             TextKey::CreateProjectCancel => "create_project_cancel",
+            TextKey::FileCurrentProject => "file_current_project",
+            TextKey::CurrentProjectTitle => "current_project_title",
+            TextKey::CurrentProjectChart => "current_project_chart",
+            TextKey::CurrentProjectAudio => "current_project_audio",
+            TextKey::CurrentProjectClose => "current_project_close",
+            TextKey::CurrentProjectNoProject => "current_project_no_project",
+            TextKey::CurrentProjectLoadChart => "current_project_load_chart",
+            TextKey::CurrentProjectLoadAudio => "current_project_load_audio",
+            TextKey::CurrentProjectMissing => "current_project_missing",
         }
     }
 }

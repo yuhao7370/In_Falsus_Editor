@@ -17,8 +17,7 @@ use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
 use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 use ui::settings_window::{SettingsCategory, draw_settings_window};
-// open_project_window 暂时不用，改为直接选择 .iffproj 文件
-// use ui::open_project_window::{OpenProjectState, draw_open_project_window};
+use ui::current_project_window::{CurrentProjectAction, CurrentProjectState, draw_current_project_window};
 use ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
 use ui::loading_status::{LoadAction, ProjectLoader};
 use settings::AppSettings;
@@ -54,8 +53,8 @@ fn handle_top_menu_action(
         TopMenuAction::CreateProject => {
             audio.status = i18n.t(TextKey::ActionCreateProject).to_owned();
         }
-        TopMenuAction::OpenProject => {
-            // Handled separately in main loop (opens window)
+        TopMenuAction::OpenProject | TopMenuAction::CurrentProject => {
+            // Handled separately in main loop
             audio.status.clear();
         }
         TopMenuAction::SaveChart => {
@@ -222,6 +221,7 @@ async fn main() {
     let mut settings_category = SettingsCategory::Display;
     let mut info_toasts = InfoToastManager::new();
     let mut create_project_state = CreateProjectState::new();
+    let mut current_project_state = CurrentProjectState::new();
     let mut prop_edit_state = PropertyEditState::default();
     let mut project_loader = ProjectLoader::new();
     let macroquad_font = load_macroquad_cjk_font().await;
@@ -272,6 +272,7 @@ async fn main() {
         let mut total_right_panels_px = note_panel_width_px;
         let mut open_project_result: Option<(String, String)> = None;
         let mut create_project_result: Option<CreateProjectParams> = None;
+        let mut current_project_action: Option<CurrentProjectAction> = None;
         egui_macroquad::ui(|ctx| {
             if !egui_fonts_ready {
                 let _ = init_egui_fonts(ctx);
@@ -328,6 +329,8 @@ async fn main() {
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
             // Draw create project window (if open)
             create_project_result = draw_create_project_window(ctx, &i18n, &mut create_project_state);
+            // Draw current project window (if open)
+            current_project_action = draw_current_project_window(ctx, &i18n, &mut current_project_state);
             // Check if pointer is over egui widgets/panels.
             let raw_egui_pointer = ctx.is_using_pointer()
                 || ctx.is_pointer_over_area()
@@ -340,6 +343,20 @@ async fn main() {
         if top_menu_result.action == Some(TopMenuAction::CreateProject) {
             create_project_state.reset();
             create_project_state.open = true;
+            top_menu_result.action = None; // consume it
+        }
+
+        // Handle CurrentProject action: 打开当前项目信息窗口
+        if top_menu_result.action == Some(TopMenuAction::CurrentProject) {
+            let cp = editor.chart_path().to_string();
+            current_project_state.chart_path = cp.clone();
+            current_project_state.audio_path = audio.track_path().unwrap_or("").to_string();
+            // Derive project_dir from chart_path parent
+            current_project_state.project_dir = std::path::Path::new(&cp)
+                .parent()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            current_project_state.open = true;
             top_menu_result.action = None; // consume it
         }
 
@@ -387,6 +404,26 @@ async fn main() {
             if !project_loader.is_loading() {
                 project_loader.start_open_project(chart_path, audio_path);
                 info_toasts.pin(project_loader.status_text());
+            }
+        }
+
+        // Handle current project window actions (load missing chart/audio)
+        if let Some(cp_action) = current_project_action {
+            match cp_action {
+                CurrentProjectAction::LoadChart(chart_path) => {
+                    let audio_path = current_project_state.audio_path.clone();
+                    if !project_loader.is_loading() {
+                        project_loader.start_open_project(chart_path, audio_path);
+                        info_toasts.pin(project_loader.status_text());
+                    }
+                }
+                CurrentProjectAction::LoadAudio(audio_path) => {
+                    let chart_path = current_project_state.chart_path.clone();
+                    if !project_loader.is_loading() {
+                        project_loader.start_open_project(chart_path, audio_path);
+                        info_toasts.pin(project_loader.status_text());
+                    }
+                }
             }
         }
 
