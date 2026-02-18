@@ -401,11 +401,44 @@ impl FallingGroundEditor {
         self.track_speed_enabled
     }
 
+    // ── Beat conversion (public) ──
+
+    pub fn time_to_beat(&self, time_ms: f32) -> f32 {
+        self.timeline.time_to_beat(time_ms)
+    }
+
+    pub fn beat_to_time(&self, beat: f32) -> f32 {
+        self.timeline.beat_to_time(beat)
+    }
+
     // ── Property panel: Note ──
 
     pub fn selected_note_properties(&self) -> Option<NotePropertyData> {
         let id = self.selected_note_id?;
         let note = self.notes.iter().find(|n| n.id == id)?;
+        let xs = self.x_split;
+        let shape = note.skyarea_shape.unwrap_or(SkyAreaShape {
+            start_left_norm: 0.0, start_right_norm: 0.0,
+            end_left_norm: 0.0, end_right_norm: 0.0,
+            left_ease: Ease::Linear, right_ease: Ease::Linear,
+        });
+        // Flick: convert normalized center+width to raw x/width
+        let flick_center_norm = lane_to_air_x_norm(note.lane) as f64;
+        let flick_width_norm = note.width.clamp(0.05, 1.0) as f64;
+        // SkyArea: convert normalized left/right to raw center_x and width
+        let start_center = ((shape.start_left_norm + shape.start_right_norm) * 0.5) as f64;
+        let start_w = ((shape.start_right_norm - shape.start_left_norm).abs()) as f64;
+        let end_center = ((shape.end_left_norm + shape.end_right_norm) * 0.5) as f64;
+        let end_w = ((shape.end_right_norm - shape.end_left_norm).abs()) as f64;
+        // duration beat
+        let end_beat = self.timeline.time_to_beat(note.time_ms + note.duration_ms);
+        let start_beat = self.timeline.time_to_beat(note.time_ms);
+        // Flick width in xsplit coordinates; Tap/Hold use raw width
+        let out_width = if note.kind == GroundNoteKind::Flick {
+            (flick_width_norm * xs) as f32
+        } else {
+            note.width
+        };
         Some(NotePropertyData {
             id: note.id,
             kind: match note.kind {
@@ -416,9 +449,21 @@ impl FallingGroundEditor {
             }.to_owned(),
             lane: note.lane,
             time_ms: note.time_ms,
+            beat: start_beat,
             duration_ms: note.duration_ms,
-            width: note.width,
+            duration_beat: end_beat - start_beat,
+            width: out_width,
             flick_right: note.flick_right,
+            x: flick_center_norm * xs,
+            x_split: xs,
+            start_x: start_center * xs,
+            start_x_split: xs,
+            start_width: start_w * xs,
+            end_x: end_center * xs,
+            end_x_split: xs,
+            end_width: end_w * xs,
+            left_ease: shape.left_ease.to_value(),
+            right_ease: shape.right_ease.to_value(),
         })
     }
 
@@ -434,11 +479,39 @@ impl FallingGroundEditor {
     /// Preview: apply property changes live (no undo snapshot).
     pub fn preview_note_properties(&mut self, data: &NotePropertyData) {
         if let Some(note) = self.notes.iter_mut().find(|n| n.id == data.id) {
-            note.lane = data.lane;
+            // Clamp lane for ground notes
+            let max_lane = LANE_COUNT.saturating_sub(1);
+            note.lane = if is_ground_kind(note.kind) { data.lane.min(max_lane) } else { data.lane };
             note.time_ms = data.time_ms.max(0.0);
             note.duration_ms = data.duration_ms.max(0.0);
             note.width = data.width.clamp(0.05, 8.0);
             note.flick_right = data.flick_right;
+            // Flick: convert raw x back to lane
+            if note.kind == GroundNoteKind::Flick {
+                let xs = data.x_split.max(1.0);
+                let norm_x = (data.x / xs) as f32;
+                note.lane = lane_from_normalized_x(norm_x);
+                // Flick width: raw width / x_split → normalized width ratio
+                let raw_w = data.width as f64;
+                note.width = normalized_width_to_air_ratio((raw_w / xs) as f32);
+            }
+            // SkyArea: convert raw x/width back to normalized left/right
+            if note.kind == GroundNoteKind::SkyArea {
+                if let Some(shape) = note.skyarea_shape.as_mut() {
+                    let sxs = data.start_x_split.max(1.0);
+                    let exs = data.end_x_split.max(1.0);
+                    let sc = (data.start_x / sxs) as f32;
+                    let sh = ((data.start_width / sxs) as f32).abs() * 0.5;
+                    let ec = (data.end_x / exs) as f32;
+                    let eh = ((data.end_width / exs) as f32).abs() * 0.5;
+                    shape.start_left_norm = (sc - sh).clamp(0.0, 1.0);
+                    shape.start_right_norm = (sc + sh).clamp(0.0, 1.0);
+                    shape.end_left_norm = (ec - eh).clamp(0.0, 1.0);
+                    shape.end_right_norm = (ec + eh).clamp(0.0, 1.0);
+                    shape.left_ease = Ease::from_value(data.left_ease);
+                    shape.right_ease = Ease::from_value(data.right_ease);
+                }
+            }
         }
     }
 
@@ -456,13 +529,20 @@ impl FallingGroundEditor {
         self.editing_note_backup = None;
     }
 
-    /// Cancel: restore the backup.
+    /// Cancel: restore the backup and deselect.
     pub fn cancel_note_edit(&mut self) {
         if let Some(backup) = self.editing_note_backup.take() {
             if let Some(note) = self.notes.iter_mut().find(|n| n.id == backup.id) {
                 *note = backup;
             }
         }
+        self.deselect_note();
+    }
+
+    pub fn deselect_note(&mut self) {
+        self.selected_note_id = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
     }
 
     // ── Property panel: Event ──
@@ -478,6 +558,7 @@ impl FallingGroundEditor {
                 TimelineEventKind::Lane => "Lane",
             }.to_owned(),
             time_ms: event.time_ms,
+            beat: self.timeline.time_to_beat(event.time_ms),
             label: event.label.clone(),
         })
     }
@@ -514,6 +595,13 @@ impl FallingGroundEditor {
                 *event = backup;
             }
         }
+        self.deselect_event();
+    }
+
+    pub fn deselect_event(&mut self) {
+        self.selected_event_id = None;
+        self.event_overlap_cycle = None;
+        self.event_hover_hint = None;
     }
 
     pub fn is_editing_note(&self) -> bool {

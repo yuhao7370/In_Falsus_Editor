@@ -82,15 +82,31 @@ pub enum FallingEditorAction {
 }
 
 /// Public note property data for UI editing.
+/// X / Width use the chart's raw coordinate system (not normalized).
+/// x_split is displayed but locked (read-only in UI).
 #[derive(Debug, Clone)]
 pub struct NotePropertyData {
     pub id: u64,
     pub kind: String,
     pub lane: usize,
     pub time_ms: f32,
+    pub beat: f32,
     pub duration_ms: f32,
+    pub duration_beat: f32,
     pub width: f32,
     pub flick_right: bool,
+    // Flick: raw x, x_split, width  (width reuses the `width` field above but in raw scale)
+    pub x: f64,
+    pub x_split: f64,
+    // SkyArea: raw start/end x, x_split, width
+    pub start_x: f64,
+    pub start_x_split: f64,
+    pub start_width: f64,
+    pub end_x: f64,
+    pub end_x_split: f64,
+    pub end_width: f64,
+    pub left_ease: i32,
+    pub right_ease: i32,
 }
 
 /// Public event property data for UI editing.
@@ -99,6 +115,7 @@ pub struct EventPropertyData {
     pub id: u64,
     pub kind: String,
     pub time_ms: f32,
+    pub beat: f32,
     pub label: String,
 }
 

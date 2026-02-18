@@ -4,6 +4,14 @@ use crate::editor::falling::{
 use crate::i18n::{I18n, TextKey};
 use egui_macroquad::egui;
 
+/// Which field was last edited for time/beat sync.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum LastTimeEdit {
+    #[default]
+    Time,
+    Beat,
+}
+
 /// Persistent state for the property editing panel.
 #[derive(Default)]
 pub struct PropertyEditState {
@@ -14,6 +22,8 @@ pub struct PropertyEditState {
     /// The id we started editing — used to detect selection changes.
     editing_note_id: Option<u64>,
     editing_event_id: Option<u64>,
+    /// Track which field was last edited for time↔beat sync.
+    pub last_time_edit: LastTimeEdit,
 }
 
 pub const NOTE_PANEL_BASE_WIDTH_POINTS: f32 = 280.0;
@@ -204,6 +214,31 @@ fn draw_tool_selector(ui: &mut egui::Ui, i18n: &I18n, editor: &mut FallingGround
     });
 }
 
+const EASE_LABELS: [&str; 3] = ["Linear", "SineOut", "SineIn"];
+const BTN_MIN_SIZE: egui::Vec2 = egui::vec2(110.0, 30.0);
+const LABEL_SIZE: f32 = 13.5;
+const FIELD_LABEL_COLOR: egui::Color32 = egui::Color32::from_rgb(180, 180, 190);
+
+fn prop_label(ui: &mut egui::Ui, text: &str) {
+    ui.label(egui::RichText::new(text).size(LABEL_SIZE).color(FIELD_LABEL_COLOR));
+}
+
+fn ease_combo(ui: &mut egui::Ui, id_salt: &str, value: &mut i32) -> bool {
+    let idx = (*value as usize).min(2);
+    let mut changed = false;
+    egui::ComboBox::from_id_salt(id_salt)
+        .selected_text(EASE_LABELS[idx])
+        .width(100.0)
+        .show_ui(ui, |ui| {
+            for (i, label) in EASE_LABELS.iter().enumerate() {
+                if ui.selectable_value(&mut (*value), i as i32, *label).changed() {
+                    changed = true;
+                }
+            }
+        });
+    changed
+}
+
 fn draw_note_property_editor(
     ui: &mut egui::Ui,
     editor: &mut FallingGroundEditor,
@@ -211,44 +246,169 @@ fn draw_note_property_editor(
 ) {
     let Some(data) = prop_state.note_data.as_mut() else { return };
     let mut changed = false;
+    let mut time_edited = false;
+    let mut beat_edited = false;
+    let mut dur_ms_edited = false;
+    let mut dur_beat_edited = false;
 
     ui.label(egui::RichText::new(format!("Edit Note: {}", data.kind))
         .size(16.0).color(egui::Color32::from_rgb(255, 220, 120)));
     ui.add_space(6.0);
 
+    // Time (ms)
     ui.horizontal(|ui| {
-        ui.label("Time (ms):");
-        let r = ui.add(egui::DragValue::new(&mut data.time_ms).speed(1.0).range(0.0..=600000.0));
-        if r.changed() { changed = true; }
+        prop_label(ui, "Time (ms)");
+        let r = ui.add(egui::DragValue::new(&mut data.time_ms)
+            .speed(1.0).range(0.0..=600000.0).min_decimals(1).max_decimals(1)
+            .update_while_editing(false));
+        if r.changed() { time_edited = true; changed = true; }
+    });
+    // Beat
+    ui.horizontal(|ui| {
+        prop_label(ui, "Beat");
+        let r = ui.add(egui::DragValue::new(&mut data.beat)
+            .speed(0.01).range(0.0..=f32::MAX).min_decimals(3).max_decimals(3)
+            .update_while_editing(false));
+        if r.changed() { beat_edited = true; changed = true; }
     });
 
+    // Sync time↔beat
+    if time_edited {
+        data.beat = editor.time_to_beat(data.time_ms);
+        prop_state.last_time_edit = LastTimeEdit::Time;
+    } else if beat_edited {
+        data.time_ms = editor.beat_to_time(data.beat);
+        prop_state.last_time_edit = LastTimeEdit::Beat;
+    }
+
+    ui.add_space(4.0);
+
+    // Lane (ground notes only, 0-5)
     if data.kind == "Tap" || data.kind == "Hold" {
         ui.horizontal(|ui| {
-            ui.label("Lane:");
-            let r = ui.add(egui::DragValue::new(&mut data.lane).speed(0.1).range(0..=7));
+            prop_label(ui, "Lane");
+            let r = ui.add(egui::DragValue::new(&mut data.lane).speed(0.1).range(0..=5));
             if r.changed() { changed = true; }
         });
     }
 
+    // Duration ms + beat (Hold / SkyArea)
     if data.kind == "Hold" || data.kind == "SkyArea" {
         ui.horizontal(|ui| {
-            ui.label("Duration (ms):");
-            let r = ui.add(egui::DragValue::new(&mut data.duration_ms).speed(1.0).range(0.0..=600000.0));
+            prop_label(ui, "Dur (ms)");
+            let r = ui.add(egui::DragValue::new(&mut data.duration_ms)
+                .speed(1.0).range(0.0..=600000.0).min_decimals(1).max_decimals(1));
+            if r.changed() { dur_ms_edited = true; changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "Dur (beat)");
+            let r = ui.add(egui::DragValue::new(&mut data.duration_beat)
+                .speed(0.01).range(0.0..=f32::MAX).min_decimals(3).max_decimals(3));
+            if r.changed() { dur_beat_edited = true; changed = true; }
+        });
+        // Sync duration ms↔beat
+        if dur_ms_edited {
+            let end_beat = editor.time_to_beat(data.time_ms + data.duration_ms);
+            let start_beat = editor.time_to_beat(data.time_ms);
+            data.duration_beat = end_beat - start_beat;
+        } else if dur_beat_edited {
+            let start_beat = editor.time_to_beat(data.time_ms);
+            let end_time = editor.beat_to_time(start_beat + data.duration_beat);
+            data.duration_ms = (end_time - data.time_ms).max(0.0);
+        }
+    }
+
+    // Width (Tap / Hold only — raw lane width)
+    if data.kind == "Tap" || data.kind == "Hold" {
+        ui.horizontal(|ui| {
+            prop_label(ui, "Width");
+            let r = ui.add(egui::DragValue::new(&mut data.width)
+                .speed(0.01).range(0.05..=8.0).min_decimals(2).max_decimals(2));
             if r.changed() { changed = true; }
         });
     }
 
-    ui.horizontal(|ui| {
-        ui.label("Width:");
-        let r = ui.add(egui::DragValue::new(&mut data.width).speed(0.01).range(0.05..=8.0));
-        if r.changed() { changed = true; }
-    });
-
+    // Flick: X, Width (raw), XSplit (locked), direction
     if data.kind == "Flick" {
         ui.horizontal(|ui| {
-            ui.label("Direction:");
-            let r = ui.add(egui::Checkbox::new(&mut data.flick_right, "Right"));
+            prop_label(ui, "X");
+            let r = ui.add(egui::DragValue::new(&mut data.x)
+                .speed(0.5).range(0.0..=data.x_split).min_decimals(1).max_decimals(1));
             if r.changed() { changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "Width");
+            let mut w = data.width as f64;
+            let r = ui.add(egui::DragValue::new(&mut w)
+                .speed(0.5).range(0.0..=data.x_split).min_decimals(1).max_decimals(1));
+            if r.changed() { data.width = w as f32; changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "XSplit");
+            let mut xs = data.x_split;
+            ui.add_enabled(false, egui::DragValue::new(&mut xs).min_decimals(0).max_decimals(0));
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "Direction");
+            let label = if data.flick_right { "Right →" } else { "Left ←" };
+            egui::ComboBox::from_id_salt("flick_dir")
+                .selected_text(label)
+                .width(100.0)
+                .show_ui(ui, |ui| {
+                    if ui.selectable_value(&mut data.flick_right, true, "Right →").changed() { changed = true; }
+                    if ui.selectable_value(&mut data.flick_right, false, "Left ←").changed() { changed = true; }
+                });
+        });
+    }
+
+    // SkyArea: raw X/Width/XSplit + ease
+    if data.kind == "SkyArea" {
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new("Start").size(14.0).color(egui::Color32::from_rgb(200, 200, 220)));
+        ui.horizontal(|ui| {
+            prop_label(ui, "X");
+            let r = ui.add(egui::DragValue::new(&mut data.start_x)
+                .speed(0.5).range(0.0..=data.start_x_split).min_decimals(1).max_decimals(1));
+            if r.changed() { changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "Width");
+            let r = ui.add(egui::DragValue::new(&mut data.start_width)
+                .speed(0.5).range(0.0..=data.start_x_split).min_decimals(1).max_decimals(1));
+            if r.changed() { changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "XSplit");
+            let mut xs = data.start_x_split;
+            ui.add_enabled(false, egui::DragValue::new(&mut xs).min_decimals(0).max_decimals(0));
+        });
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new("End").size(14.0).color(egui::Color32::from_rgb(200, 200, 220)));
+        ui.horizontal(|ui| {
+            prop_label(ui, "X");
+            let r = ui.add(egui::DragValue::new(&mut data.end_x)
+                .speed(0.5).range(0.0..=data.end_x_split).min_decimals(1).max_decimals(1));
+            if r.changed() { changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "Width");
+            let r = ui.add(egui::DragValue::new(&mut data.end_width)
+                .speed(0.5).range(0.0..=data.end_x_split).min_decimals(1).max_decimals(1));
+            if r.changed() { changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "XSplit");
+            let mut xs = data.end_x_split;
+            ui.add_enabled(false, egui::DragValue::new(&mut xs).min_decimals(0).max_decimals(0));
+        });
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            prop_label(ui, "L Ease");
+            if ease_combo(ui, "left_ease", &mut data.left_ease) { changed = true; }
+        });
+        ui.horizontal(|ui| {
+            prop_label(ui, "R Ease");
+            if ease_combo(ui, "right_ease", &mut data.right_ease) { changed = true; }
         });
     }
 
@@ -257,8 +417,11 @@ fn draw_note_property_editor(
     }
 
     ui.add_space(12.0);
-    let apply = ui.button("✔ Apply").clicked();
-    let cancel = ui.button("✖ Cancel").clicked();
+    let apply = ui.add_sized(BTN_MIN_SIZE, egui::Button::new(
+        egui::RichText::new("✔ Apply").size(15.0))).clicked();
+    ui.add_space(4.0);
+    let cancel = ui.add_sized(BTN_MIN_SIZE, egui::Button::new(
+        egui::RichText::new("✖ Cancel").size(15.0))).clicked();
 
     if apply {
         editor.apply_note_properties(data);
@@ -278,19 +441,43 @@ fn draw_event_property_editor(
 ) {
     let Some(data) = prop_state.event_data.as_mut() else { return };
     let mut changed = false;
+    let mut time_edited = false;
+    let mut beat_edited = false;
 
     ui.label(egui::RichText::new(format!("Edit Event: {}", data.kind))
         .size(16.0).color(egui::Color32::from_rgb(120, 220, 255)));
     ui.add_space(6.0);
 
+    // Time (ms)
     ui.horizontal(|ui| {
-        ui.label("Time (ms):");
-        let r = ui.add(egui::DragValue::new(&mut data.time_ms).speed(1.0).range(0.0..=600000.0));
-        if r.changed() { changed = true; }
+        prop_label(ui, "Time (ms)");
+        let r = ui.add(egui::DragValue::new(&mut data.time_ms)
+            .speed(1.0).range(0.0..=600000.0).min_decimals(1).max_decimals(1)
+            .update_while_editing(false));
+        if r.changed() { time_edited = true; changed = true; }
+    });
+    // Beat
+    ui.horizontal(|ui| {
+        prop_label(ui, "Beat");
+        let r = ui.add(egui::DragValue::new(&mut data.beat)
+            .speed(0.01).range(0.0..=f32::MAX).min_decimals(3).max_decimals(3)
+            .update_while_editing(false));
+        if r.changed() { beat_edited = true; changed = true; }
     });
 
+    // Sync time↔beat
+    if time_edited {
+        data.beat = editor.time_to_beat(data.time_ms);
+        prop_state.last_time_edit = LastTimeEdit::Time;
+    } else if beat_edited {
+        data.time_ms = editor.beat_to_time(data.beat);
+        prop_state.last_time_edit = LastTimeEdit::Beat;
+    }
+
+    ui.add_space(4.0);
+
     ui.horizontal(|ui| {
-        ui.label("Label:");
+        prop_label(ui, "Label");
         let r = ui.add(egui::TextEdit::singleline(&mut data.label).desired_width(160.0));
         if r.changed() { changed = true; }
     });
@@ -300,8 +487,11 @@ fn draw_event_property_editor(
     }
 
     ui.add_space(12.0);
-    let apply = ui.button("✔ Apply").clicked();
-    let cancel = ui.button("✖ Cancel").clicked();
+    let apply = ui.add_sized(BTN_MIN_SIZE, egui::Button::new(
+        egui::RichText::new("✔ Apply").size(15.0))).clicked();
+    ui.add_space(4.0);
+    let cancel = ui.add_sized(BTN_MIN_SIZE, egui::Button::new(
+        egui::RichText::new("✖ Cancel").size(15.0))).clicked();
 
     if apply {
         editor.apply_event_properties(data);
