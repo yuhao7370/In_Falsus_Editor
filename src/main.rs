@@ -2,6 +2,7 @@ mod audio;
 mod chart;
 mod editor;
 mod i18n;
+mod settings;
 mod ui;
 
 use audio::controller::AudioController;
@@ -17,6 +18,7 @@ use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 use ui::settings_window::{SettingsCategory, draw_settings_window};
 use ui::open_project_window::{OpenProjectState, draw_open_project_window};
+use settings::AppSettings;
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
@@ -46,6 +48,7 @@ fn handle_top_menu_action(
     audio: &mut AudioController,
     i18n: &mut I18n,
     info_toasts: &mut InfoToastManager,
+    app_settings: &mut AppSettings,
 ) {
     match action {
         TopMenuAction::CreateProject => {
@@ -88,6 +91,8 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetLanguage(language) => {
             i18n.set_language(language);
+            app_settings.set_language_from(language);
+            app_settings.save();
             audio.status = match language {
                 Language::ZhCn => i18n.t(TextKey::ActionSetLanguageZh).to_owned(),
                 Language::EnUs => i18n.t(TextKey::ActionSetLanguageEn).to_owned(),
@@ -95,17 +100,25 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetVolume(volume) => {
             audio.set_volume(volume, i18n);
+            app_settings.volume = volume;
+            app_settings.save();
             // Don't trigger toast for continuous volume slider drags
             audio.status.clear();
         }
         TopMenuAction::SetAutoPlay(enabled) => {
             editor.set_autoplay_enabled(enabled);
+            app_settings.autoplay = enabled;
+            app_settings.save();
         }
         TopMenuAction::SetShowSpectrum(enabled) => {
             editor.set_show_spectrum(enabled);
+            app_settings.show_spectrum = enabled;
+            app_settings.save();
         }
         TopMenuAction::SetDebugHitbox(enabled) => {
             editor.set_debug_show_hitboxes(enabled);
+            app_settings.debug_hitbox = enabled;
+            app_settings.save();
             audio.status = if enabled {
                 i18n.t(TextKey::ActionDebugHitboxOn).to_owned()
             } else {
@@ -114,6 +127,8 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetMinimapVisible(enabled) => {
             editor.set_show_minimap(enabled);
+            app_settings.show_minimap = enabled;
+            app_settings.save();
             audio.status = if enabled {
                 i18n.t(TextKey::ActionMinimapOn).to_owned()
             } else {
@@ -130,6 +145,8 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetScrollSpeedFinal(speed) => {
             editor.set_scroll_speed(speed);
+            app_settings.scroll_speed = speed;
+            app_settings.save();
             audio.status = format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), speed);
         }
         TopMenuAction::SetSnapDivision(division) => {
@@ -139,22 +156,29 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetSnapDivisionFinal(division) => {
             editor.set_snap_division(division);
+            app_settings.snap_division = division;
+            app_settings.save();
             audio.status = format!("{}: {}x", i18n.t(TextKey::SettingsBarlineSnap), division);
         }
         TopMenuAction::SetXSplit(value) => {
             editor.set_x_split(value);
+            app_settings.x_split = value;
+            app_settings.save();
             audio.status = format!("{}: {}", i18n.t(TextKey::SettingsXSplit), value);
         }
         TopMenuAction::SetXSplitEditable(enabled) => {
             editor.set_xsplit_editable(enabled);
+            app_settings.xsplit_editable = enabled;
+            app_settings.save();
         }
     }
 }
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let mut app_settings = AppSettings::load();
     let mut editor = FallingGroundEditor::new(DEFAULT_CHART_PATH);
-    let mut i18n = I18n::detect();
+    let mut i18n = I18n::new(app_settings.language_enum());
     let mut egui_fonts_ready = false;
     let mut audio = AudioController::new(&i18n, DEFAULT_AUDIO_TRACK_PATH);
     let mut top_progress_state = TopProgressBarState::new();
@@ -165,6 +189,16 @@ async fn main() {
     let mut prop_edit_state = PropertyEditState::default();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
+    // Apply saved settings
+    editor.set_scroll_speed(app_settings.scroll_speed);
+    editor.set_snap_division(app_settings.snap_division);
+    editor.set_autoplay_enabled(app_settings.autoplay);
+    editor.set_show_spectrum(app_settings.show_spectrum);
+    editor.set_show_minimap(app_settings.show_minimap);
+    editor.set_x_split(app_settings.x_split);
+    editor.set_xsplit_editable(app_settings.xsplit_editable);
+    editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
+    audio.set_volume(app_settings.volume, &i18n);
     if macroquad_font.is_none() {
         audio.status =
             "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
@@ -262,7 +296,7 @@ async fn main() {
 
         if let Some(action) = top_menu_result.action {
             audio.status.clear();
-            handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n, &mut info_toasts);
+            handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n, &mut info_toasts, &mut app_settings);
             if !audio.status.is_empty() {
                 info_toasts.push(audio.status.clone());
             }
@@ -323,6 +357,8 @@ async fn main() {
             let step = editor.scroll_speed_step();
             let delta = if free_wheel_y > 0.0 { step } else { -step };
             editor.nudge_scroll_speed(delta);
+            app_settings.scroll_speed = editor.scroll_speed();
+            app_settings.save();
             info_toasts.push(format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), editor.scroll_speed()));
         } else {
             audio.handle_wheel_seek(mq_wheel_y, egui_wheel_y, space_consumed, &i18n);
