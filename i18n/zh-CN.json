@@ -82,5 +82,9 @@
   "current_project_no_project": "暂无已加载的项目",
   "current_project_load_chart": "加载谱面...",
   "current_project_load_audio": "加载音频...",
-  "current_project_missing": "（缺失）"
+  "current_project_missing": "（缺失）",
+  "file_hot_reload_chart": "热重载谱面",
+  "action_hot_reload_chart": "谱面已热重载",
+  "action_hot_reload_chart_failed": "热重载谱面失败",
+  "action_hot_reload_chart_no_change": "谱面无变化"
 }

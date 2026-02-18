@@ -82,5 +82,9 @@
   "current_project_no_project": "No project loaded",
   "current_project_load_chart": "Load Chart...",
   "current_project_load_audio": "Load Audio...",
-  "current_project_missing": "(missing)"
+  "current_project_missing": "(missing)",
+  "file_hot_reload_chart": "Hot Reload Chart",
+  "action_hot_reload_chart": "Chart hot reloaded",
+  "action_hot_reload_chart_failed": "Failed to hot reload chart",
+  "action_hot_reload_chart_no_change": "Chart unchanged"
 }

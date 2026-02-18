@@ -67,6 +67,19 @@ fn handle_top_menu_action(
                 }
             }
         }
+        TopMenuAction::HotReloadChart => {
+            match editor.reload_chart() {
+                Ok(true) => {
+                    audio.status = i18n.t(TextKey::ActionHotReloadChart).to_owned();
+                }
+                Ok(false) => {
+                    audio.status = i18n.t(TextKey::ActionHotReloadChartNoChange).to_owned();
+                }
+                Err(e) => {
+                    audio.status = format!("{}: {e}", i18n.t(TextKey::ActionHotReloadChartFailed));
+                }
+            }
+        }
         TopMenuAction::Undo => {
             if !editor.undo() {
                 info_toasts.push_warn(i18n.t(TextKey::ActionNothingToUndo));

@@ -140,6 +140,10 @@ pub enum TextKey {
     CurrentProjectLoadChart,
     CurrentProjectLoadAudio,
     CurrentProjectMissing,
+    FileHotReloadChart,
+    ActionHotReloadChart,
+    ActionHotReloadChartFailed,
+    ActionHotReloadChartNoChange,
 }
 
 impl TextKey {
@@ -229,6 +233,10 @@ impl TextKey {
             TextKey::CurrentProjectLoadChart => "current_project_load_chart",
             TextKey::CurrentProjectLoadAudio => "current_project_load_audio",
             TextKey::CurrentProjectMissing => "current_project_missing",
+            TextKey::FileHotReloadChart => "file_hot_reload_chart",
+            TextKey::ActionHotReloadChart => "action_hot_reload_chart",
+            TextKey::ActionHotReloadChartFailed => "action_hot_reload_chart_failed",
+            TextKey::ActionHotReloadChartNoChange => "action_hot_reload_chart_no_change",
         }
     }
 }

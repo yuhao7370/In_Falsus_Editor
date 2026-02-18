@@ -240,6 +240,75 @@ impl FallingGroundEditor {
         Ok(())
     }
 
+    /// Hot-reload: re-read the chart file from disk, replacing notes/timeline
+    /// while preserving UI settings. Only pushes to undo if data actually changed.
+    /// Returns Ok(true) if chart changed, Ok(false) if unchanged.
+    pub fn reload_chart(&mut self) -> Result<bool, String> {
+        if self.chart_path.is_empty() {
+            return Err("No chart path set".to_string());
+        }
+        let chart = Chart::from_file(&self.chart_path)
+            .map_err(|e| format!("{e}"))?;
+
+        let extracted = extract_chart_data(&chart);
+
+        // Compare: check if notes and timeline events are identical
+        let notes_same = self.notes.len() == extracted.notes.len()
+            && self.notes.iter().zip(extracted.notes.iter()).all(|(a, b)| {
+                a.time_ms == b.time_ms
+                    && a.lane == b.lane
+                    && a.kind == b.kind
+                    && a.duration_ms == b.duration_ms
+                    && a.width == b.width
+                    && a.flick_right == b.flick_right
+                    && a.center_x_norm == b.center_x_norm
+                    && a.x_split == b.x_split
+                    && a.skyarea_shape == b.skyarea_shape
+            });
+        let events_same = self.timeline_events.len() == extracted.timeline_events.len()
+            && self.timeline_events.iter().zip(extracted.timeline_events.iter()).all(|(a, b)| {
+                a.kind == b.kind && a.time_ms == b.time_ms && a.label == b.label
+            });
+
+        if notes_same && events_same {
+            self.status = format!("chart unchanged: {}", self.chart_path);
+            return Ok(false);
+        }
+
+        // Data changed — snapshot before replacing
+        self.snapshot_for_undo();
+
+        let bpm_tl = BpmTimeline::from_source(extracted.bpm_source);
+        let track_src = extracted.track_source;
+        let track_tl = TrackTimeline::from_source(&bpm_tl, track_src.clone());
+
+        self.notes = extracted.notes;
+        self.next_note_id = extracted.next_note_id;
+        self.timeline = bpm_tl;
+        self.track_timeline = track_tl;
+        self.track_source = track_src;
+        self.timeline_events = extracted.timeline_events;
+        self.next_event_id = extracted.next_event_id;
+
+        // Clear selection / drag state
+        self.selected_note_id = None;
+        self.selected_event_id = None;
+        self.drag_state = None;
+        self.pending_hold = None;
+        self.pending_skyarea = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
+        self.event_overlap_cycle = None;
+        self.event_hover_hint = None;
+        self.editing_note_backup = None;
+        self.editing_event_backup = None;
+
+        self.rebuild_barline_cache();
+        self.dirty = true;
+        self.status = format!("chart reloaded: {}", self.chart_path);
+        Ok(true)
+    }
+
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }

@@ -8,6 +8,7 @@ pub enum TopMenuAction {
     OpenProject,
     CurrentProject,
     SaveChart,
+    HotReloadChart,
     Undo,
     Redo,
     Cut,
@@ -209,6 +210,12 @@ pub fn draw_top_menu(
                         &mut action,
                         TopMenuAction::SaveChart,
                         i18n.t(TextKey::FileSaveChart),
+                    );
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::HotReloadChart,
+                        i18n.t(TextKey::FileHotReloadChart),
                     );
                 });
 
