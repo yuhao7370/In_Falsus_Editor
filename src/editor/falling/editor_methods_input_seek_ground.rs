@@ -104,6 +104,7 @@ impl FallingGroundEditor {
             } else {
                 self.drag_state = None;
                 self.sort_notes();
+                self.refresh_note_edit_backup();
             }
         }
     }

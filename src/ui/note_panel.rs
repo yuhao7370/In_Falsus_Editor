@@ -228,13 +228,28 @@ pub fn draw_note_selector_panel(
     let sel_event_id = sel_event.as_ref().map(|e| e.id);
 
     if prop_state.editing_note_id.is_some() && prop_state.editing_note_id != sel_note_id {
-        editor.restore_note_edit_backup();
-        prop_state.note_data = None;
+        // Auto-apply if there are unsaved changes, otherwise just clean up
+        if let Some(data) = prop_state.note_data.take() {
+            if editor.has_note_edit_changed() {
+                editor.apply_note_properties(&data);
+            } else {
+                editor.restore_note_edit_backup();
+            }
+        } else {
+            editor.restore_note_edit_backup();
+        }
         prop_state.editing_note_id = None;
     }
     if prop_state.editing_event_id.is_some() && prop_state.editing_event_id != sel_event_id {
-        editor.restore_event_edit_backup();
-        prop_state.event_data = None;
+        if let Some(data) = prop_state.event_data.take() {
+            if editor.has_event_edit_changed() {
+                editor.apply_event_properties(&data);
+            } else {
+                editor.restore_event_edit_backup();
+            }
+        } else {
+            editor.restore_event_edit_backup();
+        }
         prop_state.editing_event_id = None;
     }
     if sel_note_id.is_some() && prop_state.editing_note_id != sel_note_id {
@@ -248,13 +263,28 @@ pub fn draw_note_selector_panel(
         editor.begin_event_edit();
     }
     if sel_note_id.is_none() && prop_state.editing_note_id.is_some() {
-        editor.cancel_note_edit();
-        prop_state.note_data = None;
+        // Auto-apply on deselection (e.g. right-click) if changed
+        if let Some(data) = prop_state.note_data.take() {
+            if editor.has_note_edit_changed() {
+                editor.apply_note_properties(&data);
+            } else {
+                editor.cancel_note_edit();
+            }
+        } else {
+            editor.cancel_note_edit();
+        }
         prop_state.editing_note_id = None;
     }
     if sel_event_id.is_none() && prop_state.editing_event_id.is_some() {
-        editor.cancel_event_edit();
-        prop_state.event_data = None;
+        if let Some(data) = prop_state.event_data.take() {
+            if editor.has_event_edit_changed() {
+                editor.apply_event_properties(&data);
+            } else {
+                editor.cancel_event_edit();
+            }
+        } else {
+            editor.cancel_event_edit();
+        }
         prop_state.editing_event_id = None;
     }
 

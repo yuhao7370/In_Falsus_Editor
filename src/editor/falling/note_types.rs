@@ -155,7 +155,7 @@ impl GroundNote {
 
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct SkyAreaShape {
     start_left_norm: f32,
     start_right_norm: f32,

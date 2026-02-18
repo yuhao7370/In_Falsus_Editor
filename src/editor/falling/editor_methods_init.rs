@@ -567,6 +567,35 @@ impl FallingGroundEditor {
         }
     }
 
+    /// Refresh the note backup to current state (call after drag completes so
+    /// subsequent property-panel apply only records panel edits, not the drag).
+    pub fn refresh_note_edit_backup(&mut self) {
+        if let Some(id) = self.selected_note_id {
+            if self.editing_note_backup.is_some() {
+                if let Some(note) = self.notes.iter().find(|n| n.id == id) {
+                    self.editing_note_backup = Some(note.clone());
+                }
+            }
+        }
+    }
+
+    /// Check whether the note has been modified compared to its backup.
+    pub fn has_note_edit_changed(&self) -> bool {
+        if let Some(backup) = &self.editing_note_backup {
+            if let Some(note) = self.notes.iter().find(|n| n.id == backup.id) {
+                return note.time_ms != backup.time_ms
+                    || note.lane != backup.lane
+                    || note.duration_ms != backup.duration_ms
+                    || note.width != backup.width
+                    || note.flick_right != backup.flick_right
+                    || note.center_x_norm != backup.center_x_norm
+                    || note.x_split != backup.x_split
+                    || note.skyarea_shape != backup.skyarea_shape;
+            }
+        }
+        false
+    }
+
     pub fn deselect_note(&mut self) {
         self.selected_note_id = None;
         self.overlap_cycle = None;
@@ -767,6 +796,29 @@ impl FallingGroundEditor {
                 *event = backup;
             }
         }
+    }
+
+    /// Refresh the event backup to current state (call after drag or other
+    /// external mutation so subsequent apply only records panel edits).
+    pub fn refresh_event_edit_backup(&mut self) {
+        if let Some(id) = self.selected_event_id {
+            if self.editing_event_backup.is_some() {
+                if let Some(event) = self.timeline_events.iter().find(|e| e.id == id) {
+                    self.editing_event_backup = Some(event.clone());
+                }
+            }
+        }
+    }
+
+    /// Check whether the event has been modified compared to its backup.
+    pub fn has_event_edit_changed(&self) -> bool {
+        if let Some(backup) = &self.editing_event_backup {
+            if let Some(event) = self.timeline_events.iter().find(|e| e.id == backup.id) {
+                return event.time_ms != backup.time_ms
+                    || event.label != backup.label;
+            }
+        }
+        false
     }
 
     pub fn deselect_event(&mut self) {
