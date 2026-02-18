@@ -121,6 +121,23 @@ impl FallingGroundEditor {
         };
 
         let allow_editor_input = !self.minimap_drag_active;
+        // Delete key: remove selected note or event
+        if is_key_pressed(KeyCode::Delete) || is_key_pressed(KeyCode::Backspace) {
+            if let Some(note_id) = self.selected_note_id.take() {
+                self.snapshot_for_undo();
+                self.notes.retain(|n| n.id != note_id);
+                self.drag_state = None;
+                self.overlap_cycle = None;
+                self.hover_overlap_hint = None;
+                self.status = format!("note {} deleted", note_id);
+            } else if let Some(event_id) = self.selected_event_id.take() {
+                self.timeline_events.retain(|e| e.id != event_id);
+                self.event_overlap_cycle = None;
+                self.event_hover_hint = None;
+                self.status = format!("event {} deleted", event_id);
+            }
+        }
+
         if allow_editor_input {
             if safe_mouse_button_pressed(MouseButton::Right)
                 && (self.place_note_type.is_some()

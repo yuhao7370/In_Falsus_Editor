@@ -2,6 +2,7 @@ pub mod fonts;
 pub mod info_toast;
 pub mod input_state;
 pub mod note_panel;
+pub mod open_project_window;
 pub mod progress_bar;
 pub mod scale;
 pub mod settings_window;

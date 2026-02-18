@@ -206,6 +206,27 @@ impl AudioController {
         self.seek_to(target, i18n);
     }
 
+    pub fn load_audio_file(&mut self, path: &str, i18n: &I18n) {
+        if let Some(p) = self.player.as_mut() {
+            // Stop current playback first
+            let _ = p.pause();
+            if let Err(e) = p.load_file(path, false) {
+                self.status = format_error(&e, i18n);
+                return;
+            }
+            let snap = p.snapshot();
+            self.duration_sec = snap.duration_sec;
+            self.track_path = snap.track_path;
+            self.volume = snap.volume;
+            self.anchor_pos = 0.0;
+            self.anchor_time = get_time();
+            self.playing = false;
+            self.status = format!("{}: {}", i18n.t(TextKey::StatusLoaded), path);
+        } else {
+            self.status = i18n.t(TextKey::StatusAudioUnavailable).to_owned();
+        }
+    }
+
     pub fn handle_editor_seek(&mut self, sec: f32, i18n: &I18n) {
         self.seek_to(sec, i18n);
     }

@@ -247,6 +247,21 @@ fn air_split_rect(rect: Rect) -> Rect {
     Rect::new(rect.x + lane_w, rect.y, lane_w * 4.0, rect.h)
 }
 
+fn chart_event_time(event: &ChartEvent) -> f64 {
+    match event {
+        ChartEvent::Chart { .. } => -1.0, // chart header always first
+        ChartEvent::Tap { time, .. } => *time,
+        ChartEvent::Hold { time, .. } => *time,
+        ChartEvent::Flick { time, .. } => *time,
+        ChartEvent::SkyArea { time, .. } => *time,
+        ChartEvent::Bpm { time, .. } => *time,
+        ChartEvent::Track { time, .. } => *time,
+        ChartEvent::Lane { time, .. } => *time,
+        ChartEvent::Beam { .. } => f64::MAX,
+        ChartEvent::Unknown { .. } => f64::MAX,
+    }
+}
+
 fn air_note_width(note: &GroundNote, total_width: f32) -> f32 {
     let width_norm = match note.kind {
         GroundNoteKind::Flick => note.width.clamp(0.05, 1.0),

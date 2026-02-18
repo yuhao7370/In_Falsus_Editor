@@ -92,7 +92,148 @@ impl FallingGroundEditor {
             minimap_page: None,
             text_font: None,
             status,
+            undo_history: UndoHistory::new(200),
+            x_split: 128.0,
         }
+    }
+
+    pub fn chart_path(&self) -> &str {
+        &self.chart_path
+    }
+
+    pub fn set_chart_path(&mut self, path: String) {
+        self.chart_path = path;
+    }
+
+    /// Convert editor state back to a Chart for saving.
+    pub fn to_chart(&self) -> Chart {
+        let mut events: Vec<ChartEvent> = Vec::new();
+
+        // 1. Reconstruct chart header from base BPM
+        let base_bpm = self.timeline.points[0].bpm as f64;
+        let base_beats = self.timeline.points[0].beats_per_measure as f64;
+        events.push(ChartEvent::Chart {
+            bpm: base_bpm,
+            beats: base_beats,
+        });
+
+        // 2. BPM change events (skip the base point at time 0)
+        for point in self.timeline.points.iter().skip(1) {
+            events.push(ChartEvent::Bpm {
+                time: point.time_ms as f64,
+                bpm: point.bpm as f64,
+                beats: point.beats_per_measure as f64,
+                unknown: 0.0,
+            });
+        }
+
+        // 3. Track speed events
+        for &(time_ms, speed) in &self.track_source.track_events {
+            events.push(ChartEvent::Track {
+                time: time_ms as f64,
+                speed: speed as f64,
+            });
+        }
+
+        // 4. Lane events from timeline_events
+        for event in &self.timeline_events {
+            if event.kind == TimelineEventKind::Lane {
+                // Parse "lane N on/off" from label
+                let parts: Vec<&str> = event.label.split_whitespace().collect();
+                if parts.len() >= 3 {
+                    let lane = parts[1].parse::<i32>().unwrap_or(0);
+                    let enable = parts[2] == "on";
+                    events.push(ChartEvent::Lane {
+                        time: event.time_ms as f64,
+                        lane,
+                        enable,
+                    });
+                }
+            }
+        }
+
+        // 5. Notes
+        for note in &self.notes {
+            match note.kind {
+                GroundNoteKind::Tap => {
+                    events.push(ChartEvent::Tap {
+                        time: note.time_ms as f64,
+                        width: note.width as f64,
+                        lane: note.lane as i32,
+                    });
+                }
+                GroundNoteKind::Hold => {
+                    events.push(ChartEvent::Hold {
+                        time: note.time_ms as f64,
+                        lane: note.lane as i32,
+                        width: note.width as f64,
+                        duration: note.duration_ms as f64,
+                    });
+                }
+                GroundNoteKind::Flick => {
+                    let x_split = self.x_split;
+                    let width_norm = note.width.clamp(0.05, 1.0) as f64;
+                    let lane_center = lane_to_air_x_norm(note.lane) as f64;
+                    let flick_type = if note.flick_right {
+                        FlickType::Right
+                    } else {
+                        FlickType::Left
+                    };
+                    let width = width_norm * x_split;
+                    let x = if note.flick_right {
+                        lane_center * x_split
+                    } else {
+                        lane_center * x_split
+                    };
+                    events.push(ChartEvent::Flick {
+                        time: note.time_ms as f64,
+                        x,
+                        x_split,
+                        width,
+                        flick_type,
+                    });
+                }
+                GroundNoteKind::SkyArea => {
+                    if let Some(shape) = note.skyarea_shape {
+                        let x_split = self.x_split;
+                        let start_center = ((shape.start_left_norm + shape.start_right_norm) * 0.5) as f64;
+                        let end_center = ((shape.end_left_norm + shape.end_right_norm) * 0.5) as f64;
+                        let start_width = ((shape.start_right_norm - shape.start_left_norm).abs()) as f64;
+                        let end_width = ((shape.end_right_norm - shape.end_left_norm).abs()) as f64;
+                        events.push(ChartEvent::SkyArea {
+                            time: note.time_ms as f64,
+                            start_x: start_center * x_split,
+                            start_x_split: x_split,
+                            start_width: start_width * x_split,
+                            end_x: end_center * x_split,
+                            end_x_split: x_split,
+                            end_width: end_width * x_split,
+                            left_ease: shape.left_ease,
+                            right_ease: shape.right_ease,
+                            duration: note.duration_ms as f64,
+                            group_id: 0,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Sort by time (chart header stays first since time=0)
+        events.sort_by(|a, b| {
+            let time_a = chart_event_time(a);
+            let time_b = chart_event_time(b);
+            time_a.total_cmp(&time_b)
+        });
+
+        Chart { events }
+    }
+
+    /// Save current editor state to the .spc file.
+    pub fn save_chart(&self) -> Result<(), String> {
+        let chart = self.to_chart();
+        let content = chart.to_spc();
+        std::fs::write(&self.chart_path, content)
+            .map_err(|e| format!("写入文件失败: {e}"))
     }
 
     pub fn set_text_font(&mut self, font: Option<Font>) {
@@ -236,6 +377,15 @@ impl FallingGroundEditor {
             self.minimap_drag_target_sec = None;
             self.minimap_last_emit_sec = None;
         }
+    }
+
+    pub fn x_split(&self) -> f64 {
+        self.x_split
+    }
+
+    pub fn set_x_split(&mut self, value: f64) {
+        self.x_split = value.clamp(1.0, 1024.0);
+        self.status = format!("x_split set to {}", self.x_split);
     }
 
     pub fn track_speed_enabled(&self) -> bool {

@@ -19,6 +19,7 @@
   "language_english": "English",
   "file_create_project": "Create Project",
   "file_open_project": "Open Project",
+  "file_save_chart": "Save Chart  Ctrl+S",
   "edit_undo": "Undo",
   "edit_redo": "Redo",
   "edit_cut": "Cut",
@@ -60,5 +61,6 @@
   "settings_category_debug": "🔧 Debug",
   "settings_flow_speed": "Speed",
   "settings_barline_snap": "Barline Snap",
-  "note_panel_track_speed_events": "Render Speed Event"
+  "note_panel_render_speed_events": "Render Speed Event",
+  "settings_x_split": "Coordinate Denominator (X Split)"
 }

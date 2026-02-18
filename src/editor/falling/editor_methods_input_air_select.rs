@@ -24,6 +24,7 @@ impl FallingGroundEditor {
 
                 match tool {
                     PlaceNoteType::Flick => {
+                        self.snapshot_for_undo();
                         self.push_note(GroundNote {
                             id: self.next_note_id,
                             kind: GroundNoteKind::Flick,
@@ -40,6 +41,7 @@ impl FallingGroundEditor {
                         let width_norm = DEFAULT_SKYAREA_WIDTH_NORM;
                         let half = width_norm * 0.5;
                         if let Some(pending) = self.pending_skyarea.take() {
+                            self.snapshot_for_undo();
                             let (start_time_ms, end_time_ms, start_center_norm, end_center_norm) =
                                 if pending.start_time_ms <= time_ms {
                                     (pending.start_time_ms, time_ms, pending.start_center_norm, x_norm)

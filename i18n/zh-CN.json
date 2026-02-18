@@ -19,6 +19,7 @@
   "language_english": "English",
   "file_create_project": "创建项目",
   "file_open_project": "打开项目",
+  "file_save_chart": "保存谱面  Ctrl+S",
   "edit_undo": "撤销",
   "edit_redo": "恢复",
   "edit_cut": "剪切",
@@ -60,5 +61,6 @@
   "settings_category_debug": "🔧 调试",
   "settings_flow_speed": "流速",
   "settings_barline_snap": "节拍细分",
-  "note_panel_track_speed_events": "渲染速度事件"
+    "note_panel_render_speed_events": "渲染速度事件",
+    "settings_x_split": "坐标分母 (X Split)"
 }

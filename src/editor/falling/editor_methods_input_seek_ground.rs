@@ -23,6 +23,7 @@ impl FallingGroundEditor {
 
                 match tool {
                     PlaceNoteType::Tap => {
+                        self.snapshot_for_undo();
                         self.push_note(GroundNote {
                             id: self.next_note_id,
                             kind: GroundNoteKind::Tap,
@@ -40,6 +41,7 @@ impl FallingGroundEditor {
                             let start = pending.start_time_ms.min(time_ms);
                             let end = pending.start_time_ms.max(time_ms);
                             let duration = (end - start).max(0.0);
+                            self.snapshot_for_undo();
                             self.push_note(GroundNote {
                                 id: self.next_note_id,
                                 kind: GroundNoteKind::Hold,

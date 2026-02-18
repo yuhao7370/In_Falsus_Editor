@@ -6,6 +6,7 @@ use egui_macroquad::egui;
 pub enum TopMenuAction {
     CreateProject,
     OpenProject,
+    SaveChart,
     Undo,
     Redo,
     Cut,
@@ -22,6 +23,7 @@ pub enum TopMenuAction {
     SetScrollSpeedFinal(f32),
     SetSnapDivision(u32),
     SetSnapDivisionFinal(u32),
+    SetXSplit(f64),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
@@ -187,6 +189,13 @@ pub fn draw_top_menu(
                         &mut action,
                         TopMenuAction::OpenProject,
                         i18n.t(TextKey::FileOpenProject),
+                    );
+                    ui.separator();
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::SaveChart,
+                        i18n.t(TextKey::FileSaveChart),
                     );
                 });
 

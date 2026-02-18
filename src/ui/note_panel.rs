@@ -137,7 +137,7 @@ pub fn draw_note_selector_panel(
                 );
                 ui.separator();
                 let mut enabled = editor.track_speed_enabled();
-                let track_speed_label = egui::RichText::new(i18n.t(TextKey::NotePanelTrackSpeedEvents))
+                let track_speed_label = egui::RichText::new(i18n.t(TextKey::NotePanelRenderSpeedEvents))
                     .size(14.0)
                     .color(egui::Color32::from_rgb(220, 220, 230));
                 if ui

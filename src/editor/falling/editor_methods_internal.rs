@@ -91,6 +91,64 @@ impl FallingGroundEditor {
         }
     }
 
+    /// Take a snapshot of current state for undo history.
+    fn snapshot_for_undo(&mut self) {
+        self.undo_history.push(EditorSnapshot {
+            notes: self.notes.clone(),
+            next_note_id: self.next_note_id,
+            timeline_events: self.timeline_events.clone(),
+            next_event_id: self.next_event_id,
+            selected_note_id: self.selected_note_id,
+            selected_event_id: self.selected_event_id,
+        });
+    }
+
+    /// Undo: restore previous state.
+    pub fn undo(&mut self) -> bool {
+        if let Some(snapshot) = self.undo_history.undo() {
+            let snapshot = snapshot.clone();
+            self.notes = snapshot.notes;
+            self.next_note_id = snapshot.next_note_id;
+            self.timeline_events = snapshot.timeline_events;
+            self.next_event_id = snapshot.next_event_id;
+            self.selected_note_id = snapshot.selected_note_id;
+            self.selected_event_id = snapshot.selected_event_id;
+            self.drag_state = None;
+            self.overlap_cycle = None;
+            self.hover_overlap_hint = None;
+            self.event_overlap_cycle = None;
+            self.event_hover_hint = None;
+            self.status = "undo".to_owned();
+            true
+        } else {
+            self.status = "nothing to undo".to_owned();
+            false
+        }
+    }
+
+    /// Redo: restore next state.
+    pub fn redo(&mut self) -> bool {
+        if let Some(snapshot) = self.undo_history.redo() {
+            let snapshot = snapshot.clone();
+            self.notes = snapshot.notes;
+            self.next_note_id = snapshot.next_note_id;
+            self.timeline_events = snapshot.timeline_events;
+            self.next_event_id = snapshot.next_event_id;
+            self.selected_note_id = snapshot.selected_note_id;
+            self.selected_event_id = snapshot.selected_event_id;
+            self.drag_state = None;
+            self.overlap_cycle = None;
+            self.hover_overlap_hint = None;
+            self.event_overlap_cycle = None;
+            self.event_hover_hint = None;
+            self.status = "redo".to_owned();
+            true
+        } else {
+            self.status = "nothing to redo".to_owned();
+            false
+        }
+    }
+
     fn push_note(&mut self, note: GroundNote) {
         self.next_note_id = self.next_note_id.saturating_add(1);
         self.selected_note_id = Some(note.id);
@@ -117,6 +175,7 @@ impl FallingGroundEditor {
     }
 
     fn place_timeline_event(&mut self, tool: PlaceEventType, time_ms: f32) {
+        self.snapshot_for_undo();
         let time_ms = time_ms.max(0.0);
         match tool {
             PlaceEventType::Bpm => {

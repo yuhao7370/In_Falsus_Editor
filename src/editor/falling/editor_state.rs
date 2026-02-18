@@ -163,6 +163,73 @@ struct MinimapDrawLayout {
     active_end_ms: f32,
 }
 
+/// Snapshot of editor state for undo/redo.
+#[derive(Debug, Clone)]
+struct EditorSnapshot {
+    notes: Vec<GroundNote>,
+    next_note_id: u64,
+    timeline_events: Vec<TimelineEvent>,
+    next_event_id: u64,
+    selected_note_id: Option<u64>,
+    selected_event_id: Option<u64>,
+}
+
+/// Undo/Redo history manager.
+#[derive(Debug)]
+struct UndoHistory {
+    stack: Vec<EditorSnapshot>,
+    index: usize, // points to current state
+    max_size: usize,
+}
+
+impl UndoHistory {
+    fn new(max_size: usize) -> Self {
+        Self {
+            stack: Vec::new(),
+            index: 0,
+            max_size,
+        }
+    }
+
+    fn push(&mut self, snapshot: EditorSnapshot) {
+        // Discard any redo states
+        if self.index + 1 < self.stack.len() {
+            self.stack.truncate(self.index + 1);
+        }
+        self.stack.push(snapshot);
+        if self.stack.len() > self.max_size {
+            self.stack.remove(0);
+        }
+        self.index = self.stack.len().saturating_sub(1);
+    }
+
+    fn can_undo(&self) -> bool {
+        self.index > 0
+    }
+
+    fn can_redo(&self) -> bool {
+        self.index + 1 < self.stack.len()
+    }
+
+    fn undo(&mut self) -> Option<&EditorSnapshot> {
+        if self.can_undo() {
+            self.index -= 1;
+            Some(&self.stack[self.index])
+        } else {
+            None
+        }
+    }
+
+    fn redo(&mut self) -> Option<&EditorSnapshot> {
+        if self.can_redo() {
+            self.index += 1;
+            Some(&self.stack[self.index])
+        } else {
+            None
+        }
+    }
+}
+
 pub struct FallingGroundEditor {
     chart_path: String,
     notes: Vec<GroundNote>,
@@ -205,5 +272,7 @@ pub struct FallingGroundEditor {
     minimap_page: Option<MinimapPageConfig>,
     text_font: Option<Font>,
     status: String,
+    undo_history: UndoHistory,
+    x_split: f64,
 }
 

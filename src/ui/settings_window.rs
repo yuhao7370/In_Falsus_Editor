@@ -120,6 +120,7 @@ pub fn draw_settings_window(
     max_scroll_speed: f32,
     scroll_speed_step: f32,
     current_snap_division: u32,
+    current_x_split: f64,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -263,6 +264,23 @@ pub fn draw_settings_window(
                             if changed.is_some() && finished {
                                 action = Some(TopMenuAction::SetSnapDivisionFinal(changed.unwrap()));
                             }
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(i18n.t(TextKey::SettingsXSplit))
+                                    .color(egui::Color32::from_rgb(210, 210, 210)),
+                            );
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().slider_width = (ui.available_width() - 80.0).max(60.0);
+                                let mut x_split = current_x_split;
+                                let slider = egui::Slider::new(&mut x_split, 1.0..=1024.0)
+                                    .logarithmic(true)
+                                    .show_value(true)
+                                    .text("");
+                                let response = ui.add(slider);
+                                if response.changed() || response.drag_stopped() {
+                                    action = Some(TopMenuAction::SetXSplit(x_split));
+                                }
+                            });
                         }
                         SettingsCategory::Debug => {
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugHitbox), current_debug_hitbox).clicked() {

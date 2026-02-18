@@ -76,6 +76,7 @@ pub enum TextKey {
     LanguageEnglish,
     FileCreateProject,
     FileOpenProject,
+    FileSaveChart,
     EditUndo,
     EditRedo,
     EditCut,
@@ -117,7 +118,8 @@ pub enum TextKey {
     SettingsCategoryDebug,
     SettingsFlowSpeed,
     SettingsBarlineSnap,
-    NotePanelTrackSpeedEvents,
+    NotePanelRenderSpeedEvents,
+    SettingsXSplit,
 }
 
 impl TextKey {
@@ -143,6 +145,7 @@ impl TextKey {
             TextKey::LanguageEnglish => "language_english",
             TextKey::FileCreateProject => "file_create_project",
             TextKey::FileOpenProject => "file_open_project",
+            TextKey::FileSaveChart => "file_save_chart",
             TextKey::EditUndo => "edit_undo",
             TextKey::EditRedo => "edit_redo",
             TextKey::EditCut => "edit_cut",
@@ -184,7 +187,8 @@ impl TextKey {
             TextKey::SettingsCategoryDebug => "settings_category_debug",
             TextKey::SettingsFlowSpeed => "settings_flow_speed",
             TextKey::SettingsBarlineSnap => "settings_barline_snap",
-            TextKey::NotePanelTrackSpeedEvents => "note_panel_track_speed_events",
+            TextKey::NotePanelRenderSpeedEvents => "note_panel_render_speed_events",
+            TextKey::SettingsXSplit => "settings_x_split",
         }
     }
 }

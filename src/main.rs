@@ -16,14 +16,15 @@ use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
 use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 use ui::settings_window::{SettingsCategory, draw_settings_window};
+use ui::open_project_window::{OpenProjectState, draw_open_project_window};
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
 // const DEFAULT_CHART_PATH: &str = "songs/alamode/alamode3.spc";
 // const DEFAULT_AUDIO_TRACK_PATH: &str = "songs/alamode/music.ogg";
 
-const DEFAULT_CHART_PATH: &str = "grievouslady2.spc";
-const DEFAULT_AUDIO_TRACK_PATH: &str = "music.ogg";
+const DEFAULT_CHART_PATH: &str = "testchart/grievouslady2.spc";
+const DEFAULT_AUDIO_TRACK_PATH: &str = "testchart/music.ogg";
 
 // const DEFAULT_CHART_PATH: &str = "astralquant_infalsus/astralquant2.spc";
 // const DEFAULT_AUDIO_TRACK_PATH: &str = "astralquant_infalsus/music.ogg";
@@ -50,12 +51,25 @@ fn handle_top_menu_action(
             audio.status = i18n.t(TextKey::ActionCreateProject).to_owned();
         }
         TopMenuAction::OpenProject => {
-            audio.status = i18n.t(TextKey::ActionOpenProject).to_owned();
+            // Handled separately in main loop (opens window)
+            audio.status.clear();
+        }
+        TopMenuAction::SaveChart => {
+            match editor.save_chart() {
+                Ok(()) => {
+                    audio.status = format!("谱面已保存: {}", editor.chart_path());
+                }
+                Err(e) => {
+                    audio.status = format!("保存失败: {e}");
+                }
+            }
         }
         TopMenuAction::Undo => {
+            editor.undo();
             audio.status = i18n.t(TextKey::ActionUndo).to_owned();
         }
         TopMenuAction::Redo => {
+            editor.redo();
             audio.status = i18n.t(TextKey::ActionRedo).to_owned();
         }
         TopMenuAction::Cut => {
@@ -122,6 +136,10 @@ fn handle_top_menu_action(
             editor.set_snap_division(division);
             audio.status = format!("{}: {}x", i18n.t(TextKey::SettingsBarlineSnap), division);
         }
+        TopMenuAction::SetXSplit(value) => {
+            editor.set_x_split(value);
+            audio.status = format!("{}: {}", i18n.t(TextKey::SettingsXSplit), value);
+        }
     }
 }
 
@@ -135,6 +153,7 @@ async fn main() {
     let mut settings_open = false;
     let mut settings_category = SettingsCategory::Display;
     let mut info_toasts = InfoToastManager::new();
+    let mut open_project_state = OpenProjectState::new();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
     if macroquad_font.is_none() {
@@ -165,6 +184,7 @@ async fn main() {
         let mut top_menu_result = TopMenuResult { action: None, any_popup_open: false };
         let mut egui_wants_pointer = false;
         let mut total_right_panels_px = note_panel_width_px;
+        let mut open_project_result: Option<(String, String)> = None;
         egui_macroquad::ui(|ctx| {
             if !egui_fonts_ready {
                 let _ = init_egui_fonts(ctx);
@@ -196,6 +216,7 @@ async fn main() {
                     editor.max_scroll_speed(),
                     editor.scroll_speed_step(),
                     editor.snap_division(),
+                    editor.x_split(),
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }
@@ -211,6 +232,8 @@ async fn main() {
             // total_right_panels_px includes snap panel for editor width.
             total_right_panels_px = note_panel_width_px + snap_panel_px;
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
+            // Draw open project window (if open)
+            open_project_result = draw_open_project_window(ctx, &i18n, &mut open_project_state);
             // Check if pointer is over egui widgets/panels.
             let raw_egui_pointer = ctx.is_using_pointer()
                 || ctx.is_pointer_over_area()
@@ -219,11 +242,53 @@ async fn main() {
         });
         set_pointer_blocked(egui_wants_pointer);
 
+        // Handle OpenProject action: open the project window
+        if top_menu_result.action == Some(TopMenuAction::OpenProject) {
+            open_project_state.open = true;
+            open_project_state.chart_path = None;
+            open_project_state.audio_path = None;
+            top_menu_result.action = None; // consume it
+        }
+
         if let Some(action) = top_menu_result.action {
             audio.status.clear();
             handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n);
             if !audio.status.is_empty() {
                 info_toasts.push(audio.status.clone());
+            }
+        }
+
+        // Handle open project result
+        if let Some((chart_path, audio_path)) = open_project_result {
+            let font_backup = macroquad_font.clone();
+            editor = FallingGroundEditor::from_chart_path(&chart_path);
+            editor.set_text_font(font_backup);
+            audio.load_audio_file(&audio_path, &i18n);
+            info_toasts.push(format!("项目已加载: {}", chart_path));
+        }
+
+        // Ctrl+S: save chart, Ctrl+Z: undo, Ctrl+Y: redo
+        {
+            let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
+            if ctrl && is_key_pressed(KeyCode::S) {
+                match editor.save_chart() {
+                    Ok(()) => {
+                        info_toasts.push(format!("谱面已保存: {}", editor.chart_path()));
+                    }
+                    Err(e) => {
+                        info_toasts.push(format!("保存失败: {e}"));
+                    }
+                }
+            }
+            if ctrl && is_key_pressed(KeyCode::Z) {
+                if editor.undo() {
+                    info_toasts.push(i18n.t(TextKey::ActionUndo));
+                }
+            }
+            if ctrl && is_key_pressed(KeyCode::Y) {
+                if editor.redo() {
+                    info_toasts.push(i18n.t(TextKey::ActionRedo));
+                }
             }
         }
 
