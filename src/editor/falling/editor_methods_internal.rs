@@ -195,20 +195,12 @@ impl FallingGroundEditor {
 
     fn push_note(&mut self, note: GroundNote) {
         self.next_note_id = self.next_note_id.saturating_add(1);
-        self.selected_note_id = Some(note.id);
-        self.selected_event_id = None;
-        self.event_overlap_cycle = None;
-        self.event_hover_hint = None;
         self.notes.push(note);
         self.sort_notes();
     }
 
     fn push_timeline_event(&mut self, event: TimelineEvent) {
         self.next_event_id = self.next_event_id.saturating_add(1);
-        self.selected_event_id = Some(event.id);
-        self.selected_note_id = None;
-        self.overlap_cycle = None;
-        self.hover_overlap_hint = None;
         self.timeline_events.push(event);
         self.timeline_events.sort_by(|a, b| {
             a.time_ms

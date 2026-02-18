@@ -56,7 +56,7 @@
   "settings_flow_speed": "流速",
   "settings_barline_snap": "节拍细分",
   "note_panel_render_speed_events": "渲染速度事件",
-  "settings_x_split": "坐标分母 (X Split)",
+  "settings_x_split": "坐标分母 (XSplit)",
   "settings_xsplit_editable": "允许编辑 XSplit",
   "toast_lane_width_reject": "Lane {lane} 无法容纳宽度 {width}（最大 {max}）",
   "toast_lane_width_max": "Lane {lane} 最大宽度为 {max}（当前 {current}）"
