@@ -24,6 +24,7 @@ pub enum TopMenuAction {
     SetSnapDivision(u32),
     SetSnapDivisionFinal(u32),
     SetXSplit(f64),
+    SetXSplitEditable(bool),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;

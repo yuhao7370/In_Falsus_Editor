@@ -283,6 +283,7 @@ pub struct FallingGroundEditor {
     status: String,
     undo_history: UndoHistory,
     x_split: f64,
+    xsplit_editable: bool,
     dirty: bool,
     /// Backup of note being edited in property panel (for cancel/preview).
     editing_note_backup: Option<GroundNote>,

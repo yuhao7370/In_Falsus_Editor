@@ -121,6 +121,7 @@ pub fn draw_settings_window(
     scroll_speed_step: f32,
     current_snap_division: u32,
     current_x_split: f64,
+    current_xsplit_editable: bool,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -281,6 +282,9 @@ pub fn draw_settings_window(
                                     action = Some(TopMenuAction::SetXSplit(x_split));
                                 }
                             });
+                            if draw_setting_row(ui, i18n.t(TextKey::SettingsXSplitEditable), current_xsplit_editable).clicked() {
+                                action = Some(TopMenuAction::SetXSplitEditable(!current_xsplit_editable));
+                            }
                         }
                         SettingsCategory::Debug => {
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugHitbox), current_debug_hitbox).clicked() {

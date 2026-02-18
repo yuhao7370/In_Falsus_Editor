@@ -170,6 +170,16 @@ fn switch_btn(ui: &mut egui::Ui) -> bool {
     )).clicked()
 }
 
+/// 与 ground_note_effective_width 保持一致的最大宽度计算。
+/// Lane 0 和 5 锁定为 1，Lane 1-4 的 max = 5 - lane。
+fn panel_max_width(lane: usize) -> f32 {
+    if lane == 0 || lane >= 5 {
+        1.0
+    } else {
+        (5 - lane) as f32
+    }
+}
+
 const EASE_COMBO_FONT: f32 = 16.0;
 const EASE_COMBO_WIDTH: f32 = 120.0;
 const EASE_SWITCH_SIZE: egui::Vec2 = egui::vec2(28.0, 28.0);
@@ -380,13 +390,14 @@ fn draw_note_property_editor(
     ui.add_space(4.0);
 
     // Lane (ground notes) — width-priority: reject lane change if width won't fit
+    // 与 ground_note_effective_width 保持一致：Lane 0/5 锁定 width=1，Lane 1-4 宽音符范围 [1, 5-eff_w]
     if data.kind == "Tap" || data.kind == "Hold" {
         prop_label(ui, "Lane");
         ui.horizontal(|ui| {
             if pm_btn(ui, "-") {
                 if data.lane > 0 {
                     let candidate = data.lane - 1;
-                    let new_max_w = (6 - candidate) as f32;
+                    let new_max_w = panel_max_width(candidate);
                     if data.width > new_max_w {
                         toasts.push_warn(format!(
                             "Lane {} cannot hold width {} (max {})",
@@ -400,7 +411,7 @@ fn draw_note_property_editor(
             }
             let old_lane = data.lane;
             if num_input_usize(ui, &mut data.lane, 0, 5) {
-                let new_max_w = (6 - data.lane) as f32;
+                let new_max_w = panel_max_width(data.lane);
                 if data.width > new_max_w {
                     toasts.push_warn(format!(
                         "Lane {} cannot hold width {} (max {})",
@@ -414,7 +425,7 @@ fn draw_note_property_editor(
             if pm_btn(ui, "+") {
                 if data.lane < 5 {
                     let candidate = data.lane + 1;
-                    let new_max_w = (6 - candidate) as f32;
+                    let new_max_w = panel_max_width(candidate);
                     if data.width > new_max_w {
                         toasts.push_warn(format!(
                             "Lane {} cannot hold width {} (max {})",
@@ -454,9 +465,9 @@ fn draw_note_property_editor(
         }
     }
 
-    // Width (Tap / Hold)
+    // Width (Tap / Hold) — 与 ground_note_effective_width 一致
     if data.kind == "Tap" || data.kind == "Hold" {
-        let max_w: f32 = (6 - data.lane) as f32;
+        let max_w: f32 = panel_max_width(data.lane);
         data.width = data.width.round().clamp(1.0, max_w);
         let is_locked = max_w <= 1.0;
         prop_label(ui, "Width");
@@ -473,6 +484,13 @@ fn draw_note_property_editor(
 
     // Flick
     if data.kind == "Flick" {
+        let xsplit_editable = editor.xsplit_editable();
+        if !xsplit_editable {
+            // Locked mode: show XSplit as read-only
+            prop_label(ui, "XSplit");
+            ui.label(egui::RichText::new(format!("{} (locked)", data.x_split as i64))
+                .size(INPUT_FONT_SIZE).color(egui::Color32::from_rgb(140, 140, 150)));
+        }
         prop_label(ui, "X");
         ui.horizontal(|ui| { if num_input_f64(ui, &mut data.x, 0.0, data.x_split, 0) { changed = true; } });
         prop_label(ui, "Width");
@@ -480,16 +498,19 @@ fn draw_note_property_editor(
             let mut w = data.width as f64;
             if num_input_f64(ui, &mut w, 0.0, data.x_split, 0) { data.width = w as f32; changed = true; }
         });
-        prop_label(ui, "XSplit");
-        ui.horizontal(|ui| {
-            let old_xs = data.x_split;
-            if num_input_f64(ui, &mut data.x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
-                let ratio = data.x_split / old_xs;
-                data.x *= ratio;
-                data.width = (data.width as f64 * ratio) as f32;
-                changed = true;
-            }
-        });
+        if xsplit_editable {
+            // Editable mode: per-note XSplit
+            prop_label(ui, "XSplit");
+            ui.horizontal(|ui| {
+                let old_xs = data.x_split;
+                if num_input_f64(ui, &mut data.x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
+                    let ratio = data.x_split / old_xs;
+                    data.x *= ratio;
+                    data.width = (data.width as f64 * ratio) as f32;
+                    changed = true;
+                }
+            });
+        }
         prop_label(ui, "Direction");
         ui.horizontal(|ui| {
             let label = if data.flick_right { "Right \u{2192}" } else { "Left \u{2190}" };
@@ -508,38 +529,49 @@ fn draw_note_property_editor(
 
     // SkyArea
     if data.kind == "SkyArea" {
+        let xsplit_editable = editor.xsplit_editable();
+        if !xsplit_editable {
+            // Locked mode: show XSplit as read-only (shared for start/end)
+            prop_label(ui, "XSplit");
+            ui.label(egui::RichText::new(format!("{} / {} (locked)", data.start_x_split as i64, data.end_x_split as i64))
+                .size(INPUT_FONT_SIZE).color(egui::Color32::from_rgb(140, 140, 150)));
+        }
         ui.add_space(6.0);
         ui.label(egui::RichText::new("Start").size(SUB_TITLE_SIZE).color(egui::Color32::from_rgb(200, 200, 220)));
         prop_label(ui, "X");
         ui.horizontal(|ui| { if num_input_f64(ui, &mut data.start_x, 0.0, data.start_x_split, 0) { changed = true; } });
         prop_label(ui, "Width");
         ui.horizontal(|ui| { if num_input_f64(ui, &mut data.start_width, 0.0, data.start_x_split, 0) { changed = true; } });
-        prop_label(ui, "XSplit");
-        ui.horizontal(|ui| {
-            let old_xs = data.start_x_split;
-            if num_input_f64(ui, &mut data.start_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
-                let ratio = data.start_x_split / old_xs;
-                data.start_x *= ratio;
-                data.start_width *= ratio;
-                changed = true;
-            }
-        });
+        if xsplit_editable {
+            prop_label(ui, "XSplit");
+            ui.horizontal(|ui| {
+                let old_xs = data.start_x_split;
+                if num_input_f64(ui, &mut data.start_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
+                    let ratio = data.start_x_split / old_xs;
+                    data.start_x *= ratio;
+                    data.start_width *= ratio;
+                    changed = true;
+                }
+            });
+        }
         ui.add_space(4.0);
         ui.label(egui::RichText::new("End").size(SUB_TITLE_SIZE).color(egui::Color32::from_rgb(200, 200, 220)));
         prop_label(ui, "X");
         ui.horizontal(|ui| { if num_input_f64(ui, &mut data.end_x, 0.0, data.end_x_split, 0) { changed = true; } });
         prop_label(ui, "Width");
         ui.horizontal(|ui| { if num_input_f64(ui, &mut data.end_width, 0.0, data.end_x_split, 0) { changed = true; } });
-        prop_label(ui, "XSplit");
-        ui.horizontal(|ui| {
-            let old_xs = data.end_x_split;
-            if num_input_f64(ui, &mut data.end_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
-                let ratio = data.end_x_split / old_xs;
-                data.end_x *= ratio;
-                data.end_width *= ratio;
-                changed = true;
-            }
-        });
+        if xsplit_editable {
+            prop_label(ui, "XSplit");
+            ui.horizontal(|ui| {
+                let old_xs = data.end_x_split;
+                if num_input_f64(ui, &mut data.end_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
+                    let ratio = data.end_x_split / old_xs;
+                    data.end_x *= ratio;
+                    data.end_width *= ratio;
+                    changed = true;
+                }
+            });
+        }
         ui.add_space(4.0);
         prop_label(ui, "L Ease");
         ui.horizontal(|ui| { if ease_combo_with_switch(ui, "left_ease", &mut data.left_ease) { changed = true; } });

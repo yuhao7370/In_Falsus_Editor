@@ -64,5 +64,6 @@
   "settings_flow_speed": "Speed",
   "settings_barline_snap": "Barline Snap",
   "note_panel_render_speed_events": "Render Speed Event",
-  "settings_x_split": "Coordinate Denominator (X Split)"
+  "settings_x_split": "Coordinate Denominator (X Split)",
+  "settings_xsplit_editable": "Editable XSplit"
 }

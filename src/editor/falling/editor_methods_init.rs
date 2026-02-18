@@ -95,6 +95,7 @@ impl FallingGroundEditor {
             status,
             undo_history: UndoHistory::new(200),
             x_split: 24.0,
+            xsplit_editable: false,
             dirty: false,
             editing_note_backup: None,
             editing_event_backup: None,
@@ -393,6 +394,15 @@ impl FallingGroundEditor {
     pub fn set_x_split(&mut self, value: f64) {
         self.x_split = value.clamp(1.0, 1024.0);
         self.status = format!("x_split set to {}", self.x_split);
+    }
+
+    pub fn xsplit_editable(&self) -> bool {
+        self.xsplit_editable
+    }
+
+    pub fn set_xsplit_editable(&mut self, enabled: bool) {
+        self.xsplit_editable = enabled;
+        self.status = format!("xsplit editable: {}", if enabled { "on" } else { "off" });
     }
 
     pub fn place_flick_right(&self) -> bool {

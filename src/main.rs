@@ -145,6 +145,9 @@ fn handle_top_menu_action(
             editor.set_x_split(value);
             audio.status = format!("{}: {}", i18n.t(TextKey::SettingsXSplit), value);
         }
+        TopMenuAction::SetXSplitEditable(enabled) => {
+            editor.set_xsplit_editable(enabled);
+        }
     }
 }
 
@@ -223,6 +226,7 @@ async fn main() {
                     editor.scroll_speed_step(),
                     editor.snap_division(),
                     editor.x_split(),
+                    editor.xsplit_editable(),
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }

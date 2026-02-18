@@ -122,6 +122,7 @@ pub enum TextKey {
     SettingsBarlineSnap,
     NotePanelRenderSpeedEvents,
     SettingsXSplit,
+    SettingsXSplitEditable,
 }
 
 impl TextKey {
@@ -193,6 +194,7 @@ impl TextKey {
             TextKey::SettingsBarlineSnap => "settings_barline_snap",
             TextKey::NotePanelRenderSpeedEvents => "note_panel_render_speed_events",
             TextKey::SettingsXSplit => "settings_x_split",
+            TextKey::SettingsXSplitEditable => "settings_xsplit_editable",
         }
     }
 }
