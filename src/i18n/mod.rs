@@ -121,6 +121,7 @@ pub enum TextKey {
     SettingsHitsoundEnabled,
     SettingsHitsoundTapVolume,
     SettingsHitsoundArcVolume,
+    SettingsHitsoundDelay,
 }
 
 impl TextKey {
@@ -191,6 +192,7 @@ impl TextKey {
             TextKey::SettingsHitsoundEnabled => "settings_hitsound_enabled",
             TextKey::SettingsHitsoundTapVolume => "settings_hitsound_tap_volume",
             TextKey::SettingsHitsoundArcVolume => "settings_hitsound_arc_volume",
+            TextKey::SettingsHitsoundDelay => "settings_hitsound_delay",
         }
     }
 }

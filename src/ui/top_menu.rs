@@ -29,6 +29,7 @@ pub enum TopMenuAction {
     SetHitsoundEnabled(bool),
     SetHitsoundTapVolume(f32),
     SetHitsoundArcVolume(f32),
+    SetHitsoundDelay(i32),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;

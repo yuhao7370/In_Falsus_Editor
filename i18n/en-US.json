@@ -63,5 +63,6 @@
   "toast_lane_width_max": "Lane {lane} max width is {max} (current {current})",
   "settings_hitsound_enabled": "Hitsound",
   "settings_hitsound_tap_volume": "Tap Hitsound Volume",
-  "settings_hitsound_arc_volume": "Arc Hitsound Volume"
+  "settings_hitsound_arc_volume": "Arc Hitsound Volume",
+  "settings_hitsound_delay": "Hitsound Delay (negative = early, positive = late)"
 }

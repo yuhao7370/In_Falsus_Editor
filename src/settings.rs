@@ -35,6 +35,8 @@ pub struct AppSettings {
     pub hitsound_arc_volume: f32,
     #[serde(default = "default_hitsound_max_voices")]
     pub hitsound_max_voices: usize,
+    #[serde(default)]
+    pub hitsound_delay_ms: i32,
 }
 
 fn default_language() -> String {
@@ -77,6 +79,7 @@ impl Default for AppSettings {
             hitsound_tap_volume: default_volume(),
             hitsound_arc_volume: default_volume(),
             hitsound_max_voices: default_hitsound_max_voices(),
+            hitsound_delay_ms: 0,
         }
     }
 }

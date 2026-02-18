@@ -173,6 +173,7 @@ impl HitSoundPlayer {
 pub struct HitSoundTrigger {
     prev_sec: f32,
     was_playing: bool,
+    delay_ms: f32,
 }
 
 impl HitSoundTrigger {
@@ -180,7 +181,18 @@ impl HitSoundTrigger {
         Self {
             prev_sec: 0.0,
             was_playing: false,
+            delay_ms: 0.0,
         }
+    }
+
+    /// Set the hitsound delay in milliseconds.
+    /// Positive = play later, negative = play earlier.
+    pub fn set_delay_ms(&mut self, ms: i32) {
+        self.delay_ms = ms.clamp(-100, 100) as f32;
+    }
+
+    pub fn delay_ms(&self) -> i32 {
+        self.delay_ms as i32
     }
 
     /// Call once per frame.
@@ -217,7 +229,9 @@ impl HitSoundTrigger {
         let curr_ms = current_sec * 1000.0;
 
         for &(time_ms, is_ground) in note_heads {
-            if time_ms > prev_ms && time_ms <= curr_ms {
+            // Apply delay: positive = trigger later, negative = trigger earlier
+            let trigger_ms = time_ms + self.delay_ms;
+            if trigger_ms > prev_ms && trigger_ms <= curr_ms {
                 if is_ground {
                     player.play_tap();
                 } else {

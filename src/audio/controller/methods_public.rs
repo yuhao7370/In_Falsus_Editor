@@ -305,6 +305,12 @@ impl AudioController {
         self.hitsound_player.max_voices()
     }
 
+    pub fn set_hitsound_delay_ms(&mut self, ms: i32) {
+        self.hitsound_trigger.set_delay_ms(ms);
+    }
 
+    pub fn hitsound_delay_ms(&self) -> i32 {
+        self.hitsound_trigger.delay_ms()
+    }
 }
 

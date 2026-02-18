@@ -191,6 +191,11 @@ fn handle_top_menu_action(
             app_settings.hitsound_arc_volume = vol;
             app_settings.save();
         }
+        TopMenuAction::SetHitsoundDelay(ms) => {
+            audio.set_hitsound_delay_ms(ms);
+            app_settings.hitsound_delay_ms = ms;
+            app_settings.save();
+        }
     }
 }
 
@@ -224,6 +229,7 @@ async fn main() {
     audio.set_hitsound_tap_volume(app_settings.hitsound_tap_volume);
     audio.set_hitsound_arc_volume(app_settings.hitsound_arc_volume);
     audio.set_hitsound_max_voices(app_settings.hitsound_max_voices);
+    audio.set_hitsound_delay_ms(app_settings.hitsound_delay_ms);
     if macroquad_font.is_none() {
         audio.status =
             "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
@@ -291,6 +297,7 @@ async fn main() {
                     audio.hitsound_enabled(),
                     audio.hitsound_tap_volume(),
                     audio.hitsound_arc_volume(),
+                    audio.hitsound_delay_ms(),
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }

@@ -63,5 +63,6 @@
   "toast_lane_width_max": "Lane {lane} 最大宽度为 {max}（当前 {current}）",
   "settings_hitsound_enabled": "打击音",
   "settings_hitsound_tap_volume": "地面打击音量",
-  "settings_hitsound_arc_volume": "天空打击音量"
+  "settings_hitsound_arc_volume": "天空打击音量",
+  "settings_hitsound_delay": "打击音延迟 (负值提前，正值延后)"
 }

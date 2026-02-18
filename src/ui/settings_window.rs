@@ -126,6 +126,7 @@ pub fn draw_settings_window(
     current_hitsound_enabled: bool,
     current_hitsound_tap_volume: f32,
     current_hitsound_arc_volume: f32,
+    current_hitsound_delay_ms: i32,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -257,6 +258,22 @@ pub fn draw_settings_window(
                                 .text("");
                             if ui.add_enabled(current_hitsound_enabled, arc_slider).changed() {
                                 action = Some(TopMenuAction::SetHitsoundArcVolume(arc_vol));
+                            }
+
+                            // Hitsound delay (-100ms ~ +100ms)
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(i18n.t(TextKey::SettingsHitsoundDelay))
+                                    .color(egui::Color32::from_rgb(210, 210, 210)),
+                            );
+                            ui.spacing_mut().slider_width = (ui.available_width() - 80.0).max(60.0);
+                            let mut delay = current_hitsound_delay_ms;
+                            let delay_slider = egui::Slider::new(&mut delay, -100..=100)
+                                .custom_formatter(|v, _| format!("{:+.0} ms", v))
+                                .show_value(true)
+                                .text("");
+                            if ui.add_enabled(current_hitsound_enabled, delay_slider).changed() {
+                                action = Some(TopMenuAction::SetHitsoundDelay(delay));
                             }
                         }
                         SettingsCategory::Display => {
