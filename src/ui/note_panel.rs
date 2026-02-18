@@ -85,77 +85,115 @@ fn prop_label(ui: &mut egui::Ui, text: &str) {
     ui.label(egui::RichText::new(text).size(LABEL_SIZE).color(FIELD_LABEL_COLOR));
 }
 
-/// Fixed-size numeric text input (no drag). Height matches PM_BTN_SIZE.
-fn num_input_f32(ui: &mut egui::Ui, val: &mut f32, min: f32, max: f32, decimals: usize) -> bool {
+/// Fixed-size numeric text input with buffered editing.
+/// Text is only parsed & applied when the input loses focus (Enter / click away).
+/// While focused the user can type freely without the value being reformatted.
+fn num_input_f32(ui: &mut egui::Ui, id_salt: &str, val: &mut f32, min: f32, max: f32, decimals: usize) -> bool {
     let box_h = PM_BTN_SIZE.y;
-    let mut text = format!("{:.*}", decimals, *val);
+    let id = ui.id().with(id_salt);
+    let formatted = format!("{:.*}", decimals, *val);
+    let mut buf: String = ui.data(|d| d.get_temp::<String>(id).unwrap_or_else(|| formatted.clone()));
     let r = ui.add_sized(
         egui::vec2(INPUT_BOX_W, box_h),
-        egui::TextEdit::singleline(&mut text)
+        egui::TextEdit::singleline(&mut buf)
             .font(egui::FontId::proportional(INPUT_FONT_SIZE))
             .horizontal_align(egui::Align::RIGHT),
     );
-    if r.changed() {
-        if let Ok(v) = text.parse::<f32>() {
-            *val = v.clamp(min, max);
-            return true;
+    if r.has_focus() {
+        ui.data_mut(|d| d.insert_temp(id, buf));
+        return false;
+    }
+    let mut changed = false;
+    if r.lost_focus() {
+        if let Ok(v) = buf.parse::<f32>() {
+            let clamped = v.clamp(min, max);
+            if (*val - clamped).abs() > f32::EPSILON { changed = true; }
+            *val = clamped;
         }
     }
-    false
+    ui.data_mut(|d| d.insert_temp(id, format!("{:.*}", decimals, *val)));
+    changed
 }
 
-fn num_input_f64(ui: &mut egui::Ui, val: &mut f64, min: f64, max: f64, decimals: usize) -> bool {
+fn num_input_f64(ui: &mut egui::Ui, id_salt: &str, val: &mut f64, min: f64, max: f64, decimals: usize) -> bool {
     let box_h = PM_BTN_SIZE.y;
-    let mut text = format!("{:.*}", decimals, *val);
+    let id = ui.id().with(id_salt);
+    let formatted = format!("{:.*}", decimals, *val);
+    let mut buf: String = ui.data(|d| d.get_temp::<String>(id).unwrap_or_else(|| formatted.clone()));
     let r = ui.add_sized(
         egui::vec2(INPUT_BOX_W, box_h),
-        egui::TextEdit::singleline(&mut text)
+        egui::TextEdit::singleline(&mut buf)
             .font(egui::FontId::proportional(INPUT_FONT_SIZE))
             .horizontal_align(egui::Align::RIGHT),
     );
-    if r.changed() {
-        if let Ok(v) = text.parse::<f64>() {
-            *val = v.clamp(min, max);
-            return true;
+    if r.has_focus() {
+        ui.data_mut(|d| d.insert_temp(id, buf));
+        return false;
+    }
+    let mut changed = false;
+    if r.lost_focus() {
+        if let Ok(v) = buf.parse::<f64>() {
+            let clamped = v.clamp(min, max);
+            if (*val - clamped).abs() > f64::EPSILON { changed = true; }
+            *val = clamped;
         }
     }
-    false
+    ui.data_mut(|d| d.insert_temp(id, format!("{:.*}", decimals, *val)));
+    changed
 }
 
-fn num_input_usize(ui: &mut egui::Ui, val: &mut usize, min: usize, max: usize) -> bool {
+fn num_input_usize(ui: &mut egui::Ui, id_salt: &str, val: &mut usize, min: usize, max: usize) -> bool {
     let box_h = PM_BTN_SIZE.y;
-    let mut text = format!("{}", *val);
+    let id = ui.id().with(id_salt);
+    let formatted = format!("{}", *val);
+    let mut buf: String = ui.data(|d| d.get_temp::<String>(id).unwrap_or_else(|| formatted.clone()));
     let r = ui.add_sized(
         egui::vec2(INPUT_BOX_W, box_h),
-        egui::TextEdit::singleline(&mut text)
+        egui::TextEdit::singleline(&mut buf)
             .font(egui::FontId::proportional(INPUT_FONT_SIZE))
             .horizontal_align(egui::Align::RIGHT),
     );
-    if r.changed() {
-        if let Ok(v) = text.parse::<usize>() {
-            *val = v.clamp(min, max);
-            return true;
+    if r.has_focus() {
+        ui.data_mut(|d| d.insert_temp(id, buf));
+        return false;
+    }
+    let mut changed = false;
+    if r.lost_focus() {
+        if let Ok(v) = buf.parse::<usize>() {
+            let clamped = v.clamp(min, max);
+            if *val != clamped { changed = true; }
+            *val = clamped;
         }
     }
-    false
+    ui.data_mut(|d| d.insert_temp(id, format!("{}", *val)));
+    changed
 }
 
-fn num_input_i32(ui: &mut egui::Ui, val: &mut i32, min: i32, max: i32) -> bool {
+fn num_input_i32(ui: &mut egui::Ui, id_salt: &str, val: &mut i32, min: i32, max: i32) -> bool {
     let box_h = PM_BTN_SIZE.y;
-    let mut text = format!("{}", *val);
+    let id = ui.id().with(id_salt);
+    let formatted = format!("{}", *val);
+    let mut buf: String = ui.data(|d| d.get_temp::<String>(id).unwrap_or_else(|| formatted.clone()));
     let r = ui.add_sized(
         egui::vec2(INPUT_BOX_W, box_h),
-        egui::TextEdit::singleline(&mut text)
+        egui::TextEdit::singleline(&mut buf)
             .font(egui::FontId::proportional(INPUT_FONT_SIZE))
             .horizontal_align(egui::Align::RIGHT),
     );
-    if r.changed() {
-        if let Ok(v) = text.parse::<i32>() {
-            *val = v.clamp(min, max);
-            return true;
+    if r.has_focus() {
+        ui.data_mut(|d| d.insert_temp(id, buf));
+        return false;
+    }
+    let mut changed = false;
+    if r.lost_focus() {
+        if let Ok(v) = buf.parse::<i32>() {
+            let clamped = v.clamp(min, max);
+            if *val != clamped { changed = true; }
+            *val = clamped;
         }
     }
-    false
+    ui.data_mut(|d| d.insert_temp(id, format!("{}", *val)));
+    changed
 }
 
 fn pm_btn(ui: &mut egui::Ui, label: &str) -> bool {
@@ -397,15 +435,15 @@ fn draw_note_property_editor(
     // Time (ms)
     prop_label(ui, "Time (ms)");
     ui.horizontal(|ui| {
-        if pm_btn(ui, "-") { data.time_ms = (data.time_ms - 1.0).max(0.0); time_edited = true; changed = true; }
-        if num_input_f32(ui, &mut data.time_ms, 0.0, 600000.0, 1) { time_edited = true; changed = true; }
-        if pm_btn(ui, "+") { data.time_ms = (data.time_ms + 1.0).min(600000.0); time_edited = true; changed = true; }
+        if pm_btn(ui, "-") { data.time_ms = (data.time_ms - 1.0).max(0.0).round(); time_edited = true; changed = true; }
+        if num_input_f32(ui, "note_time_ms", &mut data.time_ms, 0.0, 600000.0, 0) { data.time_ms = data.time_ms.round(); time_edited = true; changed = true; }
+        if pm_btn(ui, "+") { data.time_ms = (data.time_ms + 1.0).min(600000.0).round(); time_edited = true; changed = true; }
     });
     // Beat
     prop_label(ui, "Beat");
     ui.horizontal(|ui| {
         if pm_btn(ui, "-") { data.beat = (data.beat - beat_step).max(0.0); beat_edited = true; changed = true; }
-        if num_input_f32(ui, &mut data.beat, 0.0, f32::MAX, 3) { beat_edited = true; changed = true; }
+        if num_input_f32(ui, "note_beat", &mut data.beat, 0.0, f32::MAX, 3) { beat_edited = true; changed = true; }
         if pm_btn(ui, "+") { data.beat += beat_step; beat_edited = true; changed = true; }
     });
 
@@ -440,7 +478,7 @@ fn draw_note_property_editor(
                 }
             }
             let old_lane = data.lane;
-            if num_input_usize(ui, &mut data.lane, 0, 5) {
+            if num_input_usize(ui, "note_lane", &mut data.lane, 0, 5) {
                 let new_max_w = panel_max_width(data.lane);
                 if data.width > new_max_w {
                     toasts.push_warn(format!(
@@ -474,14 +512,14 @@ fn draw_note_property_editor(
     if data.kind == "Hold" || data.kind == "SkyArea" {
         prop_label(ui, "Dur (ms)");
         ui.horizontal(|ui| {
-            if pm_btn(ui, "-") { data.duration_ms = (data.duration_ms - 1.0).max(0.0); dur_ms_edited = true; changed = true; }
-            if num_input_f32(ui, &mut data.duration_ms, 0.0, 600000.0, 1) { dur_ms_edited = true; changed = true; }
-            if pm_btn(ui, "+") { data.duration_ms += 1.0; dur_ms_edited = true; changed = true; }
+            if pm_btn(ui, "-") { data.duration_ms = (data.duration_ms - 1.0).max(0.0).round(); dur_ms_edited = true; changed = true; }
+            if num_input_f32(ui, "note_dur_ms", &mut data.duration_ms, 0.0, 600000.0, 0) { data.duration_ms = data.duration_ms.round(); dur_ms_edited = true; changed = true; }
+            if pm_btn(ui, "+") { data.duration_ms = (data.duration_ms + 1.0).round(); dur_ms_edited = true; changed = true; }
         });
         prop_label(ui, "Dur (beat)");
         ui.horizontal(|ui| {
             if pm_btn(ui, "-") { data.duration_beat = (data.duration_beat - beat_step).max(0.0); dur_beat_edited = true; changed = true; }
-            if num_input_f32(ui, &mut data.duration_beat, 0.0, f32::MAX, 3) { dur_beat_edited = true; changed = true; }
+            if num_input_f32(ui, "note_dur_beat", &mut data.duration_beat, 0.0, f32::MAX, 3) { dur_beat_edited = true; changed = true; }
             if pm_btn(ui, "+") { data.duration_beat += beat_step; dur_beat_edited = true; changed = true; }
         });
         if dur_ms_edited {
@@ -506,7 +544,7 @@ fn draw_note_property_editor(
         } else {
             ui.horizontal(|ui| {
                 if pm_btn(ui, "-") { data.width = (data.width - 1.0).max(1.0); changed = true; }
-                if num_input_f32(ui, &mut data.width, 1.0, max_w, 0) { data.width = data.width.round().clamp(1.0, max_w); changed = true; }
+                if num_input_f32(ui, "note_width", &mut data.width, 1.0, max_w, 0) { data.width = data.width.round().clamp(1.0, max_w); changed = true; }
                 if pm_btn(ui, "+") { data.width = (data.width + 1.0).min(max_w); changed = true; }
             });
         }
@@ -522,19 +560,41 @@ fn draw_note_property_editor(
                 .size(INPUT_FONT_SIZE).color(egui::Color32::from_rgb(140, 140, 150)));
         }
         prop_label(ui, "X");
-        ui.horizontal(|ui| { if num_input_f64(ui, &mut data.x, 0.0, data.x_split, 0) { changed = true; } });
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.x = (data.x - 1.0).max(0.0); changed = true; }
+            if num_input_f64(ui, "flick_x", &mut data.x, 0.0, data.x_split, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.x = (data.x + 1.0).min(data.x_split); changed = true; }
+        });
         prop_label(ui, "Width");
         ui.horizontal(|ui| {
             let mut w = data.width as f64;
-            if num_input_f64(ui, &mut w, 0.0, data.x_split, 0) { data.width = w as f32; changed = true; }
+            if pm_btn(ui, "-") { w = (w - 1.0).max(0.0); data.width = w as f32; changed = true; }
+            if num_input_f64(ui, "flick_w", &mut w, 0.0, data.x_split, 0) { data.width = w as f32; changed = true; }
+            if pm_btn(ui, "+") { w = (w + 1.0).min(data.x_split); data.width = w as f32; changed = true; }
         });
         if xsplit_editable {
             // Editable mode: per-note XSplit
             prop_label(ui, "XSplit");
             ui.horizontal(|ui| {
                 let old_xs = data.x_split;
-                if num_input_f64(ui, &mut data.x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
+                if pm_btn(ui, "-") && old_xs > 1.0 {
+                    let new_xs = (old_xs - 1.0).max(1.0);
+                    let ratio = new_xs / old_xs;
+                    data.x_split = new_xs;
+                    data.x *= ratio;
+                    data.width = (data.width as f64 * ratio) as f32;
+                    changed = true;
+                }
+                if num_input_f64(ui, "flick_xs", &mut data.x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
                     let ratio = data.x_split / old_xs;
+                    data.x *= ratio;
+                    data.width = (data.width as f64 * ratio) as f32;
+                    changed = true;
+                }
+                if pm_btn(ui, "+") {
+                    let new_xs = (old_xs + 1.0).min(1024.0);
+                    let ratio = new_xs / old_xs;
+                    data.x_split = new_xs;
                     data.x *= ratio;
                     data.width = (data.width as f64 * ratio) as f32;
                     changed = true;
@@ -569,15 +629,39 @@ fn draw_note_property_editor(
         ui.add_space(6.0);
         ui.label(egui::RichText::new("Start").size(SUB_TITLE_SIZE).color(egui::Color32::from_rgb(200, 200, 220)));
         prop_label(ui, "X");
-        ui.horizontal(|ui| { if num_input_f64(ui, &mut data.start_x, 0.0, data.start_x_split, 0) { changed = true; } });
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.start_x = (data.start_x - 1.0).max(0.0); changed = true; }
+            if num_input_f64(ui, "sky_sx", &mut data.start_x, 0.0, data.start_x_split, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.start_x = (data.start_x + 1.0).min(data.start_x_split); changed = true; }
+        });
         prop_label(ui, "Width");
-        ui.horizontal(|ui| { if num_input_f64(ui, &mut data.start_width, 0.0, data.start_x_split, 0) { changed = true; } });
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.start_width = (data.start_width - 1.0).max(0.0); changed = true; }
+            if num_input_f64(ui, "sky_sw", &mut data.start_width, 0.0, data.start_x_split, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.start_width = (data.start_width + 1.0).min(data.start_x_split); changed = true; }
+        });
         if xsplit_editable {
             prop_label(ui, "XSplit");
             ui.horizontal(|ui| {
                 let old_xs = data.start_x_split;
-                if num_input_f64(ui, &mut data.start_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
+                if pm_btn(ui, "-") && old_xs > 1.0 {
+                    let new_xs = (old_xs - 1.0).max(1.0);
+                    let ratio = new_xs / old_xs;
+                    data.start_x_split = new_xs;
+                    data.start_x *= ratio;
+                    data.start_width *= ratio;
+                    changed = true;
+                }
+                if num_input_f64(ui, "sky_sxs", &mut data.start_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
                     let ratio = data.start_x_split / old_xs;
+                    data.start_x *= ratio;
+                    data.start_width *= ratio;
+                    changed = true;
+                }
+                if pm_btn(ui, "+") {
+                    let new_xs = (old_xs + 1.0).min(1024.0);
+                    let ratio = new_xs / old_xs;
+                    data.start_x_split = new_xs;
                     data.start_x *= ratio;
                     data.start_width *= ratio;
                     changed = true;
@@ -587,15 +671,39 @@ fn draw_note_property_editor(
         ui.add_space(4.0);
         ui.label(egui::RichText::new("End").size(SUB_TITLE_SIZE).color(egui::Color32::from_rgb(200, 200, 220)));
         prop_label(ui, "X");
-        ui.horizontal(|ui| { if num_input_f64(ui, &mut data.end_x, 0.0, data.end_x_split, 0) { changed = true; } });
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.end_x = (data.end_x - 1.0).max(0.0); changed = true; }
+            if num_input_f64(ui, "sky_ex", &mut data.end_x, 0.0, data.end_x_split, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.end_x = (data.end_x + 1.0).min(data.end_x_split); changed = true; }
+        });
         prop_label(ui, "Width");
-        ui.horizontal(|ui| { if num_input_f64(ui, &mut data.end_width, 0.0, data.end_x_split, 0) { changed = true; } });
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.end_width = (data.end_width - 1.0).max(0.0); changed = true; }
+            if num_input_f64(ui, "sky_ew", &mut data.end_width, 0.0, data.end_x_split, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.end_width = (data.end_width + 1.0).min(data.end_x_split); changed = true; }
+        });
         if xsplit_editable {
             prop_label(ui, "XSplit");
             ui.horizontal(|ui| {
                 let old_xs = data.end_x_split;
-                if num_input_f64(ui, &mut data.end_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
+                if pm_btn(ui, "-") && old_xs > 1.0 {
+                    let new_xs = (old_xs - 1.0).max(1.0);
+                    let ratio = new_xs / old_xs;
+                    data.end_x_split = new_xs;
+                    data.end_x *= ratio;
+                    data.end_width *= ratio;
+                    changed = true;
+                }
+                if num_input_f64(ui, "sky_exs", &mut data.end_x_split, 1.0, 1024.0, 0) && old_xs > 0.0 {
                     let ratio = data.end_x_split / old_xs;
+                    data.end_x *= ratio;
+                    data.end_width *= ratio;
+                    changed = true;
+                }
+                if pm_btn(ui, "+") {
+                    let new_xs = (old_xs + 1.0).min(1024.0);
+                    let ratio = new_xs / old_xs;
+                    data.end_x_split = new_xs;
                     data.end_x *= ratio;
                     data.end_width *= ratio;
                     changed = true;
@@ -661,15 +769,15 @@ fn draw_event_property_editor(
     // Time (ms)
     prop_label(ui, "Time (ms)");
     ui.horizontal(|ui| {
-        if pm_btn(ui, "-") { data.time_ms = (data.time_ms - 1.0).max(0.0); time_edited = true; changed = true; }
-        if num_input_f32(ui, &mut data.time_ms, 0.0, 600000.0, 1) { time_edited = true; changed = true; }
-        if pm_btn(ui, "+") { data.time_ms = (data.time_ms + 1.0).min(600000.0); time_edited = true; changed = true; }
+        if pm_btn(ui, "-") { data.time_ms = (data.time_ms - 1.0).max(0.0).round(); time_edited = true; changed = true; }
+        if num_input_f32(ui, "evt_time_ms", &mut data.time_ms, 0.0, 600000.0, 0) { data.time_ms = data.time_ms.round(); time_edited = true; changed = true; }
+        if pm_btn(ui, "+") { data.time_ms = (data.time_ms + 1.0).min(600000.0).round(); time_edited = true; changed = true; }
     });
     // Beat
     prop_label(ui, "Beat");
     ui.horizontal(|ui| {
         if pm_btn(ui, "-") { data.beat = (data.beat - beat_step).max(0.0); beat_edited = true; changed = true; }
-        if num_input_f32(ui, &mut data.beat, 0.0, f32::MAX, 3) { beat_edited = true; changed = true; }
+        if num_input_f32(ui, "evt_beat", &mut data.beat, 0.0, f32::MAX, 3) { beat_edited = true; changed = true; }
         if pm_btn(ui, "+") { data.beat += beat_step; beat_edited = true; changed = true; }
     });
 
@@ -688,19 +796,19 @@ fn draw_event_property_editor(
     match data.kind.as_str() {
         "Bpm" => {
             prop_label(ui, "BPM");
-            ui.horizontal(|ui| { if num_input_f32(ui, &mut data.bpm, 0.001, 9999.0, 2) { changed = true; } });
+            ui.horizontal(|ui| { if num_input_f32(ui, "evt_bpm", &mut data.bpm, 0.001, 9999.0, 2) { changed = true; } });
             prop_label(ui, "BPL");
-            ui.horizontal(|ui| { if num_input_f32(ui, &mut data.beats_per_measure, 1.0, 64.0, 2) { changed = true; } });
+            ui.horizontal(|ui| { if num_input_f32(ui, "evt_bpl", &mut data.beats_per_measure, 1.0, 64.0, 2) { changed = true; } });
         }
         "Track" => {
             prop_label(ui, "Speed");
-            ui.horizontal(|ui| { if num_input_f32(ui, &mut data.speed, -100.0, 100.0, 2) { changed = true; } });
+            ui.horizontal(|ui| { if num_input_f32(ui, "evt_speed", &mut data.speed, -100.0, 100.0, 2) { changed = true; } });
         }
         "Lane" => {
             prop_label(ui, "Lane");
             ui.horizontal(|ui| {
                 if pm_btn(ui, "-") { data.lane = (data.lane - 1).max(0); changed = true; }
-                if num_input_i32(ui, &mut data.lane, 0, 5) { changed = true; }
+                if num_input_i32(ui, "evt_lane", &mut data.lane, 0, 5) { changed = true; }
                 if pm_btn(ui, "+") { data.lane = (data.lane + 1).min(5); changed = true; }
             });
             prop_label(ui, "Enable");
