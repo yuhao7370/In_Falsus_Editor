@@ -105,15 +105,17 @@ impl FallingGroundEditor {
                 1.2,
                 Color::from_rgba(216, 232, 255, 188),
             );
-            let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
-            let lane = air_x_to_lane(x_norm);
-            let center_norm = if place_type == PlaceNoteType::Flick {
-                lane_to_air_x_norm(lane)
+            let x_norm_raw = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
+            let x_norm = snap_x_to_grid(x_norm_raw, self.x_split);
+            let flick_width_norm = (1.0_f32 / 4.0).clamp(0.05, 1.0);
+            let preview_half = if place_type == PlaceNoteType::Flick {
+                flick_width_norm * 0.5
             } else {
-                x_norm
+                DEFAULT_SKYAREA_WIDTH_NORM * 0.5
             };
+            let center_norm = x_norm.clamp(preview_half, 1.0 - preview_half);
+            let lane = air_x_to_lane(center_norm);
             let center_x = split_rect.x + center_norm * split_rect.w;
-            let flick_width_norm = (1.0_f32 / 8.0).clamp(0.05, 1.0);
             let note_w = match place_type {
                 PlaceNoteType::SkyArea => split_rect.w * DEFAULT_SKYAREA_WIDTH_NORM,
                 _ => split_rect.w * flick_width_norm,
@@ -137,7 +139,7 @@ impl FallingGroundEditor {
             } else {
                 if let Some(pending) = self.pending_skyarea {
                     let half = DEFAULT_SKYAREA_WIDTH_NORM * 0.5;
-                    let (start_time_ms, end_time_ms, start_center_norm, end_center_norm) =
+                    let (start_time_ms, end_time_ms, raw_start, raw_end) =
                         if pending.start_time_ms <= preview_time {
                             (
                                 pending.start_time_ms,
@@ -153,6 +155,8 @@ impl FallingGroundEditor {
                                 pending.start_center_norm,
                             )
                         };
+                    let start_center_norm = raw_start.clamp(half, 1.0 - half);
+                    let end_center_norm = raw_end.clamp(half, 1.0 - half);
                     let start_left = (start_center_norm - half).clamp(0.0, 1.0);
                     let start_right = (start_center_norm + half).clamp(0.0, 1.0);
                     let end_left = (end_center_norm - half).clamp(0.0, 1.0);

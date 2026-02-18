@@ -94,7 +94,7 @@ impl FallingGroundEditor {
             text_font: None,
             status,
             undo_history: UndoHistory::new(200),
-            x_split: 128.0,
+            x_split: 24.0,
             dirty: false,
             editing_note_backup: None,
             editing_event_backup: None,
@@ -183,8 +183,8 @@ impl FallingGroundEditor {
                     } else {
                         FlickType::Left
                     };
-                    let width = width_norm * xs;
-                    let x = lane_center * xs; // X is center point
+                    let width = (width_norm * xs).round();
+                    let x = (lane_center * xs).round(); // X is center point
                     events.push(ChartEvent::Flick {
                         time: note.time_ms as f64,
                         x,
@@ -203,12 +203,12 @@ impl FallingGroundEditor {
                         let end_width = ((shape.end_right_norm - shape.end_left_norm).abs()) as f64;
                         events.push(ChartEvent::SkyArea {
                             time: note.time_ms as f64,
-                            start_x: start_center * sxs,
+                            start_x: (start_center * sxs).round(),
                             start_x_split: sxs,
-                            start_width: start_width * sxs,
-                            end_x: end_center * exs,
+                            start_width: (start_width * sxs).round(),
+                            end_x: (end_center * exs).round(),
                             end_x_split: exs,
-                            end_width: end_width * exs,
+                            end_width: (end_width * exs).round(),
                             left_ease: shape.left_ease,
                             right_ease: shape.right_ease,
                             duration: note.duration_ms as f64,
@@ -448,7 +448,7 @@ impl FallingGroundEditor {
         let start_beat = self.timeline.time_to_beat(note.time_ms);
         // Flick width in its own xsplit coordinates; Tap/Hold use raw width
         let out_width = if note.kind == GroundNoteKind::Flick {
-            (flick_width_norm * fxs) as f32
+            (flick_width_norm * fxs).round() as f32
         } else {
             note.width
         };
@@ -467,14 +467,14 @@ impl FallingGroundEditor {
             duration_beat: end_beat - start_beat,
             width: out_width,
             flick_right: note.flick_right,
-            x: flick_center_raw,
+            x: (flick_center_raw).round(),
             x_split: fxs,
-            start_x: start_center * sxs,
+            start_x: (start_center * sxs).round(),
             start_x_split: sxs,
-            start_width: start_w * sxs,
-            end_x: end_center * exs,
+            start_width: (start_w * sxs).round(),
+            end_x: (end_center * exs).round(),
             end_x_split: exs,
-            end_width: end_w * exs,
+            end_width: (end_w * exs).round(),
             left_ease: shape.left_ease.to_value(),
             right_ease: shape.right_ease.to_value(),
         })

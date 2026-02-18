@@ -26,23 +26,26 @@ impl FallingGroundEditor {
                     self.pointer_to_time(my, current_ms, judge_y, rect.h)
                         .max(0.0),
                 );
-                let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
-                let lane = air_x_to_lane(x_norm);
+                let x_norm_raw = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
+                let x_norm = snap_x_to_grid(x_norm_raw, self.x_split);
+                let _lane = air_x_to_lane(x_norm);
 
                 match tool {
                     PlaceNoteType::Flick => {
                         self.snapshot_for_undo();
                         let flick_width_norm = (1.0 / 4.0_f32).clamp(0.05, 1.0);
+                        let half_w = flick_width_norm * 0.5;
+                        let clamped_x = x_norm.clamp(half_w, 1.0 - half_w);
                         self.push_note(GroundNote {
                             id: self.next_note_id,
                             kind: GroundNoteKind::Flick,
-                            lane,
+                            lane: air_x_to_lane(clamped_x),
                             time_ms,
                             duration_ms: 0.0,
                             width: flick_width_norm,
                             flick_right: self.place_flick_right,
                             x_split: self.x_split,
-                            center_x_norm: x_norm,
+                            center_x_norm: clamped_x,
                             skyarea_shape: None,
                         });
                         self.status = "new flick created".to_owned();
@@ -52,12 +55,14 @@ impl FallingGroundEditor {
                         let half = width_norm * 0.5;
                         if let Some(pending) = self.pending_skyarea.take() {
                             self.snapshot_for_undo();
-                            let (start_time_ms, end_time_ms, start_center_norm, end_center_norm) =
+                            let (start_time_ms, end_time_ms, raw_start, raw_end) =
                                 if pending.start_time_ms <= time_ms {
                                     (pending.start_time_ms, time_ms, pending.start_center_norm, x_norm)
                                 } else {
                                     (time_ms, pending.start_time_ms, x_norm, pending.start_center_norm)
                                 };
+                            let start_center_norm = raw_start.clamp(half, 1.0 - half);
+                            let end_center_norm = raw_end.clamp(half, 1.0 - half);
                             let start_left = (start_center_norm - half).clamp(0.0, 1.0);
                             let start_right = (start_center_norm + half).clamp(0.0, 1.0);
                             let end_left = (end_center_norm - half).clamp(0.0, 1.0);
@@ -114,7 +119,7 @@ impl FallingGroundEditor {
                 let new_time =
                     self.pointer_to_time(my, current_ms, judge_y, rect.h) + drag.time_offset_ms;
                 let snapped_time = self.apply_snap(new_time.max(0.0));
-                let x_norm = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
+                let x_norm_raw = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
                 if let Some(note) = self
                     .notes
                     .iter_mut()
@@ -157,6 +162,7 @@ impl FallingGroundEditor {
                                     note.time_ms = snapped_time;
                                 }
                                 AirDragTarget::SkyHead => {
+                                    let x_norm = snap_x_to_grid(x_norm_raw, shape.start_x_split);
                                     let start_center = x_norm.clamp(start_half_now, 1.0 - start_half_now);
                                     shape.start_left_norm = (start_center - start_half_now).clamp(0.0, 1.0);
                                     shape.start_right_norm = (start_center + start_half_now).clamp(0.0, 1.0);
@@ -166,6 +172,7 @@ impl FallingGroundEditor {
                                     note.duration_ms = (old_tail - note.time_ms).max(0.0);
                                 }
                                 AirDragTarget::SkyTail => {
+                                    let x_norm = snap_x_to_grid(x_norm_raw, shape.end_x_split);
                                     let end_center = x_norm.clamp(end_half_now, 1.0 - end_half_now);
                                     shape.end_left_norm = (end_center - end_half_now).clamp(0.0, 1.0);
                                     shape.end_right_norm = (end_center + end_half_now).clamp(0.0, 1.0);
@@ -188,8 +195,11 @@ impl FallingGroundEditor {
                             note.width = ((start_w + end_w) * 0.5).clamp(0.05, 1.0);
                         }
                     } else {
-                        note.lane = air_x_to_lane(x_norm);
-                        note.center_x_norm = x_norm;
+                        let x_norm = snap_x_to_grid(x_norm_raw, note.x_split);
+                        let half_w = note.width.clamp(0.05, 1.0) * 0.5;
+                        let clamped_x = x_norm.clamp(half_w, 1.0 - half_w);
+                        note.lane = air_x_to_lane(clamped_x);
+                        note.center_x_norm = clamped_x;
                         note.time_ms = snapped_time;
                     }
                     self.status = format!("air drag lane={} time={:.0}ms", note.lane, note.time_ms);

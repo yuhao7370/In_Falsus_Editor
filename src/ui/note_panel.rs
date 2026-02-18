@@ -333,14 +333,14 @@ fn draw_note_property_editor(
         ui.horizontal(|ui| {
             prop_label(ui, "X");
             let r = ui.add(egui::DragValue::new(&mut data.x)
-                .speed(0.5).range(0.0..=data.x_split).min_decimals(1).max_decimals(1));
+                .speed(1.0).range(0.0..=data.x_split).min_decimals(0).max_decimals(0));
             if r.changed() { changed = true; }
         });
         ui.horizontal(|ui| {
             prop_label(ui, "Width");
             let mut w = data.width as f64;
             let r = ui.add(egui::DragValue::new(&mut w)
-                .speed(0.5).range(0.0..=data.x_split).min_decimals(1).max_decimals(1));
+                .speed(1.0).range(0.0..=data.x_split).min_decimals(0).max_decimals(0));
             if r.changed() { data.width = w as f32; changed = true; }
         });
         ui.horizontal(|ui| {
@@ -375,13 +375,13 @@ fn draw_note_property_editor(
         ui.horizontal(|ui| {
             prop_label(ui, "X");
             let r = ui.add(egui::DragValue::new(&mut data.start_x)
-                .speed(0.5).range(0.0..=data.start_x_split).min_decimals(1).max_decimals(1));
+                .speed(1.0).range(0.0..=data.start_x_split).min_decimals(0).max_decimals(0));
             if r.changed() { changed = true; }
         });
         ui.horizontal(|ui| {
             prop_label(ui, "Width");
             let r = ui.add(egui::DragValue::new(&mut data.start_width)
-                .speed(0.5).range(0.0..=data.start_x_split).min_decimals(1).max_decimals(1));
+                .speed(1.0).range(0.0..=data.start_x_split).min_decimals(0).max_decimals(0));
             if r.changed() { changed = true; }
         });
         ui.horizontal(|ui| {
@@ -401,13 +401,13 @@ fn draw_note_property_editor(
         ui.horizontal(|ui| {
             prop_label(ui, "X");
             let r = ui.add(egui::DragValue::new(&mut data.end_x)
-                .speed(0.5).range(0.0..=data.end_x_split).min_decimals(1).max_decimals(1));
+                .speed(1.0).range(0.0..=data.end_x_split).min_decimals(0).max_decimals(0));
             if r.changed() { changed = true; }
         });
         ui.horizontal(|ui| {
             prop_label(ui, "Width");
             let r = ui.add(egui::DragValue::new(&mut data.end_width)
-                .speed(0.5).range(0.0..=data.end_x_split).min_decimals(1).max_decimals(1));
+                .speed(1.0).range(0.0..=data.end_x_split).min_decimals(0).max_decimals(0));
             if r.changed() { changed = true; }
         });
         ui.horizontal(|ui| {

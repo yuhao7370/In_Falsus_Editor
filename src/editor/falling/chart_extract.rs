@@ -255,6 +255,14 @@ fn air_x_to_lane(x_norm: f32) -> usize {
     ((x_norm.clamp(0.0, 0.999_9) * 4.0).floor() as usize + 1).clamp(1, 4)
 }
 
+/// Snap a normalised X coordinate so that `x_norm * x_split` rounds to an integer.
+pub(crate) fn snap_x_to_grid(x_norm: f32, x_split: f64) -> f32 {
+    if x_split <= 0.0 { return x_norm; }
+    let raw = (x_norm as f64) * x_split;
+    let snapped = raw.round();
+    (snapped / x_split).clamp(0.0, 1.0) as f32
+}
+
 fn air_split_rect(rect: Rect) -> Rect {
     let lane_w = rect.w / LANE_COUNT as f32;
     Rect::new(rect.x + lane_w, rect.y, lane_w * 4.0, rect.h)
