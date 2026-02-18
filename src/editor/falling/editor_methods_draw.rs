@@ -121,9 +121,22 @@ impl FallingGroundEditor {
         };
 
         let allow_editor_input = !self.minimap_drag_active;
-        // Delete key: remove selected note or event
-        if is_key_pressed(KeyCode::Delete) || is_key_pressed(KeyCode::Backspace) {
-            if let Some(note_id) = self.selected_note_id.take() {
+        // Delete key: cancel edit if active, otherwise remove selected note or event
+        if safe_key_pressed(KeyCode::Delete) {
+            if self.is_editing_note() {
+                self.restore_note_edit_backup();
+                self.selected_note_id = None;
+                self.drag_state = None;
+                self.overlap_cycle = None;
+                self.hover_overlap_hint = None;
+                self.status = "note edit cancelled".to_owned();
+            } else if self.is_editing_event() {
+                self.restore_event_edit_backup();
+                self.selected_event_id = None;
+                self.event_overlap_cycle = None;
+                self.event_hover_hint = None;
+                self.status = "event edit cancelled".to_owned();
+            } else if let Some(note_id) = self.selected_note_id.take() {
                 self.snapshot_for_undo();
                 self.notes.retain(|n| n.id != note_id);
                 self.drag_state = None;
@@ -131,7 +144,10 @@ impl FallingGroundEditor {
                 self.hover_overlap_hint = None;
                 self.status = format!("note {} deleted", note_id);
             } else if let Some(event_id) = self.selected_event_id.take() {
+                self.snapshot_for_undo();
                 self.timeline_events.retain(|e| e.id != event_id);
+                self.rebuild_bpm_timeline_from_events();
+                self.rebuild_track_source_from_events();
                 self.event_overlap_cycle = None;
                 self.event_hover_hint = None;
                 self.status = format!("event {} deleted", event_id);

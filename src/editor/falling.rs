@@ -1,5 +1,5 @@
 use crate::chart::{Chart, ChartEvent, Ease, FlickType};
-use crate::ui::input_state::{safe_mouse_position, safe_mouse_button_pressed, safe_mouse_button_down};
+use crate::ui::input_state::{safe_mouse_position, safe_mouse_button_pressed, safe_mouse_button_down, safe_key_pressed};
 use macroquad::prelude::*;
 use sasa::AudioClip;
 
