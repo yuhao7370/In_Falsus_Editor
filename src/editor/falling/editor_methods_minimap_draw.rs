@@ -308,13 +308,15 @@ impl FallingGroundEditor {
 
                 match note.kind {
                     GroundNoteKind::Tap => {
-                        let lane_x = ground_rect.x + ground_lane_w * note.lane as f32;
-                        let note_w = (ground_lane_w * 0.74).max(1.0);
-                        let note_x = lane_x + (ground_lane_w - note_w) * 0.5;
+                        let eff_w = ground_note_effective_width(note.lane, note.width);
+                        let total_w = ground_lane_w * eff_w as f32;
+                        let note_w = (total_w * 0.74).max(1.0);
+                        let note_x = ground_rect.x + ground_lane_w * note.lane as f32 + (total_w - note_w) * 0.5;
                         draw_rectangle(note_x, y_head - head_h * 0.5, note_w, head_h, lane_palette.tap);
                     }
                     GroundNoteKind::Hold => {
                         let note_end = note.end_time_ms();
+                        let eff_w = ground_note_effective_width(note.lane, note.width);
                         for (g_rect, start_ms, end_ms) in [
                             (layout.ground_rect_1, 0.0_f32, layout.half_ms.max(0.001)),
                             (
@@ -327,9 +329,10 @@ impl FallingGroundEditor {
                                 continue;
                             }
                             let lane_w = g_rect.w / LANE_COUNT as f32;
+                            let total_w = lane_w * eff_w as f32;
                             let lane_x = g_rect.x + lane_w * note.lane as f32;
-                            let head_w = (lane_w * 0.82).max(1.0);
-                            let head_x = lane_x + (lane_w - head_w) * 0.5;
+                            let head_w = (total_w * 0.82).max(1.0);
+                            let head_x = lane_x + (total_w - head_w) * 0.5;
                             let body_start = note_time.max(start_ms);
                             let body_end = note_end.min(end_ms);
                             let y0 = self.minimap_segment_time_to_y(body_start, g_rect, start_ms, end_ms);

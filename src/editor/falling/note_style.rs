@@ -1,4 +1,4 @@
-﻿// 文件说明：音符视觉样式配置与计算。
+// 文件说明：音符视觉样式配置与计算。
 // 主要功能：提供音符配色、尺寸和样式映射规则。
 #[derive(Debug, Clone, Copy)]
 struct LaneNotePalette {
@@ -70,11 +70,33 @@ fn lane_note_palette(lane: usize) -> LaneNotePalette {
     }
 }
 
+/// 计算地面音符（Tap/Hold）的有效宽度（占用轨道数）。
+/// Lane 0 和 5 锁定为 1，Lane 1-4 的 width 不能超出中键 4 轨范围。
+fn ground_note_effective_width(lane: usize, raw_width: f32) -> usize {
+    if lane == 0 || lane >= 5 {
+        return 1;
+    }
+    let max_w = 5 - lane; // lane1→4, lane2→3, lane3→2, lane4→1
+    (raw_width.round() as usize).clamp(1, max_w)
+}
+
 fn note_head_width(note: &GroundNote, lane_w: f32) -> f32 {
     match note.kind {
-        GroundNoteKind::Hold | GroundNoteKind::SkyArea => lane_w * 0.94,
-        GroundNoteKind::Tap | GroundNoteKind::Flick => lane_w * (0.78 * note.width.clamp(0.5, 1.2)),
+        GroundNoteKind::Tap | GroundNoteKind::Hold => {
+            let eff_w = ground_note_effective_width(note.lane, note.width);
+            lane_w * eff_w as f32 * 0.94
+        }
+        GroundNoteKind::SkyArea => lane_w * 0.94,
+        GroundNoteKind::Flick => lane_w * (0.78 * note.width.clamp(0.5, 1.2)),
     }
+}
+
+/// 计算地面音符的渲染 X 坐标（左边缘），考虑多轨宽度居中。
+fn ground_note_x(note: &GroundNote, rect_x: f32, lane_w: f32) -> f32 {
+    let eff_w = ground_note_effective_width(note.lane, note.width);
+    let total_w = lane_w * eff_w as f32;
+    let note_w = total_w * 0.94;
+    rect_x + lane_w * note.lane as f32 + (total_w - note_w) * 0.5
 }
 
 fn flick_direction_shape_colors(flick_right: bool) -> (Color, Color) {

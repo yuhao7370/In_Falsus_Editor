@@ -99,13 +99,15 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
             }
             ChartEvent::Tap { time, width, lane } => {
                 if *lane >= 0 && (*lane as usize) < LANE_COUNT {
+                    let l = *lane as usize;
+                    let clamped_w = ground_note_effective_width(l, *width as f32) as f32;
                     notes.push(GroundNote {
                         id: next_id,
                         kind: GroundNoteKind::Tap,
-                        lane: *lane as usize,
+                        lane: l,
                         time_ms: *time as f32,
                         duration_ms: 0.0,
-                        width: (*width as f32).max(0.4),
+                        width: clamped_w,
                         flick_right: true,
                         x_split: 1.0,
                         center_x_norm: 0.0,
@@ -121,13 +123,15 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 duration,
             } => {
                 if *lane >= 0 && (*lane as usize) < LANE_COUNT {
+                    let l = *lane as usize;
+                    let clamped_w = ground_note_effective_width(l, *width as f32) as f32;
                     notes.push(GroundNote {
                         id: next_id,
                         kind: GroundNoteKind::Hold,
-                        lane: *lane as usize,
+                        lane: l,
                         time_ms: *time as f32,
                         duration_ms: (*duration as f32).max(0.0),
-                        width: (*width as f32).max(0.4),
+                        width: clamped_w,
                         flick_right: true,
                         x_split: 1.0,
                         center_x_norm: 0.0,

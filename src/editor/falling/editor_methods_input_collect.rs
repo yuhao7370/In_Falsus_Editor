@@ -61,9 +61,8 @@ impl FallingGroundEditor {
             if !is_ground_kind(note.kind) {
                 continue;
             }
-            let lane_x = rect.x + lane_w * note.lane as f32;
             let note_w = note_head_width(note, lane_w);
-            let note_x = lane_x + (lane_w - note_w) * 0.5;
+            let note_x = ground_note_x(note, rect.x, lane_w);
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
             let z_order = ground_hit_z_order(z);
             let side_h = self.flick_side_height_px(note.time_ms, rect.h);

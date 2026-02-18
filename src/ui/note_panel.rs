@@ -319,13 +319,28 @@ fn draw_note_property_editor(
         }
     }
 
-    // Width (Tap / Hold only — raw lane width)
+    // Width (Tap / Hold only — integer lane count)
     if data.kind == "Tap" || data.kind == "Hold" {
+        let max_w: f32 = if data.lane == 0 || data.lane >= 5 {
+            1.0
+        } else {
+            (5 - data.lane) as f32
+        };
+        // Clamp width to valid range when lane changes
+        data.width = data.width.round().clamp(1.0, max_w);
+        let is_locked = max_w <= 1.0;
         ui.horizontal(|ui| {
             prop_label(ui, "Width");
-            let r = ui.add(egui::DragValue::new(&mut data.width)
-                .speed(0.01).range(0.05..=8.0).min_decimals(2).max_decimals(2));
-            if r.changed() { changed = true; }
+            if is_locked {
+                ui.label(egui::RichText::new("1 (locked)").size(13.0).color(egui::Color32::from_rgb(140, 140, 150)));
+            } else {
+                let r = ui.add(egui::DragValue::new(&mut data.width)
+                    .speed(0.1).range(1.0..=max_w).min_decimals(0).max_decimals(0));
+                if r.changed() {
+                    data.width = data.width.round().clamp(1.0, max_w);
+                    changed = true;
+                }
+            }
         });
     }
 
