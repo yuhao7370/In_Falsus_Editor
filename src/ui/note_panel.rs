@@ -345,7 +345,7 @@ pub fn draw_note_selector_panel(
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 if show_note_props {
-                    draw_note_property_editor(ui, editor, prop_state, toasts);
+                    draw_note_property_editor(ui, i18n, editor, prop_state, toasts);
                 } else if show_event_props {
                     draw_event_property_editor(ui, editor, prop_state);
                 } else {
@@ -416,6 +416,7 @@ fn draw_tool_selector(ui: &mut egui::Ui, i18n: &I18n, editor: &mut FallingGround
 
 fn draw_note_property_editor(
     ui: &mut egui::Ui,
+    i18n: &I18n,
     editor: &mut FallingGroundEditor,
     prop_state: &mut PropertyEditState,
     toasts: &mut InfoToastManager,
@@ -467,10 +468,12 @@ fn draw_note_property_editor(
                     let candidate = data.lane - 1;
                     let new_max_w = panel_max_width(candidate);
                     if data.width > new_max_w {
-                        toasts.push_warn(format!(
-                            "Lane {} cannot hold width {} (max {})",
-                            candidate, data.width as usize, new_max_w as usize
-                        ));
+                        toasts.push_warn(
+                            i18n.t(TextKey::ToastLaneWidthReject)
+                                .replace("{lane}", &candidate.to_string())
+                                .replace("{width}", &(data.width as usize).to_string())
+                                .replace("{max}", &(new_max_w as usize).to_string())
+                        );
                     } else {
                         data.lane = candidate;
                         changed = true;
@@ -481,10 +484,12 @@ fn draw_note_property_editor(
             if num_input_usize(ui, "note_lane", &mut data.lane, 0, 5) {
                 let new_max_w = panel_max_width(data.lane);
                 if data.width > new_max_w {
-                    toasts.push_warn(format!(
-                        "Lane {} cannot hold width {} (max {})",
-                        data.lane, data.width as usize, new_max_w as usize
-                    ));
+                    toasts.push_warn(
+                        i18n.t(TextKey::ToastLaneWidthReject)
+                            .replace("{lane}", &data.lane.to_string())
+                            .replace("{width}", &(data.width as usize).to_string())
+                            .replace("{max}", &(new_max_w as usize).to_string())
+                    );
                     data.lane = old_lane;
                 } else {
                     changed = true;
@@ -495,10 +500,12 @@ fn draw_note_property_editor(
                     let candidate = data.lane + 1;
                     let new_max_w = panel_max_width(candidate);
                     if data.width > new_max_w {
-                        toasts.push_warn(format!(
-                            "Lane {} cannot hold width {} (max {})",
-                            candidate, data.width as usize, new_max_w as usize
-                        ));
+                        toasts.push_warn(
+                            i18n.t(TextKey::ToastLaneWidthReject)
+                                .replace("{lane}", &candidate.to_string())
+                                .replace("{width}", &(data.width as usize).to_string())
+                                .replace("{max}", &(new_max_w as usize).to_string())
+                        );
                     } else {
                         data.lane = candidate;
                         changed = true;
@@ -548,10 +555,12 @@ fn draw_note_property_editor(
                 if pm_btn(ui, "+") {
                     let candidate = data.width + 1.0;
                     if candidate > max_w {
-                        toasts.push_warn(format!(
-                            "Lane {} max width is {} (current {})",
-                            data.lane, max_w as usize, data.width as usize
-                        ));
+                        toasts.push_warn(
+                            i18n.t(TextKey::ToastLaneWidthMax)
+                                .replace("{lane}", &data.lane.to_string())
+                                .replace("{max}", &(max_w as usize).to_string())
+                                .replace("{current}", &(data.width as usize).to_string())
+                        );
                     } else {
                         data.width = candidate;
                         changed = true;

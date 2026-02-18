@@ -57,5 +57,7 @@
   "settings_barline_snap": "Barline Snap",
   "note_panel_render_speed_events": "Render Speed Event",
   "settings_x_split": "Coordinate Denominator (X Split)",
-  "settings_xsplit_editable": "Editable XSplit"
+  "settings_xsplit_editable": "Editable XSplit",
+  "toast_lane_width_reject": "Lane {lane} cannot hold width {width} (max {max})",
+  "toast_lane_width_max": "Lane {lane} max width is {max} (current {current})"
 }

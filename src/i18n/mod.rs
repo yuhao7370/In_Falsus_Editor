@@ -115,6 +115,8 @@ pub enum TextKey {
     NotePanelRenderSpeedEvents,
     SettingsXSplit,
     SettingsXSplitEditable,
+    ToastLaneWidthReject,
+    ToastLaneWidthMax,
 }
 
 impl TextKey {
@@ -179,6 +181,8 @@ impl TextKey {
             TextKey::NotePanelRenderSpeedEvents => "note_panel_render_speed_events",
             TextKey::SettingsXSplit => "settings_x_split",
             TextKey::SettingsXSplitEditable => "settings_xsplit_editable",
+            TextKey::ToastLaneWidthReject => "toast_lane_width_reject",
+            TextKey::ToastLaneWidthMax => "toast_lane_width_max",
         }
     }
 }
