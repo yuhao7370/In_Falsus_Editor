@@ -117,6 +117,14 @@ pub struct EventPropertyData {
     pub time_ms: f32,
     pub beat: f32,
     pub label: String,
+    // BPM event params
+    pub bpm: f32,
+    pub beats_per_measure: f32,
+    // Track event params
+    pub speed: f32,
+    // Lane event params
+    pub lane: i32,
+    pub enable: bool,
 }
 
 #[derive(Debug, Clone)]

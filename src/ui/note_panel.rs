@@ -481,8 +481,14 @@ fn draw_event_property_editor(
     let mut time_edited = false;
     let mut beat_edited = false;
 
+    let title_color = match data.kind.as_str() {
+        "Bpm" => egui::Color32::from_rgb(124, 226, 255),
+        "Track" => egui::Color32::from_rgb(150, 240, 170),
+        "Lane" => egui::Color32::from_rgb(232, 198, 124),
+        _ => egui::Color32::from_rgb(120, 220, 255),
+    };
     ui.label(egui::RichText::new(format!("Edit Event: {}", data.kind))
-        .size(16.0).color(egui::Color32::from_rgb(120, 220, 255)));
+        .size(16.0).color(title_color));
     ui.add_space(6.0);
 
     // Time (ms)
@@ -511,13 +517,48 @@ fn draw_event_property_editor(
         prop_state.last_time_edit = LastTimeEdit::Beat;
     }
 
+    ui.add_space(6.0);
+    ui.separator();
     ui.add_space(4.0);
 
-    ui.horizontal(|ui| {
-        prop_label(ui, "Label");
-        let r = ui.add(egui::TextEdit::singleline(&mut data.label).desired_width(160.0));
-        if r.changed() { changed = true; }
-    });
+    // Type-specific params
+    match data.kind.as_str() {
+        "Bpm" => {
+            ui.horizontal(|ui| {
+                prop_label(ui, "BPM");
+                let r = ui.add(egui::DragValue::new(&mut data.bpm)
+                    .speed(0.1).range(0.001..=9999.0).min_decimals(2).max_decimals(2));
+                if r.changed() { changed = true; }
+            });
+            ui.horizontal(|ui| {
+                prop_label(ui, "BPL");
+                let r = ui.add(egui::DragValue::new(&mut data.beats_per_measure)
+                    .speed(0.1).range(1.0..=64.0).min_decimals(1).max_decimals(2));
+                if r.changed() { changed = true; }
+            });
+        }
+        "Track" => {
+            ui.horizontal(|ui| {
+                prop_label(ui, "Speed");
+                let r = ui.add(egui::DragValue::new(&mut data.speed)
+                    .speed(0.01).range(-100.0..=100.0).min_decimals(2).max_decimals(2));
+                if r.changed() { changed = true; }
+            });
+        }
+        "Lane" => {
+            ui.horizontal(|ui| {
+                prop_label(ui, "Lane");
+                let r = ui.add(egui::DragValue::new(&mut data.lane)
+                    .speed(0.1).range(0..=5));
+                if r.changed() { changed = true; }
+            });
+            ui.horizontal(|ui| {
+                prop_label(ui, "Enable");
+                if ui.checkbox(&mut data.enable, "").changed() { changed = true; }
+            });
+        }
+        _ => {}
+    }
 
     if changed {
         editor.preview_event_properties(data);

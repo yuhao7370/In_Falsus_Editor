@@ -568,16 +568,47 @@ impl FallingGroundEditor {
     pub fn selected_event_properties(&self) -> Option<EventPropertyData> {
         let id = self.selected_event_id?;
         let event = self.timeline_events.iter().find(|e| e.id == id)?;
+        let kind_str = match event.kind {
+            TimelineEventKind::Bpm => "Bpm",
+            TimelineEventKind::Track => "Track",
+            TimelineEventKind::Lane => "Lane",
+        };
+        // Extract real params based on event kind
+        let mut bpm = 120.0_f32;
+        let mut beats_per_measure = 4.0_f32;
+        let mut speed = 1.0_f32;
+        let mut lane = 0_i32;
+        let mut enable = true;
+        match event.kind {
+            TimelineEventKind::Bpm => {
+                let pt = self.timeline.point_at_time(event.time_ms);
+                bpm = pt.bpm;
+                beats_per_measure = pt.beats_per_measure;
+            }
+            TimelineEventKind::Track => {
+                let idx = self.track_timeline.point_index_at_or_before(event.time_ms);
+                speed = self.track_timeline.points[idx].speed;
+            }
+            TimelineEventKind::Lane => {
+                // Parse from label: "lane N on/off"
+                let parts: Vec<&str> = event.label.split_whitespace().collect();
+                if parts.len() >= 3 {
+                    lane = parts[1].parse::<i32>().unwrap_or(0);
+                    enable = parts[2] == "on";
+                }
+            }
+        }
         Some(EventPropertyData {
             id: event.id,
-            kind: match event.kind {
-                TimelineEventKind::Bpm => "Bpm",
-                TimelineEventKind::Track => "Track",
-                TimelineEventKind::Lane => "Lane",
-            }.to_owned(),
+            kind: kind_str.to_owned(),
             time_ms: event.time_ms,
             beat: self.timeline.time_to_beat(event.time_ms),
             label: event.label.clone(),
+            bpm,
+            beats_per_measure,
+            speed,
+            lane,
+            enable,
         })
     }
 
@@ -590,10 +621,114 @@ impl FallingGroundEditor {
     }
 
     pub fn preview_event_properties(&mut self, data: &EventPropertyData) {
-        if let Some(event) = self.timeline_events.iter_mut().find(|e| e.id == data.id) {
+        let event_kind = if let Some(event) = self.timeline_events.iter_mut().find(|e| e.id == data.id) {
             event.time_ms = data.time_ms.max(0.0);
-            event.label = data.label.clone();
+            let kind = event.kind;
+            // Auto-generate label from params
+            match kind {
+                TimelineEventKind::Bpm => {
+                    event.label = format!("bpm {:.2} (beats {:.2})", data.bpm, data.beats_per_measure);
+                }
+                TimelineEventKind::Track => {
+                    event.label = format!("track x{:.2}", data.speed);
+                    event.color = if data.speed >= 0.0 {
+                        Color::from_rgba(150, 240, 170, 255)
+                    } else {
+                        Color::from_rgba(255, 168, 128, 255)
+                    };
+                }
+                TimelineEventKind::Lane => {
+                    let on_off = if data.enable { "on" } else { "off" };
+                    event.label = format!("lane {} {}", data.lane, on_off);
+                }
+            }
+            Some(kind)
+        } else {
+            None
+        };
+        // Rebuild timelines for BPM/Track changes
+        if let Some(kind) = event_kind {
+            match kind {
+                TimelineEventKind::Bpm => {
+                    self.rebuild_bpm_timeline_from_events();
+                }
+                TimelineEventKind::Track => {
+                    self.rebuild_track_source_from_events();
+                }
+                TimelineEventKind::Lane => {}
+            }
         }
+    }
+
+    /// Rebuild BpmTimeline from current timeline_events (BPM kind).
+    fn rebuild_bpm_timeline_from_events(&mut self) {
+        let mut base_bpm = 120.0_f32;
+        let mut base_beats = 4.0_f32;
+        let mut bpm_events: Vec<(f32, f32, f32)> = Vec::new();
+        for event in &self.timeline_events {
+            if event.kind != TimelineEventKind::Bpm {
+                continue;
+            }
+            // Parse from label: "bpm X.XX (beats Y.YY)" or "chart X.XX/Y.YY"
+            let parts: Vec<&str> = event.label.split_whitespace().collect();
+            if parts.first() == Some(&"chart") {
+                // "chart 120.00/4.00"
+                if let Some(vals) = parts.get(1) {
+                    let nums: Vec<&str> = vals.split('/').collect();
+                    if nums.len() >= 2 {
+                        base_bpm = nums[0].parse().unwrap_or(120.0);
+                        base_beats = nums[1].parse().unwrap_or(4.0);
+                    }
+                }
+            } else if parts.first() == Some(&"bpm") {
+                // "bpm 120.00 (beats 4.00)"
+                let bpm_val = parts.get(1).and_then(|s| s.parse::<f32>().ok()).unwrap_or(120.0);
+                let beats_val = parts.get(3).and_then(|s| s.trim_end_matches(')').parse::<f32>().ok()).unwrap_or(4.0);
+                if event.time_ms <= 0.0 {
+                    base_bpm = bpm_val;
+                    base_beats = beats_val;
+                } else {
+                    bpm_events.push((event.time_ms, bpm_val, beats_val));
+                }
+            }
+        }
+        let bpm_source = BpmSourceData {
+            base_bpm,
+            base_beats_per_measure: base_beats,
+            bpm_events,
+        };
+        self.timeline = BpmTimeline::from_source(bpm_source);
+        let track_src = if self.track_speed_enabled {
+            self.track_source.clone()
+        } else {
+            TrackSourceData::default()
+        };
+        self.track_timeline = TrackTimeline::from_source(&self.timeline, track_src);
+        self.rebuild_barline_cache();
+    }
+
+    /// Rebuild track_source and TrackTimeline from current timeline_events (Track kind).
+    fn rebuild_track_source_from_events(&mut self) {
+        let mut track_events: Vec<(f32, f32)> = Vec::new();
+        for event in &self.timeline_events {
+            if event.kind != TimelineEventKind::Track {
+                continue;
+            }
+            // Parse from label: "track xN.NN"
+            let parts: Vec<&str> = event.label.split_whitespace().collect();
+            if let Some(speed_str) = parts.get(1) {
+                let speed = speed_str.trim_start_matches('x').parse::<f32>().unwrap_or(1.0);
+                track_events.push((event.time_ms, speed));
+            }
+        }
+        self.track_source.track_events = track_events;
+        let track_src = if self.track_speed_enabled {
+            self.track_source.clone()
+        } else {
+            TrackSourceData::default()
+        };
+        self.track_timeline = TrackTimeline::from_source(&self.timeline, track_src);
+        self.rebuild_barline_cache();
     }
 
     pub fn apply_event_properties(&mut self, data: &EventPropertyData) {
@@ -602,6 +737,9 @@ impl FallingGroundEditor {
                 *event = backup;
             }
         }
+        // Also restore timelines to pre-edit state before snapshot
+        self.rebuild_bpm_timeline_from_events();
+        self.rebuild_track_source_from_events();
         self.snapshot_for_undo();
         self.preview_event_properties(data);
         self.editing_event_backup = None;
