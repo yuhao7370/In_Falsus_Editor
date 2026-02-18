@@ -1,5 +1,6 @@
 {
-  "player_label_volume": "音量",
+  "player_label_volume": "音乐音量",
+  "settings_master_volume": "总音量",
   "menu_file": "文件",
   "menu_edit": "编辑",
   "menu_select": "选择",
@@ -59,5 +60,8 @@
   "settings_x_split": "坐标分母 (XSplit)",
   "settings_xsplit_editable": "允许编辑 XSplit",
   "toast_lane_width_reject": "Lane {lane} 无法容纳宽度 {width}（最大 {max}）",
-  "toast_lane_width_max": "Lane {lane} 最大宽度为 {max}（当前 {current}）"
+  "toast_lane_width_max": "Lane {lane} 最大宽度为 {max}（当前 {current}）",
+  "settings_hitsound_enabled": "打击音",
+  "settings_hitsound_tap_volume": "地面打击音量",
+  "settings_hitsound_arc_volume": "天空打击音量"
 }

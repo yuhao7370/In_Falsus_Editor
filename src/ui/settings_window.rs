@@ -109,7 +109,8 @@ pub fn draw_settings_window(
     i18n: &I18n,
     open: &mut bool,
     selected_category: &mut SettingsCategory,
-    current_volume: f32,
+    current_master_volume: f32,
+    current_music_volume: f32,
     volume_enabled: bool,
     current_debug_hitbox: bool,
     current_autoplay: bool,
@@ -122,6 +123,9 @@ pub fn draw_settings_window(
     current_snap_division: u32,
     current_x_split: f64,
     current_xsplit_editable: bool,
+    current_hitsound_enabled: bool,
+    current_hitsound_tap_volume: f32,
+    current_hitsound_arc_volume: f32,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -188,18 +192,71 @@ pub fn draw_settings_window(
                             }
                         }
                         SettingsCategory::Audio => {
+                            // Master volume
+                            ui.label(
+                                egui::RichText::new(i18n.t(TextKey::SettingsMasterVolume))
+                                    .color(egui::Color32::from_rgb(210, 210, 210)),
+                            );
+                            ui.spacing_mut().slider_width = (ui.available_width() - 80.0).max(60.0);
+                            let mut master_vol = current_master_volume.clamp(0.0, 1.0);
+                            let master_slider = egui::Slider::new(&mut master_vol, 0.0..=1.0)
+                                .show_value(true)
+                                .text("");
+                            if ui.add_enabled(volume_enabled, master_slider).changed() && volume_enabled {
+                                action = Some(TopMenuAction::SetMasterVolume(master_vol));
+                            }
+
+                            // Music volume
+                            ui.add_space(4.0);
                             ui.label(
                                 egui::RichText::new(i18n.t(TextKey::PlayerLabelVolume))
                                     .color(egui::Color32::from_rgb(210, 210, 210)),
                             );
                             ui.spacing_mut().slider_width = (ui.available_width() - 80.0).max(60.0);
-                            let mut volume = current_volume.clamp(0.0, 1.0);
-                            let slider = egui::Slider::new(&mut volume, 0.0..=1.0)
+                            let mut music_vol = current_music_volume.clamp(0.0, 1.0);
+                            let music_slider = egui::Slider::new(&mut music_vol, 0.0..=1.0)
                                 .show_value(true)
                                 .text("");
-                            let response = ui.add_enabled(volume_enabled, slider);
-                            if response.changed() && volume_enabled {
-                                action = Some(TopMenuAction::SetVolume(volume));
+                            if ui.add_enabled(volume_enabled, music_slider).changed() && volume_enabled {
+                                action = Some(TopMenuAction::SetMusicVolume(music_vol));
+                            }
+
+                            ui.add_space(8.0);
+                            // Hitsound toggle
+                            if draw_setting_row(ui, i18n.t(TextKey::SettingsHitsoundEnabled), current_hitsound_enabled).clicked() {
+                                action = Some(TopMenuAction::SetHitsoundEnabled(!current_hitsound_enabled));
+                            }
+
+                            // Tap hitsound volume (0% ~ 200%)
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(i18n.t(TextKey::SettingsHitsoundTapVolume))
+                                    .color(egui::Color32::from_rgb(210, 210, 210)),
+                            );
+                            ui.spacing_mut().slider_width = (ui.available_width() - 80.0).max(60.0);
+                            let mut tap_vol = current_hitsound_tap_volume;
+                            let tap_slider = egui::Slider::new(&mut tap_vol, 0.0..=2.0)
+                                .custom_formatter(|v, _| format!("{:.0}%", v * 100.0))
+                                .show_value(true)
+                                .text("");
+                            if ui.add_enabled(current_hitsound_enabled, tap_slider).changed() {
+                                action = Some(TopMenuAction::SetHitsoundTapVolume(tap_vol));
+                            }
+
+                            // Arc hitsound volume (0% ~ 200%)
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(i18n.t(TextKey::SettingsHitsoundArcVolume))
+                                    .color(egui::Color32::from_rgb(210, 210, 210)),
+                            );
+                            ui.spacing_mut().slider_width = (ui.available_width() - 80.0).max(60.0);
+                            let mut arc_vol = current_hitsound_arc_volume;
+                            let arc_slider = egui::Slider::new(&mut arc_vol, 0.0..=2.0)
+                                .custom_formatter(|v, _| format!("{:.0}%", v * 100.0))
+                                .show_value(true)
+                                .text("");
+                            if ui.add_enabled(current_hitsound_enabled, arc_slider).changed() {
+                                action = Some(TopMenuAction::SetHitsoundArcVolume(arc_vol));
                             }
                         }
                         SettingsCategory::Display => {

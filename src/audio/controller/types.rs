@@ -1,4 +1,4 @@
-﻿/// High-level audio controller.
+/// High-level audio controller.
 ///
 /// Position strategy:
 ///   - We maintain `playing` ourselves (zero-frame-lag).
@@ -19,6 +19,10 @@ pub struct AudioController {
 
     duration_sec: f32,
     track_path: Option<String>,
-    volume: f32,
+    music_volume: f32,
+    master_volume: f32,
+
+    hitsound_player: HitSoundPlayer,
+    hitsound_trigger: HitSoundTrigger,
 }
 

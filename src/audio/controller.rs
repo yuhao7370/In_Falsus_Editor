@@ -1,3 +1,4 @@
+use crate::audio::hitsound::{HitSoundPlayer, HitSoundTrigger};
 use crate::audio::player::{PlayerError, PlayerEvent, SongPlayer, StopReason};
 use crate::i18n::{I18n, TextKey};
 use macroquad::prelude::*;

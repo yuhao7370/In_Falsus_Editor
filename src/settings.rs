@@ -8,7 +8,9 @@ pub struct AppSettings {
     #[serde(default = "default_language")]
     pub language: String,
     #[serde(default = "default_volume")]
-    pub volume: f32,
+    pub master_volume: f32,
+    #[serde(default = "default_volume")]
+    pub music_volume: f32,
     #[serde(default)]
     pub autoplay: bool,
     #[serde(default = "default_true")]
@@ -25,6 +27,14 @@ pub struct AppSettings {
     pub xsplit_editable: bool,
     #[serde(default)]
     pub debug_hitbox: bool,
+    #[serde(default = "default_true")]
+    pub hitsound_enabled: bool,
+    #[serde(default = "default_volume")]
+    pub hitsound_tap_volume: f32,
+    #[serde(default = "default_volume")]
+    pub hitsound_arc_volume: f32,
+    #[serde(default = "default_hitsound_max_voices")]
+    pub hitsound_max_voices: usize,
 }
 
 fn default_language() -> String {
@@ -45,12 +55,16 @@ fn default_snap_division() -> u32 {
 fn default_x_split() -> f64 {
     24.0
 }
+fn default_hitsound_max_voices() -> usize {
+    8
+}
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             language: default_language(),
-            volume: default_volume(),
+            master_volume: default_volume(),
+            music_volume: default_volume(),
             autoplay: false,
             show_spectrum: true,
             show_minimap: false,
@@ -59,6 +73,10 @@ impl Default for AppSettings {
             x_split: default_x_split(),
             xsplit_editable: false,
             debug_hitbox: false,
+            hitsound_enabled: true,
+            hitsound_tap_volume: default_volume(),
+            hitsound_arc_volume: default_volume(),
+            hitsound_max_voices: default_hitsound_max_voices(),
         }
     }
 }

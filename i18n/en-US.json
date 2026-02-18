@@ -1,5 +1,6 @@
 {
-  "player_label_volume": "Volume",
+  "player_label_volume": "Music Volume",
+  "settings_master_volume": "Master Volume",
   "menu_file": "File",
   "menu_edit": "Edit",
   "menu_select": "Select",
@@ -59,5 +60,8 @@
   "settings_x_split": "Coordinate Denominator (XSplit)",
   "settings_xsplit_editable": "Editable XSplit",
   "toast_lane_width_reject": "Lane {lane} cannot hold width {width} (max {max})",
-  "toast_lane_width_max": "Lane {lane} max width is {max} (current {current})"
+  "toast_lane_width_max": "Lane {lane} max width is {max} (current {current})",
+  "settings_hitsound_enabled": "Hitsound",
+  "settings_hitsound_tap_volume": "Tap Hitsound Volume",
+  "settings_hitsound_arc_volume": "Arc Hitsound Volume"
 }

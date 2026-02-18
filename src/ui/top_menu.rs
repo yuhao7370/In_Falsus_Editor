@@ -13,7 +13,8 @@ pub enum TopMenuAction {
     Copy,
     Paste,
     SetLanguage(Language),
-    SetVolume(f32),
+    SetMasterVolume(f32),
+    SetMusicVolume(f32),
     SetDebugHitbox(bool),
     SetAutoPlay(bool),
     SetShowSpectrum(bool),
@@ -25,6 +26,9 @@ pub enum TopMenuAction {
     SetSnapDivisionFinal(u32),
     SetXSplit(f64),
     SetXSplitEditable(bool),
+    SetHitsoundEnabled(bool),
+    SetHitsoundTapVolume(f32),
+    SetHitsoundArcVolume(f32),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;

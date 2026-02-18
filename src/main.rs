@@ -98,11 +98,16 @@ fn handle_top_menu_action(
                 Language::EnUs => i18n.t(TextKey::ActionSetLanguageEn).to_owned(),
             };
         }
-        TopMenuAction::SetVolume(volume) => {
-            audio.set_volume(volume, i18n);
-            app_settings.volume = volume;
+        TopMenuAction::SetMasterVolume(vol) => {
+            audio.set_master_volume(vol, i18n);
+            app_settings.master_volume = vol;
             app_settings.save();
-            // Don't trigger toast for continuous volume slider drags
+            audio.status.clear();
+        }
+        TopMenuAction::SetMusicVolume(vol) => {
+            audio.set_music_volume(vol, i18n);
+            app_settings.music_volume = vol;
+            app_settings.save();
             audio.status.clear();
         }
         TopMenuAction::SetAutoPlay(enabled) => {
@@ -171,6 +176,21 @@ fn handle_top_menu_action(
             app_settings.xsplit_editable = enabled;
             app_settings.save();
         }
+        TopMenuAction::SetHitsoundEnabled(enabled) => {
+            audio.set_hitsound_enabled(enabled);
+            app_settings.hitsound_enabled = enabled;
+            app_settings.save();
+        }
+        TopMenuAction::SetHitsoundTapVolume(vol) => {
+            audio.set_hitsound_tap_volume(vol);
+            app_settings.hitsound_tap_volume = vol;
+            app_settings.save();
+        }
+        TopMenuAction::SetHitsoundArcVolume(vol) => {
+            audio.set_hitsound_arc_volume(vol);
+            app_settings.hitsound_arc_volume = vol;
+            app_settings.save();
+        }
     }
 }
 
@@ -198,7 +218,12 @@ async fn main() {
     editor.set_x_split(app_settings.x_split);
     editor.set_xsplit_editable(app_settings.xsplit_editable);
     editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
-    audio.set_volume(app_settings.volume, &i18n);
+    audio.set_master_volume(app_settings.master_volume, &i18n);
+    audio.set_music_volume(app_settings.music_volume, &i18n);
+    audio.set_hitsound_enabled(app_settings.hitsound_enabled);
+    audio.set_hitsound_tap_volume(app_settings.hitsound_tap_volume);
+    audio.set_hitsound_arc_volume(app_settings.hitsound_arc_volume);
+    audio.set_hitsound_max_voices(app_settings.hitsound_max_voices);
     if macroquad_font.is_none() {
         audio.status =
             "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
@@ -234,7 +259,8 @@ async fn main() {
                 egui_fonts_ready = true;
             }
             ctx.set_pixels_per_point(ui_scale);
-            let volume = audio.volume();
+            let master_volume = audio.master_volume();
+            let music_volume = audio.music_volume();
             top_menu_result = draw_top_menu(
                 ctx,
                 &i18n,
@@ -248,7 +274,8 @@ async fn main() {
                     &i18n,
                     &mut settings_open,
                     &mut settings_category,
-                    volume,
+                    master_volume,
+                    music_volume,
                     audio.has_player(),
                     editor.debug_show_hitboxes(),
                     editor.autoplay_enabled(),
@@ -261,6 +288,9 @@ async fn main() {
                     editor.snap_division(),
                     editor.x_split(),
                     editor.xsplit_editable(),
+                    audio.hitsound_enabled(),
+                    audio.hitsound_tap_volume(),
+                    audio.hitsound_arc_volume(),
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }
@@ -414,6 +444,12 @@ async fn main() {
                     audio.handle_editor_seek(sec, &i18n);
                 }
             }
+        }
+
+        // 7. Hitsound triggering
+        {
+            let note_heads = editor.note_head_times();
+            audio.trigger_hitsounds(&note_heads);
         }
 
         info_toasts.draw(

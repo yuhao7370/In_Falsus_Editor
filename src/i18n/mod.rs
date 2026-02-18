@@ -117,6 +117,10 @@ pub enum TextKey {
     SettingsXSplitEditable,
     ToastLaneWidthReject,
     ToastLaneWidthMax,
+    SettingsMasterVolume,
+    SettingsHitsoundEnabled,
+    SettingsHitsoundTapVolume,
+    SettingsHitsoundArcVolume,
 }
 
 impl TextKey {
@@ -183,6 +187,10 @@ impl TextKey {
             TextKey::SettingsXSplitEditable => "settings_xsplit_editable",
             TextKey::ToastLaneWidthReject => "toast_lane_width_reject",
             TextKey::ToastLaneWidthMax => "toast_lane_width_max",
+            TextKey::SettingsMasterVolume => "settings_master_volume",
+            TextKey::SettingsHitsoundEnabled => "settings_hitsound_enabled",
+            TextKey::SettingsHitsoundTapVolume => "settings_hitsound_tap_volume",
+            TextKey::SettingsHitsoundArcVolume => "settings_hitsound_arc_volume",
         }
     }
 }

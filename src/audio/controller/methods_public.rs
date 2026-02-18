@@ -17,7 +17,7 @@ impl AudioController {
         };
 
         // Read initial metadata from player.
-        let (duration_sec, track_path, volume) = match &mut player {
+        let (duration_sec, track_path, music_volume) = match &mut player {
             Some(p) => {
                 let snap = p.snapshot();
                 (snap.duration_sec, snap.track_path.clone(), snap.volume)
@@ -33,7 +33,10 @@ impl AudioController {
             playing: false,
             duration_sec,
             track_path,
-            volume,
+            music_volume,
+            master_volume: 1.0,
+            hitsound_player: HitSoundPlayer::new(),
+            hitsound_trigger: HitSoundTrigger::new(),
         }
     }
 
@@ -72,7 +75,7 @@ impl AudioController {
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
             self.track_path = snap.track_path;
-            self.volume = snap.volume;
+            // Note: we don't sync volume from backend; we manage it ourselves.
 
             // 3. Re-anchor to backend position every frame to prevent drift.
             if self.playing {
@@ -83,6 +86,9 @@ impl AudioController {
                 }
             }
         }
+
+        // 4. Clean up finished hitsound voices.
+        self.hitsound_player.update();
     }
 
     // Getters (always reflect this-frame state)
@@ -111,8 +117,17 @@ impl AudioController {
         self.playing
     }
 
-    pub fn volume(&self) -> f32 {
-        self.volume
+    pub fn music_volume(&self) -> f32 {
+        self.music_volume
+    }
+
+    pub fn master_volume(&self) -> f32 {
+        self.master_volume
+    }
+
+    /// Effective volume = music_volume × master_volume
+    pub fn effective_volume(&self) -> f32 {
+        self.music_volume * self.master_volume
     }
 
     pub fn has_player(&self) -> bool {
@@ -142,15 +157,26 @@ impl AudioController {
         self.anchor_time = get_time();
     }
 
-    pub fn set_volume(&mut self, volume: f32, i18n: &I18n) {
+    pub fn set_music_volume(&mut self, volume: f32, i18n: &I18n) {
+        self.music_volume = volume.clamp(0.0, 1.0);
+        self.apply_effective_volume(i18n);
+    }
+
+    pub fn set_master_volume(&mut self, volume: f32, i18n: &I18n) {
+        self.master_volume = volume.clamp(0.0, 1.0);
+        self.hitsound_player.set_master_volume(self.master_volume);
+        self.apply_effective_volume(i18n);
+    }
+
+    fn apply_effective_volume(&mut self, i18n: &I18n) {
+        let effective = self.effective_volume();
         if let Some(p) = self.player.as_mut() {
-            match p.set_volume(volume) {
+            match p.set_volume(effective) {
                 Ok(()) => {
-                    self.volume = volume.clamp(0.0, 1.0);
                     self.status = format!(
                         "{}: {:.0}%",
                         i18n.t(TextKey::StatusVolumeUpdated),
-                        self.volume * 100.0
+                        effective * 100.0
                     );
                 }
                 Err(e) => self.status = format_error(&e, i18n),
@@ -217,7 +243,7 @@ impl AudioController {
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
             self.track_path = snap.track_path;
-            self.volume = snap.volume;
+            self.music_volume = snap.volume;
             self.anchor_pos = 0.0;
             self.anchor_time = get_time();
             self.playing = false;
@@ -229,6 +255,54 @@ impl AudioController {
 
     pub fn handle_editor_seek(&mut self, sec: f32, i18n: &I18n) {
         self.seek_to(sec, i18n);
+        self.hitsound_trigger.reset(sec);
+    }
+
+    // Hitsound
+
+    /// Trigger hitsounds for note heads that were crossed this frame.
+    /// `note_heads`: slice of `(time_ms, is_ground)`.
+    pub fn trigger_hitsounds(&mut self, note_heads: &[(f32, bool)]) {
+        let current_sec = self.current_sec();
+        let is_playing = self.playing;
+        self.hitsound_trigger.tick(
+            current_sec,
+            is_playing,
+            note_heads,
+            &mut self.hitsound_player,
+        );
+    }
+
+    pub fn hitsound_tap_volume(&self) -> f32 {
+        self.hitsound_player.tap_volume()
+    }
+
+    pub fn set_hitsound_tap_volume(&mut self, volume: f32) {
+        self.hitsound_player.set_tap_volume(volume);
+    }
+
+    pub fn hitsound_arc_volume(&self) -> f32 {
+        self.hitsound_player.arc_volume()
+    }
+
+    pub fn set_hitsound_arc_volume(&mut self, volume: f32) {
+        self.hitsound_player.set_arc_volume(volume);
+    }
+
+    pub fn set_hitsound_enabled(&mut self, enabled: bool) {
+        self.hitsound_player.set_enabled(enabled);
+    }
+
+    pub fn hitsound_enabled(&self) -> bool {
+        self.hitsound_player.enabled()
+    }
+
+    pub fn set_hitsound_max_voices(&mut self, max: usize) {
+        self.hitsound_player.set_max_voices(max);
+    }
+
+    pub fn hitsound_max_voices(&self) -> usize {
+        self.hitsound_player.max_voices()
     }
 
 

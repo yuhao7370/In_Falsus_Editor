@@ -835,6 +835,15 @@ impl FallingGroundEditor {
         self.editing_event_backup.is_some()
     }
 
+    /// Returns all note head times as `(time_ms, is_ground)` for hitsound triggering.
+    /// Ground = Tap/Hold, Air = Flick/SkyArea.
+    pub fn note_head_times(&self) -> Vec<(f32, bool)> {
+        self.notes
+            .iter()
+            .map(|n| (n.time_ms, is_ground_kind(n.kind)))
+            .collect()
+    }
+
     pub fn set_track_speed_enabled(&mut self, enabled: bool) {
         if self.track_speed_enabled == enabled {
             return;
