@@ -159,8 +159,7 @@ fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f
     for i in 0..=24 {
         let t = i as f32 / 24.0;
         let x = lerp(geom.x_start, geom.x_tip, t);
-        let inv = 1.0 - t;
-        let eased = 1.0 - inv * inv * inv * inv; // QuartOut
+        let eased = ease_progress(Ease::SineOut, t);
         let y = lerp(geom.y_top, geom.y_tip_top, eased);
         top_curve.push(Vec2::new(x, y));
     }
