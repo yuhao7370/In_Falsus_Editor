@@ -107,6 +107,8 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                         duration_ms: 0.0,
                         width: (*width as f32).max(0.4),
                         flick_right: true,
+                        x_split: 1.0,
+                        center_x_norm: 0.0,
                         skyarea_shape: None,
                     });
                     next_id += 1;
@@ -127,6 +129,8 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                         duration_ms: (*duration as f32).max(0.0),
                         width: (*width as f32).max(0.4),
                         flick_right: true,
+                        x_split: 1.0,
+                        center_x_norm: 0.0,
                         skyarea_shape: None,
                     });
                     next_id += 1;
@@ -139,16 +143,20 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 width,
                 flick_type,
             } => {
+                let right = !matches!(flick_type, FlickType::Left);
+                let xs = (*x_split as f32).max(1.0);
+                let norm_x = (*x as f32) / xs; // X is center point
+                let norm_w = (*width as f32) / xs;
                 notes.push(GroundNote {
                     id: next_id,
                     kind: GroundNoteKind::Flick,
-                    lane: lane_from_normalized_x((*x as f32) / (*x_split as f32).max(1.0)),
+                    lane: lane_from_normalized_x(norm_x),
                     time_ms: *time as f32,
                     duration_ms: 0.0,
-                    width: normalized_width_to_air_ratio(
-                        (*width as f32) / (*x_split as f32).max(1.0),
-                    ),
-                    flick_right: !matches!(flick_type, FlickType::Left),
+                    width: normalized_width_to_air_ratio(norm_w),
+                    flick_right: right,
+                    x_split: *x_split,
+                    center_x_norm: norm_x,
                     skyarea_shape: None,
                 });
                 next_id += 1;
@@ -182,14 +190,17 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 let avg_width_norm = (((*start_width as f32) / start_split).abs()
                     + ((*end_width as f32) / end_split).abs())
                     * 0.5;
+                let sky_center = (start_center + end_center) * 0.5;
                 notes.push(GroundNote {
                     id: next_id,
                     kind: GroundNoteKind::SkyArea,
-                    lane: lane_from_normalized_x((start_center + end_center) * 0.5),
+                    lane: lane_from_normalized_x(sky_center),
                     time_ms: *time as f32,
                     duration_ms: (*duration as f32).max(0.0),
                     width: normalized_width_to_air_ratio(avg_width_norm),
                     flick_right: true,
+                    x_split: *start_x_split,
+                    center_x_norm: sky_center,
                     skyarea_shape: Some(SkyAreaShape {
                         start_left_norm: start_left,
                         start_right_norm: start_right,
@@ -197,6 +208,8 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                         end_right_norm: end_right,
                         left_ease: *left_ease,
                         right_ease: *right_ease,
+                        start_x_split: *start_x_split,
+                        end_x_split: *end_x_split,
                     }),
                 });
                 next_id += 1;

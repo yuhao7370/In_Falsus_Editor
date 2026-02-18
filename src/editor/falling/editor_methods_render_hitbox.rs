@@ -91,7 +91,7 @@ impl FallingGroundEditor {
                 continue;
             }
 
-            let center_x = split_rect.x + lane_to_air_x_norm(note.lane) * split_rect.w;
+            let center_x = split_rect.x + note.center_x_norm * split_rect.w;
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);

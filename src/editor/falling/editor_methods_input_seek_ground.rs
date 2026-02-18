@@ -32,6 +32,8 @@ impl FallingGroundEditor {
                             duration_ms: 0.0,
                             width: 1.0,
                             flick_right: true,
+                            x_split: 1.0,
+                            center_x_norm: 0.0,
                             skyarea_shape: None,
                         });
                         self.status = "new tap created".to_owned();
@@ -50,6 +52,8 @@ impl FallingGroundEditor {
                                 duration_ms: duration,
                                 width: 1.0,
                                 flick_right: true,
+                                x_split: 1.0,
+                                center_x_norm: 0.0,
                                 skyarea_shape: None,
                             });
                             self.status = format!(

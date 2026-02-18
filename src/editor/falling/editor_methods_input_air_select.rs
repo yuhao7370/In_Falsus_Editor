@@ -33,6 +33,8 @@ impl FallingGroundEditor {
                             duration_ms: 0.0,
                             width: DEFAULT_AIR_WIDTH_NORM,
                             flick_right: true,
+                            x_split: self.x_split,
+                            center_x_norm: x_norm,
                             skyarea_shape: None,
                         });
                         self.status = "new flick created".to_owned();
@@ -52,16 +54,17 @@ impl FallingGroundEditor {
                             let start_right = (start_center_norm + half).clamp(0.0, 1.0);
                             let end_left = (end_center_norm - half).clamp(0.0, 1.0);
                             let end_right = (end_center_norm + half).clamp(0.0, 1.0);
+                            let sky_avg_center = ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0);
                             self.push_note(GroundNote {
                                 id: self.next_note_id,
                                 kind: GroundNoteKind::SkyArea,
-                                lane: air_x_to_lane(
-                                    ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0),
-                                ),
+                                lane: air_x_to_lane(sky_avg_center),
                                 time_ms: start_time_ms,
                                 duration_ms: (end_time_ms - start_time_ms).max(0.0),
                                 width: width_norm,
                                 flick_right: true,
+                                x_split: self.x_split,
+                                center_x_norm: sky_avg_center,
                                 skyarea_shape: Some(SkyAreaShape {
                                     start_left_norm: start_left,
                                     start_right_norm: start_right,
@@ -69,6 +72,8 @@ impl FallingGroundEditor {
                                     end_right_norm: end_right,
                                     left_ease: Ease::Linear,
                                     right_ease: Ease::Linear,
+                                    start_x_split: self.x_split,
+                                    end_x_split: self.x_split,
                                 }),
                             });
                             self.status = format!(
@@ -171,10 +176,12 @@ impl FallingGroundEditor {
                             let start_w = (shape.start_right_norm - shape.start_left_norm).abs().clamp(0.02, 1.0);
                             let end_w = (shape.end_right_norm - shape.end_left_norm).abs().clamp(0.02, 1.0);
                             note.lane = air_x_to_lane(center_norm);
+                            note.center_x_norm = center_norm;
                             note.width = ((start_w + end_w) * 0.5).clamp(0.05, 1.0);
                         }
                     } else {
                         note.lane = air_x_to_lane(x_norm);
+                        note.center_x_norm = x_norm;
                         note.time_ms = snapped_time;
                     }
                     self.status = format!("air drag lane={} time={:.0}ms", note.lane, note.time_ms);

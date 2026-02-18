@@ -126,6 +126,8 @@ impl FallingGroundEditor {
                 duration_ms: 0.0,
                 width: DEFAULT_AIR_WIDTH_NORM,
                 flick_right: true,
+                x_split: self.x_split,
+                center_x_norm: center_norm,
                 skyarea_shape: None,
             };
             if place_type == PlaceNoteType::Flick {
@@ -161,15 +163,20 @@ impl FallingGroundEditor {
                         end_right_norm: end_right,
                         left_ease: Ease::Linear,
                         right_ease: Ease::Linear,
+                        start_x_split: self.x_split,
+                        end_x_split: self.x_split,
                     };
+                    let sky_preview_center = ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0);
                     let preview_note = GroundNote {
                         id: 0,
                         kind: GroundNoteKind::SkyArea,
-                        lane: air_x_to_lane(((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0)),
+                        lane: air_x_to_lane(sky_preview_center),
                         time_ms: start_time_ms,
                         duration_ms: (end_time_ms - start_time_ms).max(0.0),
                         width: DEFAULT_SKYAREA_WIDTH_NORM,
                         flick_right: true,
+                        x_split: self.x_split,
+                        center_x_norm: sky_preview_center,
                         skyarea_shape: Some(shape),
                     };
                     self.draw_skyarea_shape(

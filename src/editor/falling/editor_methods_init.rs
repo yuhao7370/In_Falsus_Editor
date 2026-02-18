@@ -174,43 +174,40 @@ impl FallingGroundEditor {
                     });
                 }
                 GroundNoteKind::Flick => {
-                    let x_split = self.x_split;
+                    let xs = note.x_split.max(1.0);
                     let width_norm = note.width.clamp(0.05, 1.0) as f64;
-                    let lane_center = lane_to_air_x_norm(note.lane) as f64;
+                    let lane_center = note.center_x_norm as f64;
                     let flick_type = if note.flick_right {
                         FlickType::Right
                     } else {
                         FlickType::Left
                     };
-                    let width = width_norm * x_split;
-                    let x = if note.flick_right {
-                        lane_center * x_split
-                    } else {
-                        lane_center * x_split
-                    };
+                    let width = width_norm * xs;
+                    let x = lane_center * xs; // X is center point
                     events.push(ChartEvent::Flick {
                         time: note.time_ms as f64,
                         x,
-                        x_split,
+                        x_split: xs,
                         width,
                         flick_type,
                     });
                 }
                 GroundNoteKind::SkyArea => {
                     if let Some(shape) = note.skyarea_shape {
-                        let x_split = self.x_split;
+                        let sxs = shape.start_x_split.max(1.0);
+                        let exs = shape.end_x_split.max(1.0);
                         let start_center = ((shape.start_left_norm + shape.start_right_norm) * 0.5) as f64;
                         let end_center = ((shape.end_left_norm + shape.end_right_norm) * 0.5) as f64;
                         let start_width = ((shape.start_right_norm - shape.start_left_norm).abs()) as f64;
                         let end_width = ((shape.end_right_norm - shape.end_left_norm).abs()) as f64;
                         events.push(ChartEvent::SkyArea {
                             time: note.time_ms as f64,
-                            start_x: start_center * x_split,
-                            start_x_split: x_split,
-                            start_width: start_width * x_split,
-                            end_x: end_center * x_split,
-                            end_x_split: x_split,
-                            end_width: end_width * x_split,
+                            start_x: start_center * sxs,
+                            start_x_split: sxs,
+                            start_width: start_width * sxs,
+                            end_x: end_center * exs,
+                            end_x_split: exs,
+                            end_width: end_width * exs,
                             left_ease: shape.left_ease,
                             right_ease: shape.right_ease,
                             duration: note.duration_ms as f64,
@@ -416,16 +413,21 @@ impl FallingGroundEditor {
     pub fn selected_note_properties(&self) -> Option<NotePropertyData> {
         let id = self.selected_note_id?;
         let note = self.notes.iter().find(|n| n.id == id)?;
-        let xs = self.x_split;
-        let shape = note.skyarea_shape.unwrap_or(SkyAreaShape {
+        let default_shape = SkyAreaShape {
             start_left_norm: 0.0, start_right_norm: 0.0,
             end_left_norm: 0.0, end_right_norm: 0.0,
             left_ease: Ease::Linear, right_ease: Ease::Linear,
-        });
-        // Flick: convert normalized center+width to raw x/width
-        let flick_center_norm = lane_to_air_x_norm(note.lane) as f64;
+            start_x_split: self.x_split, end_x_split: self.x_split,
+        };
+        let shape = note.skyarea_shape.unwrap_or(default_shape);
+        // Flick: use per-note x_split
+        let fxs = note.x_split.max(1.0);
+        let flick_center_norm = note.center_x_norm as f64;
         let flick_width_norm = note.width.clamp(0.05, 1.0) as f64;
-        // SkyArea: convert normalized left/right to raw center_x and width
+        let flick_center_raw = flick_center_norm * fxs;
+        // SkyArea: use per-shape x_split
+        let sxs = shape.start_x_split.max(1.0);
+        let exs = shape.end_x_split.max(1.0);
         let start_center = ((shape.start_left_norm + shape.start_right_norm) * 0.5) as f64;
         let start_w = ((shape.start_right_norm - shape.start_left_norm).abs()) as f64;
         let end_center = ((shape.end_left_norm + shape.end_right_norm) * 0.5) as f64;
@@ -433,9 +435,9 @@ impl FallingGroundEditor {
         // duration beat
         let end_beat = self.timeline.time_to_beat(note.time_ms + note.duration_ms);
         let start_beat = self.timeline.time_to_beat(note.time_ms);
-        // Flick width in xsplit coordinates; Tap/Hold use raw width
+        // Flick width in its own xsplit coordinates; Tap/Hold use raw width
         let out_width = if note.kind == GroundNoteKind::Flick {
-            (flick_width_norm * xs) as f32
+            (flick_width_norm * fxs) as f32
         } else {
             note.width
         };
@@ -454,14 +456,14 @@ impl FallingGroundEditor {
             duration_beat: end_beat - start_beat,
             width: out_width,
             flick_right: note.flick_right,
-            x: flick_center_norm * xs,
-            x_split: xs,
-            start_x: start_center * xs,
-            start_x_split: xs,
-            start_width: start_w * xs,
-            end_x: end_center * xs,
-            end_x_split: xs,
-            end_width: end_w * xs,
+            x: flick_center_raw,
+            x_split: fxs,
+            start_x: start_center * sxs,
+            start_x_split: sxs,
+            start_width: start_w * sxs,
+            end_x: end_center * exs,
+            end_x_split: exs,
+            end_width: end_w * exs,
             left_ease: shape.left_ease.to_value(),
             right_ease: shape.right_ease.to_value(),
         })
@@ -486,13 +488,13 @@ impl FallingGroundEditor {
             note.duration_ms = data.duration_ms.max(0.0);
             note.width = data.width.clamp(0.05, 8.0);
             note.flick_right = data.flick_right;
-            // Flick: convert raw x back to lane
+            // Flick: x is center point, convert to lane + normalized width
             if note.kind == GroundNoteKind::Flick {
                 let xs = data.x_split.max(1.0);
-                let norm_x = (data.x / xs) as f32;
+                let raw_w = data.width as f64;
+                let norm_x = (data.x / xs) as f32; // x is already center
                 note.lane = lane_from_normalized_x(norm_x);
                 // Flick width: raw width / x_split → normalized width ratio
-                let raw_w = data.width as f64;
                 note.width = normalized_width_to_air_ratio((raw_w / xs) as f32);
             }
             // SkyArea: convert raw x/width back to normalized left/right

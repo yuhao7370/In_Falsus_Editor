@@ -97,7 +97,7 @@ impl FallingGroundEditor {
                     continue;
                 }
 
-                let x_norm = lane_to_air_x_norm(note.lane);
+                let x_norm = note.center_x_norm;
                 let center_x = split_rect.x + x_norm * split_rect.w;
                 let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
                 let selected = self.selected_note_id == Some(note.id);

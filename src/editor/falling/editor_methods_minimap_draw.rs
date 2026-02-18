@@ -1,4 +1,4 @@
-﻿// 文件说明：小地图视图绘制实现。
+// 文件说明：小地图视图绘制实现。
 // 主要功能：绘制全曲概览、可视窗口和小地图音符分布。
 impl FallingGroundEditor {
     fn draw_minimap_view(
@@ -374,7 +374,7 @@ impl FallingGroundEditor {
                         }
                     }
                     GroundNoteKind::Flick => {
-                        let center_x = sky_rect.x + lane_to_air_x_norm(note.lane.clamp(1, 4)) * sky_rect.w;
+                        let center_x = sky_rect.x + note.center_x_norm * sky_rect.w;
                         let air_lane_w = sky_rect.w / 4.0;
                         let note_w = air_note_width(note, sky_rect.w)
                             .clamp(air_lane_w * 0.22, air_lane_w * 0.98);
@@ -555,7 +555,7 @@ impl FallingGroundEditor {
                     );
                 }
             } else {
-                let x = s_rect.x + lane_to_air_x_norm(note.lane.clamp(1, 4)) * s_rect.w;
+                let x = s_rect.x + note.center_x_norm * s_rect.w;
                 let y_head_local =
                     self.minimap_segment_time_to_y(note_time, s_rect, start_ms, end_ms);
                 let y_tail_local = self.minimap_segment_time_to_y(note_end, s_rect, start_ms, end_ms);

@@ -52,7 +52,7 @@ impl FallingGroundEditor {
                         ((end_right - end_left).abs() * 0.5).clamp(0.01, 0.5),
                     )
                 } else {
-                    let center = lane_to_air_x_norm(note.lane);
+                    let center = note.center_x_norm;
                     (center, center, 0.25, 0.25)
                 }
             } else {

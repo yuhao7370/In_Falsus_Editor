@@ -1,4 +1,4 @@
-﻿// 文件说明：输入命中候选收集逻辑。
+// 文件说明：输入命中候选收集逻辑。
 // 主要功能：按鼠标位置收集可交互音符并提供判定优先级。
 impl FallingGroundEditor {
     fn collect_hit_candidates(
@@ -147,7 +147,7 @@ impl FallingGroundEditor {
                 continue;
             }
             let z_order = air_hit_z_order(z, note.kind);
-            let center_x = split_rect.x + lane_to_air_x_norm(note.lane) * split_rect.w;
+            let center_x = split_rect.x + note.center_x_norm * split_rect.w;
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);

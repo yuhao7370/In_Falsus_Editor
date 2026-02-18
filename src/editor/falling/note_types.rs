@@ -128,6 +128,11 @@ struct GroundNote {
     duration_ms: f32,
     width: f32,
     flick_right: bool,
+    /// Per-note x_split from the chart file. Only meaningful for Flick/SkyArea.
+    x_split: f64,
+    /// Precise normalized center X for air notes (0.0–1.0, continuous).
+    /// Ground notes (Tap/Hold) don't use this; their position comes from `lane`.
+    center_x_norm: f32,
     skyarea_shape: Option<SkyAreaShape>,
 }
 
@@ -150,5 +155,8 @@ struct SkyAreaShape {
     end_right_norm: f32,
     left_ease: Ease,
     right_ease: Ease,
+    /// Per-shape x_split from the chart file.
+    start_x_split: f64,
+    end_x_split: f64,
 }
 
