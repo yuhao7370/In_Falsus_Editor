@@ -81,6 +81,27 @@ pub enum FallingEditorAction {
     MinimapSeekTo(f32),
 }
 
+/// Public note property data for UI editing.
+#[derive(Debug, Clone)]
+pub struct NotePropertyData {
+    pub id: u64,
+    pub kind: String,
+    pub lane: usize,
+    pub time_ms: f32,
+    pub duration_ms: f32,
+    pub width: f32,
+    pub flick_right: bool,
+}
+
+/// Public event property data for UI editing.
+#[derive(Debug, Clone)]
+pub struct EventPropertyData {
+    pub id: u64,
+    pub kind: String,
+    pub time_ms: f32,
+    pub label: String,
+}
+
 #[derive(Debug, Clone)]
 struct GroundNote {
     id: u64,

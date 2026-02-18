@@ -10,7 +10,7 @@ use i18n::{I18n, Language, TextKey};
 use macroquad::prelude::*;
 use ui::fonts::{init_egui_fonts, load_macroquad_cjk_font};
 use ui::info_toast::InfoToastManager;
-use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, draw_note_selector_panel, draw_snap_slider_panel};
+use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, PropertyEditState, draw_note_selector_panel, draw_snap_slider_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
 use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
@@ -159,6 +159,7 @@ async fn main() {
     let mut settings_category = SettingsCategory::Display;
     let mut info_toasts = InfoToastManager::new();
     let mut open_project_state = OpenProjectState::new();
+    let mut prop_edit_state = PropertyEditState::default();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
     if macroquad_font.is_none() {
@@ -226,7 +227,7 @@ async fn main() {
                     top_menu_result.action = Some(settings_action);
                 }
             }
-            note_panel_width_px = draw_note_selector_panel(ctx, &i18n, &mut editor);
+            note_panel_width_px = draw_note_selector_panel(ctx, &i18n, &mut editor, &mut prop_edit_state);
             let snap_panel_px = draw_snap_slider_panel(
                 ctx,
                 &mut editor,

@@ -95,6 +95,8 @@ impl FallingGroundEditor {
             undo_history: UndoHistory::new(200),
             x_split: 128.0,
             dirty: false,
+            editing_note_backup: None,
+            editing_event_backup: None,
         }
     }
 
@@ -397,6 +399,129 @@ impl FallingGroundEditor {
 
     pub fn track_speed_enabled(&self) -> bool {
         self.track_speed_enabled
+    }
+
+    // ── Property panel: Note ──
+
+    pub fn selected_note_properties(&self) -> Option<NotePropertyData> {
+        let id = self.selected_note_id?;
+        let note = self.notes.iter().find(|n| n.id == id)?;
+        Some(NotePropertyData {
+            id: note.id,
+            kind: match note.kind {
+                GroundNoteKind::Tap => "Tap",
+                GroundNoteKind::Hold => "Hold",
+                GroundNoteKind::Flick => "Flick",
+                GroundNoteKind::SkyArea => "SkyArea",
+            }.to_owned(),
+            lane: note.lane,
+            time_ms: note.time_ms,
+            duration_ms: note.duration_ms,
+            width: note.width,
+            flick_right: note.flick_right,
+        })
+    }
+
+    /// Begin editing: save backup of the note so we can cancel later.
+    pub fn begin_note_edit(&mut self) {
+        if let Some(id) = self.selected_note_id {
+            if let Some(note) = self.notes.iter().find(|n| n.id == id) {
+                self.editing_note_backup = Some(note.clone());
+            }
+        }
+    }
+
+    /// Preview: apply property changes live (no undo snapshot).
+    pub fn preview_note_properties(&mut self, data: &NotePropertyData) {
+        if let Some(note) = self.notes.iter_mut().find(|n| n.id == data.id) {
+            note.lane = data.lane;
+            note.time_ms = data.time_ms.max(0.0);
+            note.duration_ms = data.duration_ms.max(0.0);
+            note.width = data.width.clamp(0.05, 8.0);
+            note.flick_right = data.flick_right;
+        }
+    }
+
+    /// Apply: commit the edit with undo support.
+    pub fn apply_note_properties(&mut self, data: &NotePropertyData) {
+        // Restore backup first so snapshot captures the pre-edit state
+        if let Some(backup) = self.editing_note_backup.take() {
+            if let Some(note) = self.notes.iter_mut().find(|n| n.id == backup.id) {
+                *note = backup;
+            }
+        }
+        self.snapshot_for_undo();
+        self.preview_note_properties(data);
+        self.sort_notes();
+        self.editing_note_backup = None;
+    }
+
+    /// Cancel: restore the backup.
+    pub fn cancel_note_edit(&mut self) {
+        if let Some(backup) = self.editing_note_backup.take() {
+            if let Some(note) = self.notes.iter_mut().find(|n| n.id == backup.id) {
+                *note = backup;
+            }
+        }
+    }
+
+    // ── Property panel: Event ──
+
+    pub fn selected_event_properties(&self) -> Option<EventPropertyData> {
+        let id = self.selected_event_id?;
+        let event = self.timeline_events.iter().find(|e| e.id == id)?;
+        Some(EventPropertyData {
+            id: event.id,
+            kind: match event.kind {
+                TimelineEventKind::Bpm => "Bpm",
+                TimelineEventKind::Track => "Track",
+                TimelineEventKind::Lane => "Lane",
+            }.to_owned(),
+            time_ms: event.time_ms,
+            label: event.label.clone(),
+        })
+    }
+
+    pub fn begin_event_edit(&mut self) {
+        if let Some(id) = self.selected_event_id {
+            if let Some(event) = self.timeline_events.iter().find(|e| e.id == id) {
+                self.editing_event_backup = Some(event.clone());
+            }
+        }
+    }
+
+    pub fn preview_event_properties(&mut self, data: &EventPropertyData) {
+        if let Some(event) = self.timeline_events.iter_mut().find(|e| e.id == data.id) {
+            event.time_ms = data.time_ms.max(0.0);
+            event.label = data.label.clone();
+        }
+    }
+
+    pub fn apply_event_properties(&mut self, data: &EventPropertyData) {
+        if let Some(backup) = self.editing_event_backup.take() {
+            if let Some(event) = self.timeline_events.iter_mut().find(|e| e.id == backup.id) {
+                *event = backup;
+            }
+        }
+        self.snapshot_for_undo();
+        self.preview_event_properties(data);
+        self.editing_event_backup = None;
+    }
+
+    pub fn cancel_event_edit(&mut self) {
+        if let Some(backup) = self.editing_event_backup.take() {
+            if let Some(event) = self.timeline_events.iter_mut().find(|e| e.id == backup.id) {
+                *event = backup;
+            }
+        }
+    }
+
+    pub fn is_editing_note(&self) -> bool {
+        self.editing_note_backup.is_some()
+    }
+
+    pub fn is_editing_event(&self) -> bool {
+        self.editing_event_backup.is_some()
     }
 
     pub fn set_track_speed_enabled(&mut self, enabled: bool) {

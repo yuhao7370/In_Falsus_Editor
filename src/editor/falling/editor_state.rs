@@ -281,5 +281,9 @@ pub struct FallingGroundEditor {
     undo_history: UndoHistory,
     x_split: f64,
     dirty: bool,
+    /// Backup of note being edited in property panel (for cancel/preview).
+    editing_note_backup: Option<GroundNote>,
+    /// Backup of event being edited in property panel (for cancel/preview).
+    editing_event_backup: Option<TimelineEvent>,
 }
 
