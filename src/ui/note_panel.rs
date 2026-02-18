@@ -345,8 +345,15 @@ fn draw_note_property_editor(
         });
         ui.horizontal(|ui| {
             prop_label(ui, "XSplit");
-            let mut xs = data.x_split;
-            ui.add_enabled(false, egui::DragValue::new(&mut xs).min_decimals(0).max_decimals(0));
+            let old_xs = data.x_split;
+            let r = ui.add(egui::DragValue::new(&mut data.x_split)
+                .speed(1.0).range(1.0..=1024.0).min_decimals(0).max_decimals(0));
+            if r.changed() && old_xs > 0.0 {
+                let ratio = data.x_split / old_xs;
+                data.x = (data.x as f64 * ratio) as f64;
+                data.width = (data.width as f64 * ratio) as f32;
+                changed = true;
+            }
         });
         ui.horizontal(|ui| {
             prop_label(ui, "Direction");
@@ -379,8 +386,15 @@ fn draw_note_property_editor(
         });
         ui.horizontal(|ui| {
             prop_label(ui, "XSplit");
-            let mut xs = data.start_x_split;
-            ui.add_enabled(false, egui::DragValue::new(&mut xs).min_decimals(0).max_decimals(0));
+            let old_xs = data.start_x_split;
+            let r = ui.add(egui::DragValue::new(&mut data.start_x_split)
+                .speed(1.0).range(1.0..=1024.0).min_decimals(0).max_decimals(0));
+            if r.changed() && old_xs > 0.0 {
+                let ratio = data.start_x_split / old_xs;
+                data.start_x *= ratio;
+                data.start_width *= ratio;
+                changed = true;
+            }
         });
         ui.add_space(4.0);
         ui.label(egui::RichText::new("End").size(14.0).color(egui::Color32::from_rgb(200, 200, 220)));
@@ -398,8 +412,15 @@ fn draw_note_property_editor(
         });
         ui.horizontal(|ui| {
             prop_label(ui, "XSplit");
-            let mut xs = data.end_x_split;
-            ui.add_enabled(false, egui::DragValue::new(&mut xs).min_decimals(0).max_decimals(0));
+            let old_xs = data.end_x_split;
+            let r = ui.add(egui::DragValue::new(&mut data.end_x_split)
+                .speed(1.0).range(1.0..=1024.0).min_decimals(0).max_decimals(0));
+            if r.changed() && old_xs > 0.0 {
+                let ratio = data.end_x_split / old_xs;
+                data.end_x *= ratio;
+                data.end_width *= ratio;
+                changed = true;
+            }
         });
         ui.add_space(4.0);
         ui.horizontal(|ui| {

@@ -10,6 +10,13 @@ impl FallingGroundEditor {
         let (mx, my) = safe_mouse_position();
         let inside = point_in_rect(mx, my, split_rect);
 
+        // Middle click toggles flick direction when Flick tool is active
+        if safe_mouse_button_pressed(MouseButton::Middle) && inside {
+            if self.place_note_type == Some(PlaceNoteType::Flick) {
+                self.toggle_place_flick_right();
+            }
+        }
+
         if safe_mouse_button_pressed(MouseButton::Left) && inside {
             if let Some(tool) = self.place_note_type {
                 if !is_air_tool(tool) {
@@ -25,14 +32,15 @@ impl FallingGroundEditor {
                 match tool {
                     PlaceNoteType::Flick => {
                         self.snapshot_for_undo();
+                        let flick_width_norm = (1.0 / 4.0_f32).clamp(0.05, 1.0);
                         self.push_note(GroundNote {
                             id: self.next_note_id,
                             kind: GroundNoteKind::Flick,
                             lane,
                             time_ms,
                             duration_ms: 0.0,
-                            width: DEFAULT_AIR_WIDTH_NORM,
-                            flick_right: true,
+                            width: flick_width_norm,
+                            flick_right: self.place_flick_right,
                             x_split: self.x_split,
                             center_x_norm: x_norm,
                             skyarea_shape: None,

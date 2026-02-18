@@ -73,6 +73,7 @@ impl FallingGroundEditor {
             render_scope: RenderScope::Both,
             place_note_type: None,
             place_event_type: None,
+            place_flick_right: true,
             pending_hold: None,
             pending_skyarea: None,
             overlap_cycle: None,
@@ -392,6 +393,16 @@ impl FallingGroundEditor {
     pub fn set_x_split(&mut self, value: f64) {
         self.x_split = value.clamp(1.0, 1024.0);
         self.status = format!("x_split set to {}", self.x_split);
+    }
+
+    pub fn place_flick_right(&self) -> bool {
+        self.place_flick_right
+    }
+
+    pub fn toggle_place_flick_right(&mut self) {
+        self.place_flick_right = !self.place_flick_right;
+        let dir = if self.place_flick_right { "Right" } else { "Left" };
+        self.status = format!("flick direction: {dir}");
     }
 
     pub fn track_speed_enabled(&self) -> bool {

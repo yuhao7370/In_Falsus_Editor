@@ -113,9 +113,10 @@ impl FallingGroundEditor {
                 x_norm
             };
             let center_x = split_rect.x + center_norm * split_rect.w;
+            let flick_width_norm = (1.0_f32 / 8.0).clamp(0.05, 1.0);
             let note_w = match place_type {
                 PlaceNoteType::SkyArea => split_rect.w * DEFAULT_SKYAREA_WIDTH_NORM,
-                _ => split_rect.w * DEFAULT_AIR_WIDTH_NORM,
+                _ => split_rect.w * flick_width_norm,
             };
             let note_x = center_x - note_w * 0.5;
             let preview = GroundNote {
@@ -124,8 +125,8 @@ impl FallingGroundEditor {
                 lane,
                 time_ms: preview_time,
                 duration_ms: 0.0,
-                width: DEFAULT_AIR_WIDTH_NORM,
-                flick_right: true,
+                width: flick_width_norm,
+                flick_right: self.place_flick_right,
                 x_split: self.x_split,
                 center_x_norm: center_norm,
                 skyarea_shape: None,
