@@ -537,7 +537,7 @@ fn draw_note_property_editor(
     if data.kind == "Tap" || data.kind == "Hold" {
         let max_w: f32 = panel_max_width(data.lane);
         data.width = data.width.round().clamp(1.0, max_w);
-        let is_locked = max_w <= 1.0;
+        let is_locked = data.lane == 0 || data.lane >= 5;
         prop_label(ui, "Width");
         if is_locked {
             ui.label(egui::RichText::new("1 (locked)").size(INPUT_FONT_SIZE).color(egui::Color32::from_rgb(140, 140, 150)));
@@ -545,7 +545,18 @@ fn draw_note_property_editor(
             ui.horizontal(|ui| {
                 if pm_btn(ui, "-") { data.width = (data.width - 1.0).max(1.0); changed = true; }
                 if num_input_f32(ui, "note_width", &mut data.width, 1.0, max_w, 0) { data.width = data.width.round().clamp(1.0, max_w); changed = true; }
-                if pm_btn(ui, "+") { data.width = (data.width + 1.0).min(max_w); changed = true; }
+                if pm_btn(ui, "+") {
+                    let candidate = data.width + 1.0;
+                    if candidate > max_w {
+                        toasts.push_warn(format!(
+                            "Lane {} max width is {} (current {})",
+                            data.lane, max_w as usize, data.width as usize
+                        ));
+                    } else {
+                        data.width = candidate;
+                        changed = true;
+                    }
+                }
             });
         }
     }
