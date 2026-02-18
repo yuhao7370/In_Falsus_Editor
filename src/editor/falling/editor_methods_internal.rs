@@ -109,8 +109,6 @@ impl FallingGroundEditor {
             next_note_id: self.next_note_id,
             timeline_events: self.timeline_events.clone(),
             next_event_id: self.next_event_id,
-            selected_note_id: self.selected_note_id,
-            selected_event_id: self.selected_event_id,
             bpm_source,
             track_source: self.track_source.clone(),
         });
@@ -123,8 +121,6 @@ impl FallingGroundEditor {
         self.next_note_id = snapshot.next_note_id;
         self.timeline_events = snapshot.timeline_events;
         self.next_event_id = snapshot.next_event_id;
-        self.selected_note_id = snapshot.selected_note_id;
-        self.selected_event_id = snapshot.selected_event_id;
         self.track_source = snapshot.track_source;
         self.timeline = BpmTimeline::from_source(snapshot.bpm_source);
         let track_src = if self.track_speed_enabled {
@@ -163,8 +159,6 @@ impl FallingGroundEditor {
                 next_note_id: self.next_note_id,
                 timeline_events: self.timeline_events.clone(),
                 next_event_id: self.next_event_id,
-                selected_note_id: self.selected_note_id,
-                selected_event_id: self.selected_event_id,
                 bpm_source,
                 track_source: self.track_source.clone(),
             });

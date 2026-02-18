@@ -172,8 +172,6 @@ struct EditorSnapshot {
     next_note_id: u64,
     timeline_events: Vec<TimelineEvent>,
     next_event_id: u64,
-    selected_note_id: Option<u64>,
-    selected_event_id: Option<u64>,
     bpm_source: BpmSourceData,
     track_source: TrackSourceData,
 }
