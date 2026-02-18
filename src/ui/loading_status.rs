@@ -264,11 +264,11 @@ fn create_project_on_disk_sync(
     std::fs::write(&chart_path, &spc_content)
         .map_err(|e| format!("创建谱面文件失败: {e}"))?;
 
-    // Create .iffproj file
+    // Create .iffproj file (paths relative to the .iffproj file's directory)
     let proj_path = format!("{}/{}.iffproj", project_dir, name);
     let proj_json = serde_json::json!({
-        "audio_path": audio_dest,
-        "chart_path": chart_path,
+        "audio_path": audio_filename,
+        "chart_path": chart_filename,
     });
     let proj_content = serde_json::to_string_pretty(&proj_json)
         .map_err(|e| format!("序列化项目文件失败: {e}"))?;

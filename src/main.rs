@@ -379,13 +379,20 @@ async fn main() {
                 .add_filter("IFF Project", &["iffproj"])
                 .pick_file()
             {
+                // 获取 iffproj 文件所在目录，用于解析相对路径
+                let proj_dir = path.parent().unwrap_or(std::path::Path::new("."));
                 match std::fs::read_to_string(&path) {
                     Ok(content) => {
                         match serde_json::from_str::<serde_json::Value>(&content) {
                             Ok(json) => {
                                 let chart = json.get("chart_path").and_then(|v| v.as_str()).map(|s| s.to_string());
-                                let audio = json.get("audio_path").and_then(|v| v.as_str()).map(|s| s.to_string());
-                                if let (Some(cp), Some(ap)) = (chart, audio) {
+                                let audio_val = json.get("audio_path").and_then(|v| v.as_str()).map(|s| s.to_string());
+                                if let (Some(cp_raw), Some(ap_raw)) = (chart, audio_val) {
+                                    // 将相对路径解析为基于 iffproj 目录的绝对路径
+                                    let cp_path = std::path::Path::new(&cp_raw);
+                                    let ap_path = std::path::Path::new(&ap_raw);
+                                    let cp = if cp_path.is_absolute() { cp_raw } else { proj_dir.join(cp_path).to_string_lossy().to_string() };
+                                    let ap = if ap_path.is_absolute() { ap_raw } else { proj_dir.join(ap_path).to_string_lossy().to_string() };
                                     open_project_result = Some((cp, ap));
                                 } else {
                                     info_toasts.push_warn("iffproj 文件缺少 chart_path 或 audio_path 字段");
