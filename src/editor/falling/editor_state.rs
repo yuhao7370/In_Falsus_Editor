@@ -172,6 +172,8 @@ struct EditorSnapshot {
     next_event_id: u64,
     selected_note_id: Option<u64>,
     selected_event_id: Option<u64>,
+    bpm_source: BpmSourceData,
+    track_source: TrackSourceData,
 }
 
 /// Undo/Redo history manager.
@@ -201,6 +203,10 @@ impl UndoHistory {
             self.stack.remove(0);
         }
         self.index = self.stack.len().saturating_sub(1);
+    }
+
+    fn is_at_top(&self) -> bool {
+        !self.stack.is_empty() && self.index == self.stack.len() - 1
     }
 
     fn can_undo(&self) -> bool {
@@ -274,5 +280,6 @@ pub struct FallingGroundEditor {
     status: String,
     undo_history: UndoHistory,
     x_split: f64,
+    dirty: bool,
 }
 

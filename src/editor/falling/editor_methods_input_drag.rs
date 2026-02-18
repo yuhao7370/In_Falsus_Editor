@@ -78,6 +78,7 @@ impl FallingGroundEditor {
             raw_offset
         };
 
+        self.snapshot_for_undo();
         self.drag_state = Some(DragState {
             note_id: candidate.note_id,
             time_offset_ms: quantized_offset,

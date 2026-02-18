@@ -53,6 +53,8 @@
   "action_debug_hitbox_off": "Hitbox debug disabled",
   "action_minimap_on": "Minimap enabled",
   "action_minimap_off": "Minimap disabled",
+  "action_nothing_to_undo": "Nothing to undo",
+  "action_nothing_to_redo": "Nothing to redo",
   "render_merge": "Merge",
   "render_split": "Split",
   "settings_category_language": "🌐 Language",

@@ -93,6 +93,17 @@ impl FallingGroundEditor {
 
     /// Take a snapshot of current state for undo history.
     fn snapshot_for_undo(&mut self) {
+        let bpm_source = BpmSourceData {
+            base_bpm: self.timeline.points[0].bpm,
+            base_beats_per_measure: self.timeline.points[0].beats_per_measure,
+            bpm_events: self
+                .timeline
+                .points
+                .iter()
+                .skip(1)
+                .map(|p| (p.time_ms, p.bpm, p.beats_per_measure))
+                .collect(),
+        };
         self.undo_history.push(EditorSnapshot {
             notes: self.notes.clone(),
             next_note_id: self.next_note_id,
@@ -100,24 +111,67 @@ impl FallingGroundEditor {
             next_event_id: self.next_event_id,
             selected_note_id: self.selected_note_id,
             selected_event_id: self.selected_event_id,
+            bpm_source,
+            track_source: self.track_source.clone(),
         });
+        self.dirty = true;
+    }
+
+    /// Restore editor state from a snapshot (shared by undo/redo).
+    fn apply_snapshot(&mut self, snapshot: EditorSnapshot) {
+        self.notes = snapshot.notes;
+        self.next_note_id = snapshot.next_note_id;
+        self.timeline_events = snapshot.timeline_events;
+        self.next_event_id = snapshot.next_event_id;
+        self.selected_note_id = snapshot.selected_note_id;
+        self.selected_event_id = snapshot.selected_event_id;
+        self.track_source = snapshot.track_source;
+        self.timeline = BpmTimeline::from_source(snapshot.bpm_source);
+        let track_src = if self.track_speed_enabled {
+            self.track_source.clone()
+        } else {
+            TrackSourceData::default()
+        };
+        self.track_timeline = TrackTimeline::from_source(&self.timeline, track_src);
+        self.rebuild_barline_cache();
+        self.drag_state = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
+        self.event_overlap_cycle = None;
+        self.event_hover_hint = None;
+        self.dirty = true;
     }
 
     /// Undo: restore previous state.
     pub fn undo(&mut self) -> bool {
+        // If we're at the top of the stack, the current (post-edit) state
+        // hasn't been saved yet. Push it so redo can return to it later.
+        if self.undo_history.is_at_top() {
+            let bpm_source = BpmSourceData {
+                base_bpm: self.timeline.points[0].bpm,
+                base_beats_per_measure: self.timeline.points[0].beats_per_measure,
+                bpm_events: self
+                    .timeline
+                    .points
+                    .iter()
+                    .skip(1)
+                    .map(|p| (p.time_ms, p.bpm, p.beats_per_measure))
+                    .collect(),
+            };
+            self.undo_history.push(EditorSnapshot {
+                notes: self.notes.clone(),
+                next_note_id: self.next_note_id,
+                timeline_events: self.timeline_events.clone(),
+                next_event_id: self.next_event_id,
+                selected_note_id: self.selected_note_id,
+                selected_event_id: self.selected_event_id,
+                bpm_source,
+                track_source: self.track_source.clone(),
+            });
+        }
         if let Some(snapshot) = self.undo_history.undo() {
             let snapshot = snapshot.clone();
-            self.notes = snapshot.notes;
-            self.next_note_id = snapshot.next_note_id;
-            self.timeline_events = snapshot.timeline_events;
-            self.next_event_id = snapshot.next_event_id;
-            self.selected_note_id = snapshot.selected_note_id;
-            self.selected_event_id = snapshot.selected_event_id;
-            self.drag_state = None;
-            self.overlap_cycle = None;
-            self.hover_overlap_hint = None;
-            self.event_overlap_cycle = None;
-            self.event_hover_hint = None;
+            self.apply_snapshot(snapshot);
             self.status = "undo".to_owned();
             true
         } else {
@@ -130,17 +184,7 @@ impl FallingGroundEditor {
     pub fn redo(&mut self) -> bool {
         if let Some(snapshot) = self.undo_history.redo() {
             let snapshot = snapshot.clone();
-            self.notes = snapshot.notes;
-            self.next_note_id = snapshot.next_note_id;
-            self.timeline_events = snapshot.timeline_events;
-            self.next_event_id = snapshot.next_event_id;
-            self.selected_note_id = snapshot.selected_note_id;
-            self.selected_event_id = snapshot.selected_event_id;
-            self.drag_state = None;
-            self.overlap_cycle = None;
-            self.hover_overlap_hint = None;
-            self.event_overlap_cycle = None;
-            self.event_hover_hint = None;
+            self.apply_snapshot(snapshot);
             self.status = "redo".to_owned();
             true
         } else {

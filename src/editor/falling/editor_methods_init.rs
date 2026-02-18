@@ -94,6 +94,7 @@ impl FallingGroundEditor {
             status,
             undo_history: UndoHistory::new(200),
             x_split: 128.0,
+            dirty: false,
         }
     }
 
@@ -229,11 +230,17 @@ impl FallingGroundEditor {
     }
 
     /// Save current editor state to the .spc file.
-    pub fn save_chart(&self) -> Result<(), String> {
+    pub fn save_chart(&mut self) -> Result<(), String> {
         let chart = self.to_chart();
         let content = chart.to_spc();
         std::fs::write(&self.chart_path, content)
-            .map_err(|e| format!("写入文件失败: {e}"))
+            .map_err(|e| format!("写入文件失败: {e}"))?;
+        self.dirty = false;
+        Ok(())
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
     }
 
     pub fn set_text_font(&mut self, font: Option<Font>) {

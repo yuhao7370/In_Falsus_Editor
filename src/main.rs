@@ -45,6 +45,7 @@ fn handle_top_menu_action(
     editor: &mut FallingGroundEditor,
     audio: &mut AudioController,
     i18n: &mut I18n,
+    info_toasts: &mut InfoToastManager,
 ) {
     match action {
         TopMenuAction::CreateProject => {
@@ -65,11 +66,15 @@ fn handle_top_menu_action(
             }
         }
         TopMenuAction::Undo => {
-            editor.undo();
+            if !editor.undo() {
+                info_toasts.push_warn(i18n.t(TextKey::ActionNothingToUndo));
+            }
             audio.status = i18n.t(TextKey::ActionUndo).to_owned();
         }
         TopMenuAction::Redo => {
-            editor.redo();
+            if !editor.redo() {
+                info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo));
+            }
             audio.status = i18n.t(TextKey::ActionRedo).to_owned();
         }
         TopMenuAction::Cut => {
@@ -252,7 +257,7 @@ async fn main() {
 
         if let Some(action) = top_menu_result.action {
             audio.status.clear();
-            handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n);
+            handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n, &mut info_toasts);
             if !audio.status.is_empty() {
                 info_toasts.push(audio.status.clone());
             }
@@ -283,11 +288,15 @@ async fn main() {
             if ctrl && is_key_pressed(KeyCode::Z) {
                 if editor.undo() {
                     info_toasts.push(i18n.t(TextKey::ActionUndo));
+                } else {
+                    info_toasts.push_warn(i18n.t(TextKey::ActionNothingToUndo));
                 }
             }
             if ctrl && is_key_pressed(KeyCode::Y) {
                 if editor.redo() {
                     info_toasts.push(i18n.t(TextKey::ActionRedo));
+                } else {
+                    info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo));
                 }
             }
         }

@@ -7,10 +7,17 @@ const INFO_TOAST_ENTER_SEC: f32 = 0.24;
 const INFO_TOAST_EXIT_SEC: f32 = 0.26;
 const INFO_TOAST_MAX_COUNT: usize = 12;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ToastLevel {
+    Info,
+    Warn,
+}
+
 #[derive(Debug, Clone)]
 struct InfoToastItem {
     text: String,
     created_at: f64,
+    level: ToastLevel,
 }
 
 #[derive(Debug, Default)]
@@ -31,6 +38,22 @@ impl InfoToastManager {
         self.items.push_back(InfoToastItem {
             text,
             created_at: get_time(),
+            level: ToastLevel::Info,
+        });
+        while self.items.len() > INFO_TOAST_MAX_COUNT {
+            self.items.pop_front();
+        }
+    }
+
+    pub fn push_warn(&mut self, text: impl Into<String>) {
+        let text = text.into();
+        if text.trim().is_empty() {
+            return;
+        }
+        self.items.push_back(InfoToastItem {
+            text,
+            created_at: get_time(),
+            level: ToastLevel::Warn,
         });
         while self.items.len() > INFO_TOAST_MAX_COUNT {
             self.items.pop_front();
@@ -98,11 +121,21 @@ impl InfoToastManager {
                 radius,
                 Color::new(0.02, 0.04, 0.08, 0.24 * alpha),
             );
-            draw_rounded_rect(rect, radius, Color::new(0.63, 0.81, 1.0, 0.82 * alpha));
+            let (bg_color, highlight_color) = match item.level {
+                ToastLevel::Info => (
+                    Color::new(0.63, 0.81, 1.0, 0.82 * alpha),
+                    Color::new(0.92, 0.96, 1.0, 0.16 * alpha),
+                ),
+                ToastLevel::Warn => (
+                    Color::new(1.0, 0.88, 0.42, 0.82 * alpha),
+                    Color::new(1.0, 0.96, 0.80, 0.16 * alpha),
+                ),
+            };
+            draw_rounded_rect(rect, radius, bg_color);
             draw_rounded_rect(
                 Rect::new(rect.x, rect.y, rect.w, rect.h * 0.45),
                 radius,
-                Color::new(0.92, 0.96, 1.0, 0.16 * alpha),
+                highlight_color,
             );
 
             draw_text_ex(
