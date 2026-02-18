@@ -1,4 +1,4 @@
-﻿impl SongPlayer {
+impl SongPlayer {
     pub fn new() -> Result<Self, PlayerError> {
         let audio_manager = AudioManager::new(CpalBackend::new(CpalSettings::default()))
             .map_err(|err| PlayerError::BackendInit(err.to_string()))?;
@@ -24,7 +24,7 @@
         self.duration_sec
     }
 
-    pub fn load_file(&mut self, path: impl AsRef<Path>, autoplay: bool) -> Result<(), PlayerError> {
+    pub fn load_file(&mut self, path: impl AsRef<Path>) -> Result<(), PlayerError> {
         let path_string = path.as_ref().to_string_lossy().to_string();
         let bytes = std::fs::read(path.as_ref()).map_err(|err| PlayerError::Io {
             path: path_string.clone(),
@@ -35,23 +35,14 @@
         let duration_sec = clip.length();
         let mut music = self.create_music_renderer(clip)?;
 
-        if autoplay {
-            music
-                .play()
-                .map_err(|err| PlayerError::StartPlayback(err.to_string()))?;
-            self.state = PlaybackState::Playing;
-            self.position_cache = 0.0;
-            self.pending_event = Some(PlayerEvent::Started);
-        } else {
-            // sasa's Music may start playing by default; ensure it's paused.
-            let _ = music.pause();
-            self.state = PlaybackState::Ready;
-            self.position_cache = 0.0;
-            self.pending_event = Some(PlayerEvent::Loaded {
-                path: path_string.clone(),
-                duration_sec,
-            });
-        }
+        // sasa's Music may start playing by default; ensure it's paused.
+        let _ = music.pause();
+        self.state = PlaybackState::Ready;
+        self.position_cache = 0.0;
+        self.pending_event = Some(PlayerEvent::Loaded {
+            path: path_string.clone(),
+            duration_sec,
+        });
 
         self.music = Some(music);
         self.track_path = Some(path_string);
@@ -139,6 +130,48 @@
         if matches!(self.state, PlaybackState::Ready | PlaybackState::Stopped) {
             self.state = PlaybackState::Paused;
         }
+        Ok(())
+    }
+
+    /// 从已读取的字节加载音频（跳过文件读取步骤）。
+    pub fn load_from_bytes(&mut self, bytes: Vec<u8>, path: &str) -> Result<(), PlayerError> {
+        let path_string = path.to_string();
+
+        let clip = AudioClip::new(bytes).map_err(|err| PlayerError::Decode(err.to_string()))?;
+        let duration_sec = clip.length();
+        let mut music = self.create_music_renderer(clip)?;
+
+        let _ = music.pause();
+        self.state = PlaybackState::Ready;
+        self.position_cache = 0.0;
+        self.pending_event = Some(PlayerEvent::Loaded {
+            path: path_string.clone(),
+            duration_sec,
+        });
+
+        self.music = Some(music);
+        self.track_path = Some(path_string);
+        self.duration_sec = duration_sec;
+        Ok(())
+    }
+
+    /// 安装已解码的 AudioClip（跳过文件读取和解码步骤，用于异步加载流程）。
+    pub fn install_clip(&mut self, clip: AudioClip, path: &str) -> Result<(), PlayerError> {
+        let path_string = path.to_string();
+        let duration_sec = clip.length();
+        let mut music = self.create_music_renderer(clip)?;
+
+        let _ = music.pause();
+        self.state = PlaybackState::Ready;
+        self.position_cache = 0.0;
+        self.pending_event = Some(PlayerEvent::Loaded {
+            path: path_string.clone(),
+            duration_sec,
+        });
+
+        self.music = Some(music);
+        self.track_path = Some(path_string);
+        self.duration_sec = duration_sec;
         Ok(())
     }
 

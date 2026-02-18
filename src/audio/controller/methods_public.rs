@@ -2,7 +2,7 @@ impl AudioController {
     pub fn new(i18n: &I18n, default_track_path: &str) -> Self {
         let (mut player, status) = match SongPlayer::new() {
             Ok(mut p) => {
-                let s = if let Err(e) = p.load_file(default_track_path, false) {
+                let s = if let Err(e) = p.load_file(default_track_path) {
                     format_error(&e, i18n)
                 } else {
                     format!(
@@ -258,7 +258,49 @@ impl AudioController {
         if let Some(p) = self.player.as_mut() {
             // Stop current playback first
             let _ = p.pause();
-            if let Err(e) = p.load_file(path, false) {
+            if let Err(e) = p.load_file(path) {
+                self.status = format_error(&e, i18n);
+                return;
+            }
+            let snap = p.snapshot();
+            self.duration_sec = snap.duration_sec;
+            self.track_path = snap.track_path;
+            self.music_volume = snap.volume;
+            self.anchor_pos = 0.0;
+            self.anchor_time = get_time();
+            self.playing = false;
+            self.status = format!("{}: {}", i18n.t(TextKey::StatusLoaded), path);
+        } else {
+            self.status = i18n.t(TextKey::StatusAudioUnavailable).to_owned();
+        }
+    }
+
+    /// 从已读取的字节加载音频（避免重复读文件，用于异步加载流程）。
+    pub fn load_audio_from_bytes(&mut self, bytes: Vec<u8>, path: &str, i18n: &I18n) {
+        if let Some(p) = self.player.as_mut() {
+            let _ = p.pause();
+            if let Err(e) = p.load_from_bytes(bytes, path) {
+                self.status = format_error(&e, i18n);
+                return;
+            }
+            let snap = p.snapshot();
+            self.duration_sec = snap.duration_sec;
+            self.track_path = snap.track_path;
+            self.music_volume = snap.volume;
+            self.anchor_pos = 0.0;
+            self.anchor_time = get_time();
+            self.playing = false;
+            self.status = format!("{}: {}", i18n.t(TextKey::StatusLoaded), path);
+        } else {
+            self.status = i18n.t(TextKey::StatusAudioUnavailable).to_owned();
+        }
+    }
+
+    /// 安装已在后台线程解码完成的 AudioClip（不阻塞主线程）。
+    pub fn install_decoded_audio(&mut self, clip: sasa::AudioClip, path: &str, i18n: &I18n) {
+        if let Some(p) = self.player.as_mut() {
+            let _ = p.pause();
+            if let Err(e) = p.install_clip(clip, path) {
                 self.status = format_error(&e, i18n);
                 return;
             }

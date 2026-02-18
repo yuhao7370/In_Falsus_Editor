@@ -6,6 +6,7 @@ const INFO_TOAST_TOTAL_SEC: f32 = 2.8;
 const INFO_TOAST_ENTER_SEC: f32 = 0.24;
 const INFO_TOAST_EXIT_SEC: f32 = 0.26;
 const INFO_TOAST_MAX_COUNT: usize = 12;
+const PINNED_TOAST_EXIT_SEC: f32 = 0.32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ToastLevel {
@@ -20,9 +21,20 @@ struct InfoToastItem {
     level: ToastLevel,
 }
 
+/// 持久 toast：一直显示直到手动 dismiss
+#[derive(Debug, Clone)]
+struct PinnedToast {
+    text: String,
+    created_at: f64,
+    level: ToastLevel,
+    /// dismiss 被调用的时刻；None 表示仍在显示
+    dismiss_at: Option<f64>,
+}
+
 #[derive(Debug, Default)]
 pub struct InfoToastManager {
     items: VecDeque<InfoToastItem>,
+    pinned: Option<PinnedToast>,
 }
 
 impl InfoToastManager {
@@ -60,8 +72,57 @@ impl InfoToastManager {
         }
     }
 
+    /// 显示一个持久 toast，一直保持到调用 dismiss_pinned() 或 update_pinned()。
+    /// 如果已有 pinned toast，会替换文本（保留入场动画进度）。
+    pub fn pin(&mut self, text: impl Into<String>) {
+        let text = text.into();
+        if let Some(ref mut p) = self.pinned {
+            p.text = text;
+            p.dismiss_at = None; // 取消正在退出的状态
+        } else {
+            self.pinned = Some(PinnedToast {
+                text,
+                created_at: get_time(),
+                level: ToastLevel::Info,
+                dismiss_at: None,
+            });
+        }
+    }
+
+    /// 更新 pinned toast 的文本（如果存在）。
+    pub fn update_pinned(&mut self, text: impl Into<String>) {
+        if let Some(ref mut p) = self.pinned {
+            p.text = text.into();
+        }
+    }
+
+    /// 开始 pinned toast 的退出动画，动画结束后自动移除。
+    pub fn dismiss_pinned(&mut self) {
+        if let Some(ref mut p) = self.pinned {
+            if p.dismiss_at.is_none() {
+                p.dismiss_at = Some(get_time());
+            }
+        }
+    }
+
+    /// pinned toast 是否正在显示（包括退出动画中）。
+    pub fn has_pinned(&self) -> bool {
+        self.pinned.is_some()
+    }
+
     pub fn draw(&mut self, ui_scale: f32, anchor_y: f32, font: Option<&Font>) {
         let now = get_time();
+
+        // 清理已过期的 pinned toast（退出动画结束）
+        if let Some(ref p) = self.pinned {
+            if let Some(dismiss_t) = p.dismiss_at {
+                let exit_elapsed = (now - dismiss_t) as f32;
+                if exit_elapsed >= PINNED_TOAST_EXIT_SEC {
+                    self.pinned = None;
+                }
+            }
+        }
+
         while let Some(front) = self.items.front() {
             let elapsed = (now - front.created_at) as f32;
             if elapsed >= INFO_TOAST_TOTAL_SEC {
@@ -79,6 +140,68 @@ impl InfoToastManager {
         let pad_x = 14.0 * ui_scale;
         let pad_y = 8.0 * ui_scale;
         let radius = 8.0 * ui_scale;
+
+        // 绘制 pinned toast（在普通 toast 上方）
+        let pinned_x = x;
+        if let Some(ref p) = self.pinned {
+            let enter_elapsed = (now - p.created_at) as f32;
+            let mut alpha = 1.0_f32;
+            let mut slide_x = 0.0_f32;
+
+            // 入场动画
+            if enter_elapsed < INFO_TOAST_ENTER_SEC {
+                let prog = (enter_elapsed / INFO_TOAST_ENTER_SEC).clamp(0.0, 1.0);
+                let e = ease_out_cubic(prog);
+                alpha *= e;
+                slide_x = (1.0 - e) * -22.0 * ui_scale;
+            }
+
+            // 退出动画
+            if let Some(dismiss_t) = p.dismiss_at {
+                let exit_elapsed = (now - dismiss_t) as f32;
+                let prog = (exit_elapsed / PINNED_TOAST_EXIT_SEC).clamp(0.0, 1.0);
+                let e = ease_in_cubic(prog);
+                alpha *= 1.0 - e;
+                slide_x += e * 18.0 * ui_scale;
+            }
+
+            if alpha > 0.001 {
+                let text = trim_text_to_width(&p.text, max_content_w, font, font_size);
+                let metrics = measure_text(&text, font, font_size, 1.0);
+                let rect_w = (metrics.width + pad_x * 2.0).max(120.0 * ui_scale);
+                let rect_h = (metrics.height + pad_y * 2.0).max(30.0 * ui_scale);
+                let rect = Rect::new(pinned_x + slide_x, y, rect_w, rect_h);
+
+                // 阴影
+                draw_rounded_rect(
+                    Rect::new(rect.x + 2.0 * ui_scale, rect.y + 2.0 * ui_scale, rect.w, rect.h),
+                    radius,
+                    Color::new(0.02, 0.04, 0.08, 0.24 * alpha),
+                );
+                // 背景：用稍微不同的颜色区分 pinned
+                let bg = Color::new(0.50, 0.75, 0.95, 0.85 * alpha);
+                let hl = Color::new(0.85, 0.93, 1.0, 0.18 * alpha);
+                draw_rounded_rect(rect, radius, bg);
+                draw_rounded_rect(
+                    Rect::new(rect.x, rect.y, rect.w, rect.h * 0.45),
+                    radius, hl,
+                );
+                // 文字
+                draw_text_ex(
+                    &text,
+                    rect.x + pad_x,
+                    rect.y + pad_y + metrics.offset_y,
+                    TextParams {
+                        font,
+                        font_size,
+                        color: Color::new(0.05, 0.10, 0.16, 0.96 * alpha),
+                        ..Default::default()
+                    },
+                );
+
+                y += rect_h + gap;
+            }
+        }
 
         for item in &self.items {
             let elapsed = (now - item.created_at) as f32;

@@ -17,8 +17,10 @@ use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
 use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 use ui::settings_window::{SettingsCategory, draw_settings_window};
-use ui::open_project_window::{OpenProjectState, draw_open_project_window};
-use ui::create_project_window::{CreateProjectState, draw_create_project_window};
+// open_project_window 暂时不用，改为直接选择 .iffproj 文件
+// use ui::open_project_window::{OpenProjectState, draw_open_project_window};
+use ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
+use ui::loading_status::{LoadAction, ProjectLoader};
 use settings::AppSettings;
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
@@ -219,9 +221,9 @@ async fn main() {
     let mut settings_open = false;
     let mut settings_category = SettingsCategory::Display;
     let mut info_toasts = InfoToastManager::new();
-    let mut open_project_state = OpenProjectState::new();
     let mut create_project_state = CreateProjectState::new();
     let mut prop_edit_state = PropertyEditState::default();
+    let mut project_loader = ProjectLoader::new();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
     // Apply saved settings
@@ -269,7 +271,7 @@ async fn main() {
         let mut egui_wants_pointer = false;
         let mut total_right_panels_px = note_panel_width_px;
         let mut open_project_result: Option<(String, String)> = None;
-        let mut create_project_result: Option<(String, String)> = None;
+        let mut create_project_result: Option<CreateProjectParams> = None;
         egui_macroquad::ui(|ctx| {
             if !egui_fonts_ready {
                 let _ = init_egui_fonts(ctx);
@@ -324,8 +326,6 @@ async fn main() {
             // total_right_panels_px includes snap panel for editor width.
             total_right_panels_px = note_panel_width_px + snap_panel_px;
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
-            // Draw open project window (if open)
-            open_project_result = draw_open_project_window(ctx, &i18n, &mut open_project_state);
             // Draw create project window (if open)
             create_project_result = draw_create_project_window(ctx, &i18n, &mut create_project_state);
             // Check if pointer is over egui widgets/panels.
@@ -343,11 +343,34 @@ async fn main() {
             top_menu_result.action = None; // consume it
         }
 
-        // Handle OpenProject action: open the project window
+        // Handle OpenProject action: 直接弹出文件选择器选 .iffproj
         if top_menu_result.action == Some(TopMenuAction::OpenProject) {
-            open_project_state.open = true;
-            open_project_state.chart_path = None;
-            open_project_state.audio_path = None;
+            if let Some(path) = rfd::FileDialog::new()
+                .add_filter("IFF Project", &["iffproj"])
+                .pick_file()
+            {
+                match std::fs::read_to_string(&path) {
+                    Ok(content) => {
+                        match serde_json::from_str::<serde_json::Value>(&content) {
+                            Ok(json) => {
+                                let chart = json.get("chart_path").and_then(|v| v.as_str()).map(|s| s.to_string());
+                                let audio = json.get("audio_path").and_then(|v| v.as_str()).map(|s| s.to_string());
+                                if let (Some(cp), Some(ap)) = (chart, audio) {
+                                    open_project_result = Some((cp, ap));
+                                } else {
+                                    info_toasts.push_warn("iffproj 文件缺少 chart_path 或 audio_path 字段");
+                                }
+                            }
+                            Err(e) => {
+                                info_toasts.push_warn(format!("解析 iffproj 失败: {e}"));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        info_toasts.push_warn(format!("读取 iffproj 失败: {e}"));
+                    }
+                }
+            }
             top_menu_result.action = None; // consume it
         }
 
@@ -359,22 +382,71 @@ async fn main() {
             }
         }
 
-        // Handle open project result
+        // Handle open project result → 启动异步加载
         if let Some((chart_path, audio_path)) = open_project_result {
-            let font_backup = macroquad_font.clone();
-            editor = FallingGroundEditor::from_chart_path(&chart_path);
-            editor.set_text_font(font_backup);
-            audio.load_audio_file(&audio_path, &i18n);
-            info_toasts.push(format!("项目已加载: {}", chart_path));
+            if !project_loader.is_loading() {
+                project_loader.start_open_project(chart_path, audio_path);
+                info_toasts.pin(project_loader.status_text());
+            }
         }
 
-        // Handle create project result
-        if let Some((chart_path, audio_path)) = create_project_result {
-            let font_backup = macroquad_font.clone();
-            editor = FallingGroundEditor::from_chart_path(&chart_path);
-            editor.set_text_font(font_backup);
-            audio.load_audio_file(&audio_path, &i18n);
-            info_toasts.push(format!("项目已创建: {}", chart_path));
+        // Handle create project result → 启动异步创建+加载
+        if let Some(params) = create_project_result {
+            if !project_loader.is_loading() {
+                project_loader.start_create_project(
+                    params.name,
+                    params.source_audio,
+                    params.bpm,
+                    params.bpl,
+                );
+                info_toasts.pin(project_loader.status_text());
+            }
+        }
+
+        // Tick ProjectLoader 状态机
+        {
+            let prev_status = project_loader.status_text().to_owned();
+            let action = project_loader.tick();
+            // 状态文本变化时更新 pinned toast
+            let new_status = project_loader.status_text();
+            if new_status != prev_status {
+                if new_status.is_empty() {
+                    info_toasts.dismiss_pinned();
+                } else {
+                    info_toasts.pin(new_status);
+                }
+            }
+            match action {
+                LoadAction::None => {}
+                LoadAction::LoadChart { chart_path, audio_path } => {
+                    let font_backup = macroquad_font.clone();
+                    editor = FallingGroundEditor::from_chart_path(&chart_path);
+                    editor.set_text_font(font_backup);
+                    // 应用已保存的编辑器设置
+                    editor.set_scroll_speed(app_settings.scroll_speed);
+                    editor.set_snap_division(app_settings.snap_division);
+                    editor.set_autoplay_enabled(app_settings.autoplay);
+                    editor.set_show_spectrum(app_settings.show_spectrum);
+                    editor.set_show_minimap(app_settings.show_minimap);
+                    editor.set_x_split(app_settings.x_split);
+                    editor.set_xsplit_editable(app_settings.xsplit_editable);
+                    editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
+                    // 进入下一阶段：读取音频字节
+                    project_loader.advance_after_chart_load(chart_path, audio_path);
+                    info_toasts.pin(project_loader.status_text());
+                }
+                LoadAction::InstallAudio { clip, chart_path, audio_path } => {
+                    audio.install_decoded_audio(clip, &audio_path, &i18n);
+                    project_loader.finish();
+                    info_toasts.dismiss_pinned();
+                    info_toasts.push(format!("项目已加载: {}", chart_path));
+                }
+                LoadAction::Error(e) => {
+                    project_loader.finish();
+                    info_toasts.dismiss_pinned();
+                    info_toasts.push_warn(format!("加载失败: {}", e));
+                }
+            }
         }
 
         // Ctrl+S: save chart, Ctrl+Z: undo, Ctrl+Y: redo
@@ -488,6 +560,7 @@ async fn main() {
             audio.trigger_hitsounds(&note_heads);
         }
 
+        // 8. Toast 通知
         info_toasts.draw(
             ui_scale,
             menu_height + top_bar_height,

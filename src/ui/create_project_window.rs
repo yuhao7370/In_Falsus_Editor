@@ -1,6 +1,5 @@
 use crate::i18n::{I18n, TextKey};
 use egui_macroquad::egui;
-use std::path::Path;
 
 /// State for the "Create Project" window.
 #[derive(Debug, Clone)]
@@ -13,8 +12,17 @@ pub struct CreateProjectState {
     pub error_msg: Option<String>,
 }
 
-/// Result from the create project window: Some((chart_path, audio_path)) when project is created.
-pub type CreateProjectResult = Option<(String, String)>;
+/// 创建项目参数（不再直接执行磁盘操作，交给 ProjectLoader 异步处理）
+#[derive(Debug, Clone)]
+pub struct CreateProjectParams {
+    pub name: String,
+    pub source_audio: String,
+    pub bpm: f64,
+    pub bpl: f64,
+}
+
+/// Result from the create project window: Some(params) when user clicks Create.
+pub type CreateProjectResult = Option<CreateProjectParams>;
 
 impl CreateProjectState {
     pub fn new() -> Self {
@@ -37,53 +45,6 @@ impl CreateProjectState {
     }
 }
 
-/// Create the project on disk:
-/// 1. Create projects/{name}/ directory
-/// 2. Copy audio file into it
-/// 3. Create .spc with chart(bpm, bpl)
-/// 4. Create .iffproj with audio_path and chart_path
-/// Returns (chart_path, audio_path_in_project) on success.
-fn create_project_on_disk(
-    name: &str,
-    source_audio: &str,
-    bpm: f64,
-    bpl: f64,
-) -> Result<(String, String), String> {
-    let project_dir = format!("projects/{}", name);
-    std::fs::create_dir_all(&project_dir)
-        .map_err(|e| format!("创建项目目录失败: {e}"))?;
-
-    // Copy audio file
-    let audio_source = Path::new(source_audio);
-    let audio_ext = audio_source
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("ogg");
-    let audio_filename = format!("music.{}", audio_ext);
-    let audio_dest = format!("{}/{}", project_dir, audio_filename);
-    std::fs::copy(source_audio, &audio_dest)
-        .map_err(|e| format!("复制音频文件失败: {e}"))?;
-
-    // Create .spc file
-    let chart_filename = format!("{}.spc", name);
-    let chart_path = format!("{}/{}", project_dir, chart_filename);
-    let spc_content = format!("chart({:.2},{:.2})\n", bpm, bpl);
-    std::fs::write(&chart_path, &spc_content)
-        .map_err(|e| format!("创建谱面文件失败: {e}"))?;
-
-    // Create .iffproj file
-    let proj_path = format!("{}/{}.iffproj", project_dir, name);
-    let proj_json = serde_json::json!({
-        "audio_path": audio_dest,
-        "chart_path": chart_path,
-    });
-    let proj_content = serde_json::to_string_pretty(&proj_json)
-        .map_err(|e| format!("序列化项目文件失败: {e}"))?;
-    std::fs::write(&proj_path, &proj_content)
-        .map_err(|e| format!("创建项目文件失败: {e}"))?;
-
-    Ok((chart_path, audio_dest))
-}
 
 pub fn draw_create_project_window(
     ctx: &egui::Context,
@@ -215,15 +176,13 @@ pub fn draw_create_project_window(
                         let bpm: f64 = state.bpm.trim().parse().unwrap();
                         let bpl: f64 = state.bpl.trim().parse().unwrap();
 
-                        match create_project_on_disk(&name, &audio, bpm, bpl) {
-                            Ok((chart_path, audio_path)) => {
-                                result = Some((chart_path, audio_path));
-                                should_close = true;
-                            }
-                            Err(e) => {
-                                state.error_msg = Some(e);
-                            }
-                        }
+                        result = Some(CreateProjectParams {
+                            name,
+                            source_audio: audio,
+                            bpm,
+                            bpl,
+                        });
+                        should_close = true;
                     }
                 });
                 if ui.button(i18n.t(TextKey::CreateProjectCancel)).clicked() {
