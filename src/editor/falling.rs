@@ -1,6 +1,7 @@
 use crate::chart::{Chart, ChartEvent, Ease, FlickType};
 use crate::ui::input_state::{safe_mouse_position, safe_mouse_button_pressed, safe_mouse_button_down, safe_key_pressed, safe_key_down};
 use macroquad::prelude::*;
+use rustfft::{FftPlanner, num_complex::Complex};
 use sasa::AudioClip;
 use std::collections::HashSet;
 

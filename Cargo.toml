@@ -10,3 +10,4 @@ macroquad = { version = "0.4.14", default-features = false }
 egui-macroquad = { version = "0.17.3", default-features = false }
 sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = ["cpal"] }
 rfd = "0.15"
+rustfft = "6"
