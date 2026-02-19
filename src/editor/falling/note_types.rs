@@ -107,6 +107,7 @@ pub struct NotePropertyData {
     pub end_width: f64,
     pub left_ease: i32,
     pub right_ease: i32,
+    pub group_id: i32,
 }
 
 /// Public event property data for UI editing.

@@ -744,6 +744,13 @@ fn draw_note_property_editor(
         ui.horizontal(|ui| { if ease_combo_with_switch(ui, "left_ease", &mut data.left_ease) { changed = true; } });
         prop_label(ui, "R Ease");
         ui.horizontal(|ui| { if ease_combo_with_switch(ui, "right_ease", &mut data.right_ease) { changed = true; } });
+        ui.add_space(4.0);
+        prop_label(ui, "Group ID");
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.group_id = (data.group_id - 1).max(0); changed = true; }
+            if num_input_i32(ui, "sky_group_id", &mut data.group_id, 0, i32::MAX) { changed = true; }
+            if pm_btn(ui, "+") { data.group_id = data.group_id.saturating_add(1); changed = true; }
+        });
     }
 
     if changed {

@@ -557,6 +557,7 @@ impl FallingGroundEditor {
             end_width: (end_w * exs).round(),
             left_ease: shape.left_ease.to_value(),
             right_ease: shape.right_ease.to_value(),
+            group_id: shape.group_id,
         })
     }
 
@@ -603,6 +604,7 @@ impl FallingGroundEditor {
                     shape.end_right_norm = (ec + eh).clamp(0.0, 1.0);
                     shape.left_ease = Ease::from_value(data.left_ease);
                     shape.right_ease = Ease::from_value(data.right_ease);
+                    shape.group_id = data.group_id;
                 }
             }
         }
