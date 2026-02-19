@@ -1,5 +1,5 @@
-// 文件说明：音符拖拽编辑行为实现。
-// 主要功能：处理拖拽中的位置更新、尾部调整和约束校验。
+﻿// Drag editing behavior implementation.
+// Handles drag position updates and constraints.
 impl FallingGroundEditor {
     fn start_drag_for_candidate(
         &mut self,
@@ -72,8 +72,7 @@ impl FallingGroundEditor {
             note.time_ms
         };
 
-        // 将 time_offset 量化到当前 snap 网格的整数倍，
-        // 避免拖拽中 apply_snap 因非网格偏移产生不对称吸附。
+        // Quantize offset to snap grid to keep drag behavior stable.
         let raw_offset = drag_anchor_time_ms - pointer_time_ms;
         let quantized_offset = if self.view.snap_enabled && self.view.snap_division > 0 {
             let point = self
@@ -87,7 +86,7 @@ impl FallingGroundEditor {
             raw_offset
         };
 
-        // 计算拖拽开始时鼠标所在轨道与音符 lane 的偏移
+        // Mouse lane offset from the dragged note lane at drag start.
         let lane_offset = if candidate.scope == HitScope::Ground {
             if let Some(rect) = ground_rect {
                 let lane_w = rect.w / LANE_COUNT as f32;
@@ -131,32 +130,37 @@ impl FallingGroundEditor {
             return;
         }
 
-        // Determine scope: all ground, all air, or mixed
+        // Determine scope: all ground, all air, or mixed.
+        // Build index-based bindings once, then update by index each frame.
         let mut has_ground = false;
         let mut has_air = false;
-        let mut initial_notes: Vec<MultiDragNoteSnapshot> = Vec::new();
+        let mut bindings: Vec<MultiDragBinding> = Vec::new();
         let mut x_splits: Vec<f64> = Vec::new();
 
-        for &nid in &self.selection.selected_note_ids {
-            if let Some(note) = self.editor_state.notes.iter().find(|n| n.id == nid) {
-                if is_ground_kind(note.kind) {
-                    has_ground = true;
-                } else {
-                    has_air = true;
-                    x_splits.push(note.x_split);
-                }
-                let (sl, sr, el, er) = if let Some(shape) = note.skyarea_shape {
-                    (
-                        shape.start_left_norm,
-                        shape.start_right_norm,
-                        shape.end_left_norm,
-                        shape.end_right_norm,
-                    )
-                } else {
-                    (0.0, 0.0, 0.0, 0.0)
-                };
-                initial_notes.push(MultiDragNoteSnapshot {
-                    note_id: nid,
+        for (note_index, note) in self.editor_state.notes.iter().enumerate() {
+            if !self.selection.selected_note_ids.contains(&note.id) {
+                continue;
+            }
+            if is_ground_kind(note.kind) {
+                has_ground = true;
+            } else {
+                has_air = true;
+                x_splits.push(note.x_split);
+            }
+            let (sl, sr, el, er) = if let Some(shape) = note.skyarea_shape {
+                (
+                    shape.start_left_norm,
+                    shape.start_right_norm,
+                    shape.end_left_norm,
+                    shape.end_right_norm,
+                )
+            } else {
+                (0.0, 0.0, 0.0, 0.0)
+            };
+            bindings.push(MultiDragBinding {
+                note_index,
+                snapshot: MultiDragNoteSnapshot {
+                    note_id: note.id,
                     original_time_ms: note.time_ms,
                     original_lane: note.lane,
                     original_width: note.width,
@@ -166,11 +170,11 @@ impl FallingGroundEditor {
                     sky_start_right: sr,
                     sky_end_left: el,
                     sky_end_right: er,
-                });
-            }
+                },
+            });
         }
 
-        if initial_notes.is_empty() {
+        if bindings.is_empty() {
             return;
         }
 
@@ -204,8 +208,11 @@ impl FallingGroundEditor {
             .copied()
             .unwrap_or(self.editor_state.x_split);
 
-        // Compute time offset from anchor note
-        let anchor_note = self.editor_state.notes.iter().find(|n| n.id == anchor_id);
+        // Compute time offset from anchor note.
+        let anchor_snapshot = bindings
+            .iter()
+            .find(|binding| binding.snapshot.note_id == anchor_id)
+            .map(|binding| binding.snapshot);
         let (judge_y, lane_h) = if has_ground && !has_air {
             if let Some(rect) = ground_rect {
                 (rect.y + rect.h * 0.82, rect.h)
@@ -224,7 +231,9 @@ impl FallingGroundEditor {
 
         let raw_pointer_time = self.pointer_to_time(my, current_ms, judge_y, lane_h);
         let pointer_time = self.apply_snap(raw_pointer_time.max(0.0));
-        let anchor_time = anchor_note.map(|n| n.time_ms).unwrap_or(pointer_time);
+        let anchor_time = anchor_snapshot
+            .map(|snapshot| snapshot.original_time_ms)
+            .unwrap_or(pointer_time);
 
         let raw_offset = anchor_time - pointer_time;
         let quantized_offset = if self.view.snap_enabled && self.view.snap_division > 0 {
@@ -241,7 +250,9 @@ impl FallingGroundEditor {
             if let Some(rect) = ground_rect {
                 let lane_w = rect.w / LANE_COUNT as f32;
                 let mouse_lane = lane_from_x(mx, rect.x, lane_w) as i32;
-                let anchor_lane = anchor_note.map(|n| n.lane as i32).unwrap_or(0);
+                let anchor_lane = anchor_snapshot
+                    .map(|snapshot| snapshot.original_lane as i32)
+                    .unwrap_or(0);
                 mouse_lane - anchor_lane
             } else {
                 0
@@ -261,50 +272,52 @@ impl FallingGroundEditor {
             mode,
             common_x_split,
             scope,
-            initial_notes,
+            bindings,
         });
     }
 
     /// Update all notes during multi-drag (ground scope).
     fn update_multi_drag_ground(&mut self, rect: Rect, current_ms: f32) {
-        let Some(mdrag) = &self.selection.multi_drag_state else {
+        let Some(mdrag) = self.selection.multi_drag_state.as_ref() else {
             return;
         };
+        let time_offset_ms = mdrag.time_offset_ms;
+        let lane_offset = mdrag.lane_offset;
+        let anchor_note_id = mdrag.anchor_note_id;
+        let bindings = mdrag.bindings.clone();
+
         let lane_w = rect.w / LANE_COUNT as f32;
         let judge_y = rect.y + rect.h * 0.82;
         let (mx, my) = safe_mouse_position();
 
         let mouse_lane = lane_from_x(mx, rect.x, lane_w) as i32;
-        let new_time = self.pointer_to_time(my, current_ms, judge_y, rect.h) + mdrag.time_offset_ms;
+        let new_time = self.pointer_to_time(my, current_ms, judge_y, rect.h) + time_offset_ms;
         let snapped_time = self.apply_snap(new_time.max(0.0));
 
-        // anchor 目标 lane = mouse_lane - lane_offset（鼠标与 anchor 的初始偏移）
-        let target_anchor_lane = mouse_lane - mdrag.lane_offset;
-        let anchor_snap = mdrag
-            .initial_notes
+        let target_anchor_lane = mouse_lane - lane_offset;
+        let anchor_snap = bindings
             .iter()
-            .find(|s| s.note_id == mdrag.anchor_note_id);
-        let anchor_orig_lane = anchor_snap.map(|s| s.original_lane as i32).unwrap_or(0);
-        let anchor_orig_time = anchor_snap.map(|s| s.original_time_ms).unwrap_or(0.0);
+            .find(|binding| binding.snapshot.note_id == anchor_note_id)
+            .map(|binding| binding.snapshot);
+        let anchor_orig_lane = anchor_snap
+            .map(|snapshot| snapshot.original_lane as i32)
+            .unwrap_or(0);
+        let anchor_orig_time = anchor_snap
+            .map(|snapshot| snapshot.original_time_ms)
+            .unwrap_or(0.0);
         let time_delta = snapped_time - anchor_orig_time;
 
-        // 期望的 lane 偏移量
         let desired_lane_shift = target_anchor_lane - anchor_orig_lane;
 
-        // 计算全局可移动范围：遍历所有 ground note，找到 shift 的上下界
         let mut global_min = i32::MIN;
         let mut global_max = i32::MAX;
-        for snap in &mdrag.initial_notes {
-            if let Some(note) = self
-                .editor_state
-                .notes
-                .iter()
-                .find(|n| n.id == snap.note_id)
-            {
+        for binding in &bindings {
+            let snapshot = binding.snapshot;
+            if let Some(note) = self.editor_state.notes.get(binding.note_index) {
                 if is_ground_kind(note.kind) {
                     let eff_w =
-                        ground_note_effective_width(snap.original_lane, snap.original_width);
-                    let orig = snap.original_lane as i32;
+                        ground_note_effective_width(snapshot.original_lane, snapshot.original_width);
+                    let orig = snapshot.original_lane as i32;
                     let (lo, hi) = if eff_w > 1 {
                         (1 - orig, (5 - eff_w as i32).max(1) - orig)
                     } else {
@@ -318,70 +331,64 @@ impl FallingGroundEditor {
 
         let lane_shift = desired_lane_shift.clamp(global_min, global_max);
 
-        // Clone to avoid borrow issues
-        let snapshots: Vec<MultiDragNoteSnapshot> = mdrag.initial_notes.clone();
-
-        for snap in &snapshots {
-            if let Some(note) = self
-                .editor_state
-                .notes
-                .iter_mut()
-                .find(|n| n.id == snap.note_id)
-            {
-                note.time_ms = (snap.original_time_ms + time_delta).max(0.0);
+        for binding in &bindings {
+            let snapshot = binding.snapshot;
+            if let Some(note) = self.editor_state.notes.get_mut(binding.note_index) {
+                note.time_ms = (snapshot.original_time_ms + time_delta).max(0.0);
                 if is_ground_kind(note.kind) {
-                    note.lane = (snap.original_lane as i32 + lane_shift) as usize;
+                    note.lane = (snapshot.original_lane as i32 + lane_shift) as usize;
                 }
             }
         }
+        self.editor_state.cached_note_heads_dirty = true;
     }
 
     /// Update all notes during multi-drag (air scope).
     fn update_multi_drag_air(&mut self, rect: Rect, current_ms: f32) {
-        let Some(mdrag) = &self.selection.multi_drag_state else {
+        let Some(mdrag) = self.selection.multi_drag_state.as_ref() else {
             return;
         };
+        let time_offset_ms = mdrag.time_offset_ms;
+        let mode = mdrag.mode;
+        let anchor_note_id = mdrag.anchor_note_id;
+        let start_mouse_x = mdrag.start_mouse_x;
+        let bindings = mdrag.bindings.clone();
+
         let split_rect = air_split_rect(rect);
         let judge_y = rect.y + rect.h * 0.82;
         let (mx, my) = safe_mouse_position();
 
-        let new_time = self.pointer_to_time(my, current_ms, judge_y, rect.h) + mdrag.time_offset_ms;
+        let new_time = self.pointer_to_time(my, current_ms, judge_y, rect.h) + time_offset_ms;
         let snapped_time = self.apply_snap(new_time.max(0.0));
 
-        let anchor_snap = mdrag
-            .initial_notes
+        let anchor_snap = bindings
             .iter()
-            .find(|s| s.note_id == mdrag.anchor_note_id);
-        let anchor_orig_time = anchor_snap.map(|s| s.original_time_ms).unwrap_or(0.0);
+            .find(|binding| binding.snapshot.note_id == anchor_note_id)
+            .map(|binding| binding.snapshot);
+        let anchor_orig_time = anchor_snap
+            .map(|snapshot| snapshot.original_time_ms)
+            .unwrap_or(0.0);
         let time_delta = snapped_time - anchor_orig_time;
 
-        let raw_x_delta = if mdrag.mode == MultiDragMode::AirFull {
-            (mx - mdrag.start_mouse_x) / split_rect.w.max(1.0)
+        let raw_x_delta = if mode == MultiDragMode::AirFull {
+            (mx - start_mouse_x) / split_rect.w.max(1.0)
         } else {
             0.0
         };
 
-        let snapshots: Vec<MultiDragNoteSnapshot> = mdrag.initial_notes.clone();
-        let mode = mdrag.mode;
-
-        // 全局计算所有 air note 的最左和最右边界，统一 clamp x_delta
         let x_delta = if mode == MultiDragMode::AirFull {
-            let mut global_left_min: f32 = 0.0; // 所有 note 中最小的左边界
-            let mut global_right_max: f32 = 1.0; // 所有 note 中最大的右边界
+            let mut global_left_min: f32 = 0.0;
+            let mut global_right_max: f32 = 1.0;
             let mut first = true;
-            for snap in &snapshots {
-                if let Some(note) = self
-                    .editor_state
-                    .notes
-                    .iter()
-                    .find(|n| n.id == snap.note_id)
-                {
+            for binding in &bindings {
+                let snapshot = binding.snapshot;
+                if let Some(note) = self.editor_state.notes.get(binding.note_index) {
                     if !is_air_kind(note.kind) {
                         continue;
                     }
                     if note.kind == GroundNoteKind::SkyArea {
-                        let left = snap.sky_start_left.min(snap.sky_end_left);
-                        let right = snap.sky_start_right.max(snap.sky_end_right);
+                        let left = snapshot.sky_start_left.min(snapshot.sky_end_left);
+                        let right = snapshot.sky_start_right.max(snapshot.sky_end_right);
                         if first {
                             global_left_min = left;
                             global_right_max = right;
@@ -391,10 +398,9 @@ impl FallingGroundEditor {
                             global_right_max = global_right_max.max(right);
                         }
                     } else {
-                        // Flick
-                        let half_w = snap.original_width.clamp(0.05, 1.0) * 0.5;
-                        let left = snap.original_center_x_norm - half_w;
-                        let right = snap.original_center_x_norm + half_w;
+                        let half_w = snapshot.original_width.clamp(0.05, 1.0) * 0.5;
+                        let left = snapshot.original_center_x_norm - half_w;
+                        let right = snapshot.original_center_x_norm + half_w;
                         if first {
                             global_left_min = left;
                             global_right_max = right;
@@ -406,20 +412,15 @@ impl FallingGroundEditor {
                     }
                 }
             }
-            // delta 范围：不能让全局最左超出 0，全局最右超出 1
             raw_x_delta.clamp(-global_left_min, 1.0 - global_right_max)
         } else {
             0.0
         };
 
-        for snap in &snapshots {
-            if let Some(note) = self
-                .editor_state
-                .notes
-                .iter_mut()
-                .find(|n| n.id == snap.note_id)
-            {
-                note.time_ms = (snap.original_time_ms + time_delta).max(0.0);
+        for binding in &bindings {
+            let snapshot = binding.snapshot;
+            if let Some(note) = self.editor_state.notes.get_mut(binding.note_index) {
+                note.time_ms = (snapshot.original_time_ms + time_delta).max(0.0);
 
                 if !is_air_kind(note.kind) {
                     continue;
@@ -428,11 +429,11 @@ impl FallingGroundEditor {
                 if mode == MultiDragMode::AirFull {
                     if note.kind == GroundNoteKind::SkyArea {
                         if let Some(shape) = note.skyarea_shape.as_mut() {
-                            shape.start_left_norm = (snap.sky_start_left + x_delta).clamp(0.0, 1.0);
+                            shape.start_left_norm = (snapshot.sky_start_left + x_delta).clamp(0.0, 1.0);
                             shape.start_right_norm =
-                                (snap.sky_start_right + x_delta).clamp(0.0, 1.0);
-                            shape.end_left_norm = (snap.sky_end_left + x_delta).clamp(0.0, 1.0);
-                            shape.end_right_norm = (snap.sky_end_right + x_delta).clamp(0.0, 1.0);
+                                (snapshot.sky_start_right + x_delta).clamp(0.0, 1.0);
+                            shape.end_left_norm = (snapshot.sky_end_left + x_delta).clamp(0.0, 1.0);
+                            shape.end_right_norm = (snapshot.sky_end_right + x_delta).clamp(0.0, 1.0);
 
                             let center = ((shape.start_left_norm
                                 + shape.start_right_norm
@@ -444,48 +445,49 @@ impl FallingGroundEditor {
                             note.center_x_norm = center;
                         }
                     } else {
-                        // Flick
-                        let half_w = snap.original_width.clamp(0.05, 1.0) * 0.5;
+                        let half_w = snapshot.original_width.clamp(0.05, 1.0) * 0.5;
                         let new_center =
-                            (snap.original_center_x_norm + x_delta).clamp(half_w, 1.0 - half_w);
+                            (snapshot.original_center_x_norm + x_delta).clamp(half_w, 1.0 - half_w);
                         note.center_x_norm = new_center;
                         note.lane = air_x_to_lane(new_center);
                     }
                 }
             }
         }
+        self.editor_state.cached_note_heads_dirty = true;
     }
 
     /// Update all notes during multi-drag (time-only for mixed scope).
     fn update_multi_drag_time_only(&mut self, rect: Rect, current_ms: f32) {
-        let Some(mdrag) = &self.selection.multi_drag_state else {
+        let Some(mdrag) = self.selection.multi_drag_state.as_ref() else {
             return;
         };
+        let time_offset_ms = mdrag.time_offset_ms;
+        let anchor_note_id = mdrag.anchor_note_id;
+        let bindings = mdrag.bindings.clone();
+
         let judge_y = rect.y + rect.h * 0.82;
         let (_mx, my) = safe_mouse_position();
 
-        let new_time = self.pointer_to_time(my, current_ms, judge_y, rect.h) + mdrag.time_offset_ms;
+        let new_time = self.pointer_to_time(my, current_ms, judge_y, rect.h) + time_offset_ms;
         let snapped_time = self.apply_snap(new_time.max(0.0));
 
-        let anchor_snap = mdrag
-            .initial_notes
+        let anchor_snap = bindings
             .iter()
-            .find(|s| s.note_id == mdrag.anchor_note_id);
-        let anchor_orig_time = anchor_snap.map(|s| s.original_time_ms).unwrap_or(0.0);
+            .find(|binding| binding.snapshot.note_id == anchor_note_id)
+            .map(|binding| binding.snapshot);
+        let anchor_orig_time = anchor_snap
+            .map(|snapshot| snapshot.original_time_ms)
+            .unwrap_or(0.0);
         let time_delta = snapped_time - anchor_orig_time;
 
-        let snapshots: Vec<MultiDragNoteSnapshot> = mdrag.initial_notes.clone();
-
-        for snap in &snapshots {
-            if let Some(note) = self
-                .editor_state
-                .notes
-                .iter_mut()
-                .find(|n| n.id == snap.note_id)
-            {
-                note.time_ms = (snap.original_time_ms + time_delta).max(0.0);
+        for binding in &bindings {
+            let snapshot = binding.snapshot;
+            if let Some(note) = self.editor_state.notes.get_mut(binding.note_index) {
+                note.time_ms = (snapshot.original_time_ms + time_delta).max(0.0);
             }
         }
+        self.editor_state.cached_note_heads_dirty = true;
     }
 
     /// Finish multi-drag: clear state and sort.
@@ -494,3 +496,7 @@ impl FallingGroundEditor {
         self.sort_notes();
     }
 }
+
+
+
+

@@ -42,6 +42,12 @@ struct MultiDragNoteSnapshot {
     sky_end_right: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MultiDragBinding {
+    note_index: usize,
+    snapshot: MultiDragNoteSnapshot,
+}
+
 #[derive(Debug, Clone)]
 struct MultiDragState {
     anchor_note_id: u64,
@@ -53,7 +59,7 @@ struct MultiDragState {
     mode: MultiDragMode,
     common_x_split: f64,
     scope: HitScope,
-    initial_notes: Vec<MultiDragNoteSnapshot>,
+    bindings: Vec<MultiDragBinding>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
