@@ -137,6 +137,7 @@ impl FallingGroundEditor {
                 minimap_last_emit_sec: None,
                 minimap_drag_target_sec: None,
                 minimap_page: None,
+                paste_preview_cache: None,
                 text_font: None,
             },
             clipboard: ClipboardManager::default(),

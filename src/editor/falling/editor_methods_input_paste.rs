@@ -97,6 +97,63 @@ impl FallingGroundEditor {
         preview
     }
 
+    fn quantize_preview_rect(rect: Option<Rect>) -> Option<(i32, i32, i32, i32)> {
+        rect.map(|r| {
+            (
+                r.x.round() as i32,
+                r.y.round() as i32,
+                r.w.round() as i32,
+                r.h.round() as i32,
+            )
+        })
+    }
+
+    fn paste_preview_cache_key(
+        &self,
+        ground_rect: Option<Rect>,
+        air_rect: Option<Rect>,
+        current_ms: f32,
+        mode: PasteMode,
+    ) -> PastePreviewCacheKey {
+        let (mx, my) = safe_mouse_position();
+        PastePreviewCacheKey {
+            mode,
+            clipboard_version: self.clipboard.version(),
+            mouse_x_q: mx.round() as i32,
+            mouse_y_q: my.round() as i32,
+            time_q: (current_ms * 0.5).round() as i32,
+            ground_rect_q: Self::quantize_preview_rect(ground_rect),
+            air_rect_q: Self::quantize_preview_rect(air_rect),
+        }
+    }
+
+    fn cached_paste_preview(
+        &mut self,
+        ground_rect: Option<Rect>,
+        air_rect: Option<Rect>,
+        current_ms: f32,
+        mode: PasteMode,
+    ) -> std::sync::Arc<[GroundNote]> {
+        let key = self.paste_preview_cache_key(ground_rect, air_rect, current_ms, mode);
+        let cache_hit = self
+            .view
+            .paste_preview_cache
+            .as_ref()
+            .map(|cache| cache.key == key)
+            .unwrap_or(false);
+        if !cache_hit {
+            let mirrored = mode == PasteMode::Mirrored;
+            let notes_vec = self.compute_paste_preview(ground_rect, air_rect, current_ms, mirrored);
+            let notes: std::sync::Arc<[GroundNote]> = notes_vec.into();
+            self.view.paste_preview_cache = Some(PastePreviewCache { key, notes });
+        }
+        self.view
+            .paste_preview_cache
+            .as_ref()
+            .map(|cache| cache.notes.clone())
+            .unwrap_or_else(|| std::sync::Arc::<[GroundNote]>::from([]))
+    }
+
     /// 计算粘贴偏移量（时间、lane、x）
     fn compute_paste_offsets(
         &self,
@@ -273,7 +330,7 @@ impl FallingGroundEditor {
 
     /// 绘制粘贴预览（半透明音符）
     fn draw_paste_preview(
-        &self,
+        &mut self,
         ground_rect: Option<Rect>,
         air_rect: Option<Rect>,
         current_ms: f32,
@@ -282,7 +339,7 @@ impl FallingGroundEditor {
             return;
         };
         let mirrored = mode == PasteMode::Mirrored;
-        let preview = self.compute_paste_preview(ground_rect, air_rect, current_ms, mirrored);
+        let preview = self.cached_paste_preview(ground_rect, air_rect, current_ms, mode);
         if preview.is_empty() {
             return;
         }

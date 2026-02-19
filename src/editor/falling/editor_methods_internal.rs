@@ -637,6 +637,7 @@ impl FallingGroundEditor {
             return;
         }
         self.clipboard.set_paste_mode(mode);
+        self.view.paste_preview_cache = None;
         self.selection.prepare_for_paste_mode();
         let label = match mode {
             PasteMode::Normal => "paste",
@@ -648,6 +649,7 @@ impl FallingGroundEditor {
     /// 退出粘贴模式
     fn exit_paste_mode(&mut self) {
         self.clipboard.clear_paste_mode();
+        self.view.paste_preview_cache = None;
         self.status = "paste cancelled".to_owned();
     }
 

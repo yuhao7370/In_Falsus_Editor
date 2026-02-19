@@ -60,6 +60,7 @@ struct ViewState {
     minimap_last_emit_sec: Option<f32>,
     minimap_drag_target_sec: Option<f32>,
     minimap_page: Option<MinimapPageConfig>,
+    paste_preview_cache: Option<PastePreviewCache>,
     text_font: Option<Font>,
 }
 
@@ -67,6 +68,24 @@ struct ViewState {
 struct ClipboardManager {
     clipboard: Vec<GroundNote>,
     paste_mode: Option<PasteMode>,
+    version: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PastePreviewCacheKey {
+    mode: PasteMode,
+    clipboard_version: u64,
+    mouse_x_q: i32,
+    mouse_y_q: i32,
+    time_q: i32,
+    ground_rect_q: Option<(i32, i32, i32, i32)>,
+    air_rect_q: Option<(i32, i32, i32, i32)>,
+}
+
+#[derive(Debug, Clone)]
+struct PastePreviewCache {
+    key: PastePreviewCacheKey,
+    notes: std::sync::Arc<[GroundNote]>,
 }
 
 impl EditorState {
@@ -156,6 +175,7 @@ impl ClipboardManager {
     fn set_notes(&mut self, mut notes: Vec<GroundNote>) {
         notes.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
         self.clipboard = notes;
+        self.version = self.version.wrapping_add(1);
     }
 
     fn notes(&self) -> &[GroundNote] {
@@ -164,6 +184,10 @@ impl ClipboardManager {
 
     fn notes_cloned(&self) -> Vec<GroundNote> {
         self.clipboard.clone()
+    }
+
+    fn version(&self) -> u64 {
+        self.version
     }
 
     fn paste_mode(&self) -> Option<PasteMode> {
