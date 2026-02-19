@@ -33,6 +33,7 @@ impl AudioController {
             playing: false,
             duration_sec,
             track_path,
+            metadata_dirty: false,
             music_volume,
             master_volume: 1.0,
             hitsound_player: HitSoundPlayer::new(),
@@ -60,6 +61,7 @@ impl AudioController {
             playing: false,
             duration_sec: 0.0,
             track_path: None,
+            metadata_dirty: false,
             music_volume: 1.0,
             master_volume: 1.0,
             hitsound_player: HitSoundPlayer::new(),
@@ -103,10 +105,13 @@ impl AudioController {
                 self.status = format_event(event, i18n);
             }
 
-            // 2. Sync metadata.
+            // 2. Sync metadata (only clone track_path when a load occurred).
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
-            self.track_path = snap.track_path;
+            if self.metadata_dirty {
+                self.track_path = snap.track_path;
+                self.metadata_dirty = false;
+            }
             // Note: we don't sync volume from backend; we manage it ourselves.
 
             // 3. Re-anchor to backend position every frame to prevent drift.
