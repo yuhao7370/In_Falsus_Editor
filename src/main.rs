@@ -553,6 +553,7 @@ async fn main() {
         if egui_wants_pointer {
             egui_wheel_y = 0.0;
         }
+        let shift_down = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
         if ctrl_down && free_wheel_y.abs() > f32::EPSILON {
             let step = editor.scroll_speed_step();
             let delta = if free_wheel_y > 0.0 { step } else { -step };
@@ -560,6 +561,12 @@ async fn main() {
             app_settings.scroll_speed = editor.scroll_speed();
             app_settings.save();
             info_toasts.push(format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), editor.scroll_speed()));
+        } else if shift_down && free_wheel_y.abs() > f32::EPSILON && !audio.is_playing() && audio.duration_sec() > 0.0 {
+            let forward = free_wheel_y > 0.0;
+            let current_ms = audio.current_sec() * 1000.0;
+            let target_ms = editor.snap_seek_ms(current_ms, forward);
+            let target_sec = (target_ms / 1000.0).clamp(0.0, audio.duration_sec());
+            audio.handle_editor_seek(target_sec, &i18n);
         } else {
             audio.handle_wheel_seek(mq_wheel_y, egui_wheel_y, space_consumed, &i18n);
         }

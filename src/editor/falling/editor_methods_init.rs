@@ -407,6 +407,26 @@ impl FallingGroundEditor {
         self.adjust_scroll_speed(delta);
     }
 
+    /// 按当前 snap_division 细分，返回前进（forward=true）或后退一条网格线的时间（毫秒）。
+    pub fn snap_seek_ms(&self, current_ms: f32, forward: bool) -> f32 {
+        let point = self.timeline.point_at_time(current_ms);
+        let bpm = point.bpm.abs().max(0.001);
+        let div = self.snap_division.max(1) as f32;
+        let sub_ms = 60_000.0 / bpm / div;
+        let offset = current_ms - point.time_ms;
+        let grid_n = offset / sub_ms;
+        // 浮点容差：如果距离最近网格线 < 0.1ms，视为已在该线上
+        let rounded_n = grid_n.round();
+        let on_grid = (grid_n - rounded_n).abs() < (0.1 / sub_ms);
+        let next_n = if forward {
+            if on_grid { rounded_n as i32 + 1 } else { grid_n.ceil() as i32 }
+        } else {
+            if on_grid { rounded_n as i32 - 1 } else { grid_n.floor() as i32 }
+        };
+        let target = point.time_ms + next_n as f32 * sub_ms;
+        target.max(0.0)
+    }
+
     pub fn pending_hold_head_time_ms(&self) -> Option<f32> {
         self.pending_hold.map(|pending| pending.start_time_ms)
     }
