@@ -1,7 +1,6 @@
 use macroquad::prelude::*;
 use super::input_state::{
     is_pointer_blocked, safe_mouse_button_down, safe_mouse_button_pressed,
-    safe_mouse_button_released,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -155,12 +154,7 @@ pub fn draw_top_progress_bar(
             if state.drag_active && drag_down {
                 state.seek_sec = mouse_seek_sec;
             }
-            let drag_released = if state.drag_active {
-                is_mouse_button_released(MouseButton::Left)
-            } else {
-                safe_mouse_button_released(MouseButton::Left)
-            };
-            if state.drag_active && drag_released {
+            if state.drag_active && !drag_down {
                 state.drag_active = false;
                 seek_to_sec = Some(state.seek_sec);
                 display_sec = state.seek_sec.clamp(0.0, duration_sec);
