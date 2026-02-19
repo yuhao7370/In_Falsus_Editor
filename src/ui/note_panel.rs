@@ -218,6 +218,17 @@ fn panel_max_width(lane: usize) -> f32 {
     }
 }
 
+/// Flick 宽度在当前中心点下的最大可用值（raw 坐标）。
+/// 约束：x - width/2 >= 0 且 x + width/2 <= x_split。
+fn flick_width_max_for_center(x: f64, x_split: f64) -> f64 {
+    if x_split <= 0.0 {
+        return 0.0;
+    }
+    let left_room = x.max(0.0);
+    let right_room = (x_split - x).max(0.0);
+    (left_room.min(right_room) * 2.0).max(0.0)
+}
+
 const EASE_COMBO_FONT: f32 = 16.0;
 const EASE_COMBO_WIDTH: f32 = 120.0;
 const EASE_SWITCH_SIZE: egui::Vec2 = egui::vec2(28.0, 28.0);
@@ -607,9 +618,17 @@ fn draw_note_property_editor(
         prop_label(ui, "Width");
         ui.horizontal(|ui| {
             let mut w = data.width as f64;
+            let max_w = flick_width_max_for_center(data.x, data.x_split);
             if pm_btn(ui, "-") { w = (w - 1.0).max(0.0); data.width = w as f32; changed = true; }
-            if num_input_f64(ui, "flick_w", &mut w, 0.0, data.x_split, 0) { data.width = w as f32; changed = true; }
-            if pm_btn(ui, "+") { w = (w + 1.0).min(data.x_split); data.width = w as f32; changed = true; }
+            if num_input_f64(ui, "flick_w", &mut w, 0.0, max_w, 0) { data.width = w as f32; changed = true; }
+            if pm_btn(ui, "+") {
+                let candidate = w + 1.0;
+                if candidate <= max_w {
+                    w = candidate;
+                    data.width = w as f32;
+                    changed = true;
+                }
+            }
         });
         if xsplit_editable {
             // Editable mode: per-note XSplit
