@@ -66,6 +66,7 @@ impl FallingGroundEditor {
             cached_barlines_subdivision: initial_subdivision,
             timeline_events,
             selected_event_id: None,
+            selected_event_ids: HashSet::new(),
             event_overlap_cycle: None,
             event_hover_hint: None,
             next_event_id,
@@ -296,6 +297,7 @@ impl FallingGroundEditor {
         self.selected_note_id = None;
         self.selected_note_ids.clear();
         self.selected_event_id = None;
+        self.selected_event_ids.clear();
         self.drag_state = None;
         self.multi_drag_state = None;
         self.pending_hold = None;
@@ -930,6 +932,7 @@ impl FallingGroundEditor {
 
     pub fn deselect_event(&mut self) {
         self.selected_event_id = None;
+        self.selected_event_ids.clear();
         self.event_overlap_cycle = None;
         self.event_hover_hint = None;
     }

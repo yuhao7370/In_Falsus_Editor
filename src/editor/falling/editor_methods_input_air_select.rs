@@ -342,6 +342,7 @@ impl FallingGroundEditor {
             // Shift-click does not start drag
             self.drag_state = None;
             self.selected_event_id = None;
+            self.selected_event_ids.clear();
             self.event_overlap_cycle = None;
             self.event_hover_hint = None;
             let count = self.selected_note_ids.len();
@@ -352,6 +353,7 @@ impl FallingGroundEditor {
                 // Start multi-drag for all selected notes
                 self.selected_note_id = Some(clicked_id);
                 self.selected_event_id = None;
+                self.selected_event_ids.clear();
                 self.event_overlap_cycle = None;
                 self.event_hover_hint = None;
                 self.start_multi_drag(clicked_id, mx, my, current_ms, ground_rect, air_rect);
@@ -361,6 +363,7 @@ impl FallingGroundEditor {
                 self.selected_note_ids.insert(clicked_id);
                 self.selected_note_id = Some(clicked_id);
                 self.selected_event_id = None;
+                self.selected_event_ids.clear();
                 self.event_overlap_cycle = None;
                 self.event_hover_hint = None;
                 self.start_drag_for_candidate(selected, mx, my, current_ms, ground_rect, air_rect);

@@ -144,6 +144,19 @@ impl FallingGroundEditor {
                 self.overlap_cycle = None;
                 self.hover_overlap_hint = None;
                 self.status = format!("note {} deleted", note_id);
+            } else if !self.selected_event_ids.is_empty() {
+                self.editing_event_backup = None;
+                self.snapshot_for_undo();
+                let ids = self.selected_event_ids.clone();
+                let count = ids.len();
+                self.timeline_events.retain(|e| !ids.contains(&e.id));
+                self.rebuild_bpm_timeline_from_events();
+                self.rebuild_track_source_from_events();
+                self.selected_event_id = None;
+                self.selected_event_ids.clear();
+                self.event_overlap_cycle = None;
+                self.event_hover_hint = None;
+                self.status = format!("{} event(s) deleted", count);
             } else if let Some(event_id) = self.selected_event_id.take() {
                 self.editing_event_backup = None; // discard backup — event is being deleted
                 self.snapshot_for_undo();
@@ -171,6 +184,7 @@ impl FallingGroundEditor {
                 self.overlap_cycle = None;
                 self.hover_overlap_hint = None;
                 self.selected_event_id = None;
+                self.selected_event_ids.clear();
                 self.event_overlap_cycle = None;
                 self.event_hover_hint = None;
                 self.status = "place mode cleared".to_owned();

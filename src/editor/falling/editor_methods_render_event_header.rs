@@ -83,6 +83,7 @@ impl FallingGroundEditor {
         let right_clicked = mouse_in_rect && safe_mouse_button_pressed(MouseButton::Right);
         if right_clicked {
             self.selected_event_id = None;
+            self.selected_event_ids.clear();
             self.event_overlap_cycle = None;
             self.event_hover_hint = None;
         }
@@ -209,7 +210,8 @@ impl FallingGroundEditor {
             let col_x = rect.x + col_w * ci as f32;
             for (ei, (y, idx)) in col_events.iter().enumerate() {
                 let event = &self.timeline_events[*idx];
-                let is_selected = self.selected_event_id == Some(event.id);
+                let is_selected = self.selected_event_id == Some(event.id)
+                    || self.selected_event_ids.contains(&event.id);
                 let offset = col_offsets[ci][ei];
 
                 // 计算实际渲染子区域
@@ -323,6 +325,7 @@ impl FallingGroundEditor {
 
         // 双击切换选中逻辑（与 note 一致）
             if clicked && !click_candidates.is_empty() {
+            let shift_held = safe_key_down(KeyCode::LeftShift) || safe_key_down(KeyCode::RightShift);
             let anchor_y = (mouse.1 * 0.5) as i32;
             let col = click_candidates[0].1;
             let ids: Vec<u64> = click_candidates.iter().map(|c| c.0).collect();
@@ -332,7 +335,30 @@ impl FallingGroundEditor {
                 .selected_event_id
                 .and_then(|sel| ids.iter().position(|id| *id == sel));
 
-            if ids.len() > 1 {
+            if shift_held {
+                // Shift+Click: toggle event in/out of multi-select
+                let clicked_id = ids[0];
+                if self.selected_event_ids.contains(&clicked_id) {
+                    self.selected_event_ids.remove(&clicked_id);
+                    if self.selected_event_id == Some(clicked_id) {
+                        self.selected_event_id = self.selected_event_ids.iter().next().copied();
+                    }
+                } else {
+                    // Add previous selected_event_id to the set first
+                    if let Some(prev_id) = self.selected_event_id {
+                        self.selected_event_ids.insert(prev_id);
+                    }
+                    self.selected_event_ids.insert(clicked_id);
+                    self.selected_event_id = Some(clicked_id);
+                }
+                // Clear note selection
+                self.selected_note_id = None;
+                self.selected_note_ids.clear();
+                self.overlap_cycle = None;
+                self.hover_overlap_hint = None;
+                let count = self.selected_event_ids.len();
+                self.status = format!("selected {} event(s)", count);
+            } else if ids.len() > 1 {
                 let mut index = selected_index.unwrap_or(0);
                 let mut double_click_armed = selected_index.is_some();
                 let mut did_cycle = false;
@@ -361,6 +387,7 @@ impl FallingGroundEditor {
                 }
 
                     self.selected_event_id = Some(ids[index]);
+                    self.selected_event_ids.clear();
                     self.selected_note_id = None;
                     self.selected_note_ids.clear();
                     self.overlap_cycle = None;
@@ -385,6 +412,7 @@ impl FallingGroundEditor {
                 }
             } else {
                     self.selected_event_id = Some(ids[0]);
+                    self.selected_event_ids.clear();
                     self.selected_note_id = None;
                     self.selected_note_ids.clear();
                     self.overlap_cycle = None;
@@ -395,8 +423,12 @@ impl FallingGroundEditor {
                     }
             }
             } else if clicked {
-                self.selected_event_id = None;
-                self.event_overlap_cycle = None;
+                let shift_held = safe_key_down(KeyCode::LeftShift) || safe_key_down(KeyCode::RightShift);
+                if !shift_held {
+                    self.selected_event_id = None;
+                    self.selected_event_ids.clear();
+                    self.event_overlap_cycle = None;
+                }
             }
 
         // 绘制悬停提示框

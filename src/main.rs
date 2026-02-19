@@ -27,9 +27,10 @@ const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
 
 /// 开发模式：设为 true 时启动自动加载下方指定的谱面和音频，方便调试。
 const DEV_MODE: bool = true;
-const DEV_CHART_PATH: &str = "songs/alamode/alamode3.spc";
-const DEV_AUDIO_PATH: &str = "songs/alamode/music.ogg";
-
+// const DEV_CHART_PATH: &str = "songs/alamode/alamode3.spc";
+// const DEV_AUDIO_PATH: &str = "songs/alamode/music.ogg";
+const DEV_CHART_PATH: &str = "testchart/grievouslady2.spc";
+const DEV_AUDIO_PATH: &str = "testchart/music.ogg";
 
 fn window_conf() -> Conf {
     Conf {

@@ -291,6 +291,7 @@ pub struct FallingGroundEditor {
     cached_barlines_subdivision: u32,
     timeline_events: Vec<TimelineEvent>,
     selected_event_id: Option<u64>,
+    selected_event_ids: HashSet<u64>,
     event_overlap_cycle: Option<EventOverlapCycle>,
     event_hover_hint: Option<EventHoverOverlapHint>,
     next_event_id: u64,
