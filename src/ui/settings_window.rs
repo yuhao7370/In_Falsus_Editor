@@ -127,6 +127,7 @@ pub fn draw_settings_window(
     current_hitsound_tap_volume: f32,
     current_hitsound_arc_volume: f32,
     current_hitsound_delay_ms: i32,
+    current_debug_audio: bool,
 ) -> Option<TopMenuAction> {
     let mut action = None;
 
@@ -363,6 +364,9 @@ pub fn draw_settings_window(
                         SettingsCategory::Debug => {
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugHitbox), current_debug_hitbox).clicked() {
                                 action = Some(TopMenuAction::SetDebugHitbox(!current_debug_hitbox));
+                            }
+                            if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugAudio), current_debug_audio).clicked() {
+                                action = Some(TopMenuAction::SetDebugAudio(!current_debug_audio));
                             }
                         }
                     }

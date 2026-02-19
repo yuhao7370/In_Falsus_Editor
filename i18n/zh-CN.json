@@ -86,5 +86,6 @@
   "file_hot_reload_chart": "热重载谱面",
   "action_hot_reload_chart": "谱面已热重载",
   "action_hot_reload_chart_failed": "热重载谱面失败",
-  "action_hot_reload_chart_no_change": "谱面无变化"
+  "action_hot_reload_chart_no_change": "谱面无变化",
+  "settings_debug_audio": "音频调试窗口"
 }

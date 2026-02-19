@@ -37,6 +37,11 @@ impl AudioController {
             master_volume: 1.0,
             hitsound_player: HitSoundPlayer::new(),
             hitsound_trigger: HitSoundTrigger::new(),
+            prev_backend_pos: 0.0,
+            pos_delta_per_frame: 0.0,
+            speed_accum_pos: 0.0,
+            speed_accum_time: 0.0,
+            estimated_speed: 0.0,
         }
     }
 
@@ -59,6 +64,11 @@ impl AudioController {
             master_volume: 1.0,
             hitsound_player: HitSoundPlayer::new(),
             hitsound_trigger: HitSoundTrigger::new(),
+            prev_backend_pos: 0.0,
+            pos_delta_per_frame: 0.0,
+            speed_accum_pos: 0.0,
+            speed_accum_time: 0.0,
+            estimated_speed: 0.0,
         }
     }
 
@@ -103,9 +113,29 @@ impl AudioController {
             if self.playing {
                 let backend_pos = snap.position_sec;
                 if backend_pos.is_finite() && backend_pos >= 0.0 {
+                    // 计算每帧后端位置变化量（用于调试）
+                    self.pos_delta_per_frame = backend_pos - self.prev_backend_pos;
+                    self.prev_backend_pos = backend_pos;
+
+                    // 累计位置和时间，每 0.5s 刷新一次平滑速度
+                    let dt = get_frame_time() as f64;
+                    self.speed_accum_pos += self.pos_delta_per_frame;
+                    self.speed_accum_time += dt;
+                    const SPEED_WINDOW: f64 = 0.5;
+                    if self.speed_accum_time >= SPEED_WINDOW {
+                        self.estimated_speed = self.speed_accum_pos / self.speed_accum_time as f32;
+                        self.speed_accum_pos = 0.0;
+                        self.speed_accum_time = 0.0;
+                    }
+
                     self.anchor_pos = backend_pos;
                     self.anchor_time = get_time();
                 }
+            } else {
+                self.pos_delta_per_frame = 0.0;
+                self.estimated_speed = 0.0;
+                self.speed_accum_pos = 0.0;
+                self.speed_accum_time = 0.0;
             }
         }
 
@@ -375,6 +405,50 @@ impl AudioController {
 
     pub fn hitsound_delay_ms(&self) -> i32 {
         self.hitsound_trigger.delay_ms()
+    }
+
+    /// 生成音频调试快照，供调试窗口实时显示。
+    pub fn debug_snapshot(&self) -> AudioDebugSnapshot {
+        let dt = get_frame_time();
+        let fps = if dt > 0.0 { 1.0 / dt } else { 0.0 };
+
+        let backend_position = self.player.as_ref()
+            .and_then(|_p| {
+                // 直接读 snapshot 中缓存的 position
+                // 注意：这里不能调 p.snapshot() 因为需要 &mut
+                // 用 prev_backend_pos 代替（tick 中已更新）
+                Some(self.prev_backend_pos)
+            })
+            .unwrap_or(0.0);
+
+        let state_str = if self.player.is_none() {
+            "No Backend".to_string()
+        } else if self.playing {
+            "Playing".to_string()
+        } else if self.anchor_pos > 0.001 {
+            "Paused".to_string()
+        } else {
+            "Ready".to_string()
+        };
+
+        AudioDebugSnapshot {
+            playback_state: state_str,
+            backend_position,
+            controller_position: self.current_sec(),
+            anchor_pos: self.anchor_pos,
+            anchor_time: self.anchor_time,
+            duration_sec: self.duration_sec,
+            effective_volume: self.effective_volume(),
+            music_volume: self.music_volume,
+            master_volume: self.master_volume,
+            is_playing_ctrl: self.playing,
+            pos_delta_per_frame: self.pos_delta_per_frame,
+            estimated_speed: self.estimated_speed,
+            fps,
+            delta_time: dt,
+            has_backend: self.player.is_some(),
+            track_path: self.track_path.clone().unwrap_or_default(),
+        }
     }
 }
 

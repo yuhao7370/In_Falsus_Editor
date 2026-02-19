@@ -144,6 +144,7 @@ pub enum TextKey {
     ActionHotReloadChart,
     ActionHotReloadChartFailed,
     ActionHotReloadChartNoChange,
+    SettingsDebugAudio,
 }
 
 impl TextKey {
@@ -237,6 +238,7 @@ impl TextKey {
             TextKey::ActionHotReloadChart => "action_hot_reload_chart",
             TextKey::ActionHotReloadChartFailed => "action_hot_reload_chart_failed",
             TextKey::ActionHotReloadChartNoChange => "action_hot_reload_chart_no_change",
+            TextKey::SettingsDebugAudio => "settings_debug_audio",
         }
     }
 }

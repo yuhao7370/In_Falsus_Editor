@@ -17,6 +17,7 @@ use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
 use ui::input_state::{set_pointer_blocked, set_keyboard_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 use ui::settings_window::{SettingsCategory, draw_settings_window};
+use ui::audio_debug_window::draw_audio_debug_window;
 use ui::current_project_window::{CurrentProjectAction, CurrentProjectState, draw_current_project_window};
 use ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
 use ui::loading_status::{LoadAction, ProjectLoader};
@@ -209,6 +210,10 @@ fn handle_top_menu_action(
             app_settings.hitsound_delay_ms = ms;
             app_settings.save();
         }
+        TopMenuAction::SetDebugAudio(enabled) => {
+            app_settings.debug_audio = enabled;
+            app_settings.save();
+        }
     }
 }
 
@@ -327,6 +332,7 @@ async fn main() {
                     audio.hitsound_tap_volume(),
                     audio.hitsound_arc_volume(),
                     audio.hitsound_delay_ms(),
+                    app_settings.debug_audio,
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }
@@ -346,6 +352,11 @@ async fn main() {
             create_project_result = draw_create_project_window(ctx, &i18n, &mut create_project_state);
             // Draw current project window (if open)
             current_project_action = draw_current_project_window(ctx, &i18n, &mut current_project_state);
+            // Draw audio debug window (if enabled)
+            if app_settings.debug_audio {
+                let snapshot = audio.debug_snapshot();
+                draw_audio_debug_window(ctx, &mut app_settings.debug_audio, &snapshot);
+            }
             // Check if pointer is over egui widgets/panels.
             let raw_egui_pointer = ctx.is_using_pointer()
                 || ctx.is_pointer_over_area()

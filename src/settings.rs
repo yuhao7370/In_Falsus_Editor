@@ -27,6 +27,8 @@ pub struct AppSettings {
     pub xsplit_editable: bool,
     #[serde(default)]
     pub debug_hitbox: bool,
+    #[serde(default)]
+    pub debug_audio: bool,
     #[serde(default = "default_true")]
     pub hitsound_enabled: bool,
     #[serde(default = "default_volume")]
@@ -75,6 +77,7 @@ impl Default for AppSettings {
             x_split: default_x_split(),
             xsplit_editable: false,
             debug_hitbox: false,
+            debug_audio: false,
             hitsound_enabled: true,
             hitsound_tap_volume: default_volume(),
             hitsound_arc_volume: default_volume(),

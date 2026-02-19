@@ -24,5 +24,35 @@ pub struct AudioController {
 
     hitsound_player: HitSoundPlayer,
     hitsound_trigger: HitSoundTrigger,
+
+    /// 上一帧后端位置，用于计算位置漂移速率
+    prev_backend_pos: f32,
+    /// 每帧后端位置变化量（用于调试检测倍速异常）
+    pos_delta_per_frame: f32,
+    /// 平滑估算播放速度（滚动窗口累计）
+    speed_accum_pos: f32,
+    speed_accum_time: f64,
+    estimated_speed: f32,
+}
+
+/// 音频调试快照，供调试窗口显示。
+#[derive(Debug, Clone)]
+pub struct AudioDebugSnapshot {
+    pub playback_state: String,
+    pub backend_position: f32,
+    pub controller_position: f32,
+    pub anchor_pos: f32,
+    pub anchor_time: f64,
+    pub duration_sec: f32,
+    pub effective_volume: f32,
+    pub music_volume: f32,
+    pub master_volume: f32,
+    pub is_playing_ctrl: bool,
+    pub pos_delta_per_frame: f32,
+    pub estimated_speed: f32,
+    pub fps: f32,
+    pub delta_time: f32,
+    pub has_backend: bool,
+    pub track_path: String,
 }
 

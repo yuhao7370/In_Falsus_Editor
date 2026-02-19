@@ -1,3 +1,4 @@
+pub mod audio_debug_window;
 pub mod create_project_window;
 pub mod fonts;
 pub mod info_toast;
