@@ -328,6 +328,8 @@ pub struct FallingGroundEditor {
     show_minimap: bool,
     waveform: Option<Waveform>,
     waveform_error: Option<String>,
+    waveform_task: Option<mpsc::Receiver<Result<Waveform, String>>>,
+    waveform_loading_path: Option<String>,
     waveform_seek_active: bool,
     waveform_seek_sec: f32,
     minimap_drag_active: bool,

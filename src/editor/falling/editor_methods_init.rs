@@ -87,6 +87,8 @@ impl FallingGroundEditor {
             show_minimap: false,
             waveform: None,
             waveform_error: None,
+            waveform_task: None,
+            waveform_loading_path: None,
             waveform_seek_active: false,
             waveform_seek_sec: 0.0,
             minimap_drag_active: false,
@@ -475,6 +477,10 @@ impl FallingGroundEditor {
     pub fn set_show_spectrum(&mut self, enabled: bool) {
         self.show_spectrum = enabled;
         self.status = format!("spectrum {}", if enabled { "on" } else { "off" });
+        if enabled && self.waveform.is_none() && self.waveform_task.is_some() {
+            let msg = self.i18n.t(crate::i18n::TextKey::SpectrumStillLoading).to_owned();
+            self.push_toast_warn(msg);
+        }
     }
 
     pub fn show_minimap(&self) -> bool {

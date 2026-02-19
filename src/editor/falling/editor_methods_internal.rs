@@ -302,29 +302,68 @@ impl FallingGroundEditor {
     }
 
     fn sync_waveform(&mut self, audio_path: Option<&str>) {
+        // Poll pending async task first
+        if let Some(rx) = &self.waveform_task {
+            match rx.try_recv() {
+                Ok(Ok(waveform)) => {
+                    let path = waveform.path.clone();
+                    self.waveform = Some(waveform);
+                    self.waveform_error = None;
+                    self.waveform_task = None;
+                    self.waveform_loading_path = None;
+                    self.status = format!("waveform loaded: {path}");
+                }
+                Ok(Err(err)) => {
+                    self.waveform = None;
+                    self.waveform_error = Some(err);
+                    self.waveform_task = None;
+                    self.waveform_loading_path = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    // Still computing — do nothing
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.waveform_error = Some("waveform task crashed".to_owned());
+                    self.waveform_task = None;
+                    self.waveform_loading_path = None;
+                }
+            }
+        }
+
         let Some(path) = audio_path else {
             return;
         };
-        let changed = self
+
+        // Already loaded for this path
+        let already_loaded = self
             .waveform
             .as_ref()
-            .map(|wave| wave.path.as_str() != path)
-            .unwrap_or(true);
-        if !changed {
+            .map(|w| w.path.as_str() == path)
+            .unwrap_or(false);
+        if already_loaded {
             return;
         }
 
-        match Waveform::from_audio_file(path, 4096) {
-            Ok(waveform) => {
-                self.waveform = Some(waveform);
-                self.waveform_error = None;
-                self.status = format!("waveform loaded: {path}");
-            }
-            Err(err) => {
-                self.waveform = None;
-                self.waveform_error = Some(err);
-            }
+        // Already loading this path
+        let already_loading = self
+            .waveform_loading_path
+            .as_deref()
+            .map(|p| p == path)
+            .unwrap_or(false);
+        if already_loading {
+            return;
         }
+
+        // Spawn background thread for FFT analysis
+        let (tx, rx) = mpsc::channel();
+        let path_owned = path.to_owned();
+        std::thread::spawn(move || {
+            let result = Waveform::from_audio_file(&path_owned, 4096);
+            let _ = tx.send(result);
+        });
+        self.waveform_loading_path = Some(path.to_owned());
+        self.waveform_task = Some(rx);
+        self.status = format!("loading waveform: {path}");
     }
 
     fn estimate_duration(&self, audio_duration_sec: f32) -> f32 {

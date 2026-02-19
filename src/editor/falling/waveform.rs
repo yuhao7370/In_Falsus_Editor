@@ -29,7 +29,7 @@ impl Waveform {
 
         // STFT parameters
         let fft_size = 2048;
-        let hop_size = 512;
+        let hop_size = 1024;
         let mut planner = FftPlanner::<f32>::new();
         let fft = planner.plan_fft_forward(fft_size);
 

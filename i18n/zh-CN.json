@@ -101,5 +101,6 @@
   "editor_mirror_pasted_notes": "已镜像粘贴 {count} 个音符",
   "editor_cannot_paste_wide_side_lane": "无法粘贴：宽音符不能放在边缘轨道",
   "editor_cannot_paste_exceed_lane": "无法粘贴：音符超出轨道范围",
-  "editor_clipboard_empty": "剪贴板为空"
+  "editor_clipboard_empty": "剪贴板为空",
+  "spectrum_still_loading": "频谱数据正在加载中…"
 }
