@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 const ZH_CN_FALLBACK_JSON: &str = include_str!("../../i18n/zh-CN.json");
 const EN_US_FALLBACK_JSON: &str = include_str!("../../i18n/en-US.json");
@@ -330,8 +331,8 @@ impl TextKey {
 #[derive(Debug, Clone)]
 pub struct I18n {
     language: Language,
-    /// All loaded language packs: language code → messages
-    packs: HashMap<String, Messages>,
+    /// All loaded language packs (Arc-shared to make clone cheap).
+    packs: Arc<HashMap<String, Messages>>,
 }
 
 impl I18n {
@@ -342,13 +343,13 @@ impl I18n {
     pub fn new(language: Language) -> Self {
         Self {
             language,
-            packs: discover_languages(),
+            packs: Arc::new(discover_languages()),
         }
     }
 
     /// Create from a settings string (e.g. "zh-cn").
     pub fn from_settings(lang_str: &str) -> Self {
-        let packs = discover_languages();
+        let packs = Arc::new(discover_languages());
         let available: Vec<Language> = packs.keys().map(|k| Language(k.clone())).collect();
         let language = Language::from_settings(lang_str, &available);
         Self { language, packs }
