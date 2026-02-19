@@ -138,6 +138,7 @@ impl FallingGroundEditor {
         self.selected_event_ids.clear();
         self.event_overlap_cycle = None;
         self.event_hover_hint = None;
+        self.box_select = None;
         self.dirty = true;
     }
 

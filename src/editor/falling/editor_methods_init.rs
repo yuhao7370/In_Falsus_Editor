@@ -102,6 +102,7 @@ impl FallingGroundEditor {
             dirty: false,
             editing_note_backup: None,
             editing_event_backup: None,
+            box_select: None,
         }
     }
 
@@ -308,6 +309,7 @@ impl FallingGroundEditor {
         self.event_hover_hint = None;
         self.editing_note_backup = None;
         self.editing_event_backup = None;
+        self.box_select = None;
 
         self.rebuild_barline_cache();
         self.dirty = true;

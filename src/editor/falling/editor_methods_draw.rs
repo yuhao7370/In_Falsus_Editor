@@ -112,12 +112,12 @@ impl FallingGroundEditor {
             render_current_sec = target_sec.clamp(0.0, duration_sec);
             current_ms = render_current_sec * 1000.0;
         }
-        let (ground_rect, air_rect) = match self.render_scope {
+        let (ground_rect, air_rect, event_rect) = match self.render_scope {
             RenderScope::Both => {
                 self.draw_event_view(left_inner, current_ms);
-                (Some(lanes_rect), Some(lanes_rect))
+                (Some(lanes_rect), Some(lanes_rect), Some(left_inner))
             }
-            RenderScope::Split => (Some(left_inner), Some(lanes_rect)),
+            RenderScope::Split => (Some(left_inner), Some(lanes_rect), None),
         };
 
         let allow_editor_input = !self.minimap_drag_active;
@@ -204,11 +204,16 @@ impl FallingGroundEditor {
         }
 
         if allow_editor_input {
-            if let Some(rect) = ground_rect {
-                self.handle_ground_input(rect, current_ms);
-            }
-            if let Some(rect) = air_rect {
-                self.handle_air_input(rect, current_ms);
+            // 框选优先：Alt+左键 启动/更新/结束框选
+            self.handle_box_select(ground_rect, air_rect, event_rect, current_ms);
+
+            if self.box_select.is_none() {
+                if let Some(rect) = ground_rect {
+                    self.handle_ground_input(rect, current_ms);
+                }
+                if let Some(rect) = air_rect {
+                    self.handle_air_input(rect, current_ms);
+                }
             }
         }
 
@@ -264,6 +269,7 @@ impl FallingGroundEditor {
         }
 
         self.draw_overlap_hint();
+        self.draw_box_select_overlay();
 
         actions
     }

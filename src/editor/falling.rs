@@ -28,6 +28,7 @@ include!("falling/editor_methods_input_air_select.rs");
 include!("falling/editor_methods_input_hover_overlap.rs");
 include!("falling/editor_methods_input_collect.rs");
 include!("falling/editor_methods_input_drag.rs");
+include!("falling/editor_methods_input_box_select.rs");
 include!("falling/editor_methods_internal.rs");
 
 include!("falling/hit_math.rs");

@@ -204,6 +204,14 @@ struct MinimapDrawLayout {
     active_end_ms: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct BoxSelectState {
+    start_x: f32,
+    start_y: f32,
+    current_x: f32,
+    current_y: f32,
+}
+
 /// Snapshot of editor state for undo/redo.
 #[derive(Debug, Clone)]
 struct EditorSnapshot {
@@ -329,5 +337,7 @@ pub struct FallingGroundEditor {
     editing_note_backup: Option<GroundNote>,
     /// Backup of event being edited in property panel (for cancel/preview).
     editing_event_backup: Option<TimelineEvent>,
+    /// 框选状态
+    box_select: Option<BoxSelectState>,
 }
 
