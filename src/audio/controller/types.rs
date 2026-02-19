@@ -19,6 +19,8 @@ pub struct AudioController {
 
     duration_sec: f32,
     track_path: Option<String>,
+    /// Dirty flag: only sync track_path/duration from backend when a load occurs.
+    metadata_dirty: bool,
     music_volume: f32,
     master_volume: f32,
 
