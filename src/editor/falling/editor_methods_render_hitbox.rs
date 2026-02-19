@@ -54,7 +54,14 @@ impl FallingGroundEditor {
             }
 
             let label = format!("#{}", note.id);
-            draw_debug_hitbox_label(head_rect, rect, &label, head_color, self.text_font.as_ref());
+            let label_color = if self.selected_note_ids.contains(&note.id)
+                || self.selected_note_id == Some(note.id)
+            {
+                Color::from_rgba(255, 255, 60, 255)
+            } else {
+                head_color
+            };
+            draw_debug_hitbox_label(head_rect, rect, &label, label_color, self.text_font.as_ref());
         }
     }
 
@@ -134,11 +141,18 @@ impl FallingGroundEditor {
             }
 
             let label = format!("#{}", note.id);
+            let label_color = if self.selected_note_ids.contains(&note.id)
+                || self.selected_note_id == Some(note.id)
+            {
+                Color::from_rgba(255, 255, 60, 255)
+            } else {
+                head_color
+            };
             draw_debug_hitbox_label(
                 label_rect,
                 clip_rect,
                 &label,
-                head_color,
+                label_color,
                 self.text_font.as_ref(),
             );
         }
