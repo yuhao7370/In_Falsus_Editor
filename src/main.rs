@@ -20,6 +20,7 @@ use settings::settings;
 use ui::fonts::load_macroquad_cjk_font;
 use ui::info_toast::InfoToastManager;
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
+use ui::scale::refresh_ui_scale;
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -52,6 +53,7 @@ async fn main() {
 
     loop {
         clear_background(Color::from_rgba(7, 7, 10, 255));
+        refresh_ui_scale();
 
         // 1. Tick audio
         audio.tick(&i18n);

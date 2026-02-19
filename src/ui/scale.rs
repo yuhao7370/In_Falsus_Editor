@@ -1,12 +1,23 @@
 use macroquad::prelude::*;
+use std::cell::Cell;
 
 pub const BASE_WIDTH: f32 = 1366.0;
 pub const BASE_HEIGHT: f32 = 768.0;
 pub const UI_SCALE_MIN: f32 = 0.75;
 pub const UI_SCALE_MAX: f32 = 3.5;
 
+thread_local! {
+    static CACHED_UI_SCALE: Cell<f32> = const { Cell::new(1.0) };
+}
+
+/// 每帧开始时调用一次，刷新缓存的 ui_scale 值。
+pub fn refresh_ui_scale() {
+    let scale = ui_scale_factor_with(BASE_WIDTH, BASE_HEIGHT, UI_SCALE_MIN, UI_SCALE_MAX);
+    CACHED_UI_SCALE.with(|c| c.set(scale));
+}
+
 pub fn ui_scale_factor() -> f32 {
-    ui_scale_factor_with(BASE_WIDTH, BASE_HEIGHT, UI_SCALE_MIN, UI_SCALE_MAX)
+    CACHED_UI_SCALE.with(|c| c.get())
 }
 
 pub fn ui_scale_factor_with(
