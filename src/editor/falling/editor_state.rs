@@ -355,5 +355,8 @@ pub struct FallingGroundEditor {
     pending_toasts: Vec<(String, bool)>,
     /// 国际化实例
     i18n: crate::i18n::I18n,
+    /// Cached note head times for hitsound triggering (rebuilt on note mutations).
+    cached_note_heads: Vec<(f32, bool)>,
+    cached_note_heads_dirty: bool,
 }
 

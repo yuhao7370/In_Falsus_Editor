@@ -144,6 +144,7 @@ impl FallingGroundEditor {
         self.event_hover_hint = None;
         self.box_select = None;
         self.dirty = true;
+        self.cached_note_heads_dirty = true;
     }
 
     /// Undo: restore previous state.
@@ -199,6 +200,7 @@ impl FallingGroundEditor {
         self.next_note_id = self.next_note_id.saturating_add(1);
         self.notes.push(note);
         self.sort_notes();
+        self.cached_note_heads_dirty = true;
     }
 
     fn push_timeline_event(&mut self, event: TimelineEvent) {
@@ -477,6 +479,7 @@ impl FallingGroundEditor {
         self.snapshot_for_undo();
         let ids = self.selected_note_ids.clone();
         self.notes.retain(|n| !ids.contains(&n.id));
+        self.cached_note_heads_dirty = true;
         self.selected_note_id = None;
         self.selected_note_ids.clear();
         self.drag_state = None;
@@ -510,6 +513,7 @@ impl FallingGroundEditor {
             }
         }
         self.sort_notes();
+        self.cached_note_heads_dirty = true;
         let msg = self.i18n.t(crate::i18n::TextKey::EditorMirroredNotes)
             .replace("{count}", &count.to_string());
         self.status = msg.clone();
@@ -540,6 +544,7 @@ impl FallingGroundEditor {
             self.notes.push(n);
         }
         self.sort_notes();
+        self.cached_note_heads_dirty = true;
         self.selected_note_ids.clear();
         self.selected_note_id = None;
         let msg = self.i18n.t(crate::i18n::TextKey::EditorCopyMirroredNotes)

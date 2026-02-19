@@ -107,6 +107,8 @@ impl FallingGroundEditor {
             paste_mode: None,
             pending_toasts: Vec::new(),
             i18n: crate::i18n::I18n::detect(),
+            cached_note_heads: Vec::new(),
+            cached_note_heads_dirty: true,
         }
     }
 
@@ -317,6 +319,7 @@ impl FallingGroundEditor {
 
         self.rebuild_barline_cache();
         self.dirty = true;
+        self.cached_note_heads_dirty = true;
         self.status = format!("chart reloaded: {}", self.chart_path);
         Ok(true)
     }
@@ -956,12 +959,16 @@ impl FallingGroundEditor {
     }
 
     /// Returns all note head times as `(time_ms, is_ground)` for hitsound triggering.
-    /// Ground = Tap/Hold, Air = Flick/SkyArea.
-    pub fn note_head_times(&self) -> Vec<(f32, bool)> {
-        self.notes
-            .iter()
-            .map(|n| (n.time_ms, is_ground_kind(n.kind)))
-            .collect()
+    /// Uses a cached Vec that is only rebuilt when notes change.
+    pub fn note_head_times(&mut self) -> &[(f32, bool)] {
+        if self.cached_note_heads_dirty {
+            self.cached_note_heads = self.notes
+                .iter()
+                .map(|n| (n.time_ms, is_ground_kind(n.kind)))
+                .collect();
+            self.cached_note_heads_dirty = false;
+        }
+        &self.cached_note_heads
     }
 
     pub fn set_track_speed_enabled(&mut self, enabled: bool) {
