@@ -327,8 +327,21 @@ impl FallingGroundEditor {
 
         if shift_held {
             // Shift+Click: toggle note in/out of multi-selection set
-            if self.selected_note_ids.contains(&clicked_id) {
-                self.selected_note_ids.remove(&clicked_id);
+            // If the resolved candidate is already selected and there are unselected
+            // overlapping candidates, pick the next unselected one instead of toggling off.
+            let mut final_id = clicked_id;
+            if self.selected_note_ids.contains(&clicked_id) && candidates.len() > 1 {
+                for offset in 1..candidates.len() {
+                    let idx = (selected_index + offset) % candidates.len();
+                    let cid = candidates[idx].note_id;
+                    if !self.selected_note_ids.contains(&cid) {
+                        final_id = cid;
+                        break;
+                    }
+                }
+            }
+            if self.selected_note_ids.contains(&final_id) {
+                self.selected_note_ids.remove(&final_id);
                 // Update selected_note_id to another note in the set, or None
                 self.selected_note_id = self.selected_note_ids.iter().next().copied();
             } else {
@@ -336,8 +349,8 @@ impl FallingGroundEditor {
                 if let Some(prev_id) = self.selected_note_id {
                     self.selected_note_ids.insert(prev_id);
                 }
-                self.selected_note_ids.insert(clicked_id);
-                self.selected_note_id = Some(clicked_id);
+                self.selected_note_ids.insert(final_id);
+                self.selected_note_id = Some(final_id);
             }
             // Shift-click does not start drag
             self.drag_state = None;
