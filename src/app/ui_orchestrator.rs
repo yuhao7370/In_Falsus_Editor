@@ -4,7 +4,7 @@ use crate::i18n::I18n;
 use crate::settings::{modify_settings, settings};
 use crate::ui::audio_debug_window::draw_audio_debug_window;
 use crate::ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
-use crate::ui::current_project_window::{CurrentProjectAction, CurrentProjectState, draw_current_project_window};
+use crate::ui::current_project_window::{CurrentProjectAction, CurrentProjectState, copy_file_to_project, draw_current_project_window};
 use crate::ui::fonts::init_egui_fonts;
 use crate::ui::info_toast::InfoToastManager;
 use crate::ui::input_state::{set_keyboard_blocked, set_pointer_blocked};
@@ -162,10 +162,71 @@ impl UiOrchestrator {
             top_menu_result.action = None;
         }
 
-        // Handle OpenProject action
+        // Handle OpenProject action (with audio pause/resume)
         if top_menu_result.action == Some(TopMenuAction::OpenProject) {
+            let was_playing = audio.pause_if_playing(i18n);
             open_project_result = Self::pick_open_project(info_toasts);
+            audio.resume_if_was_playing(was_playing, i18n);
             top_menu_result.action = None;
+        }
+
+        // Handle CreateProject browse audio request
+        if self.create_project_state.browse_audio_requested {
+            self.create_project_state.browse_audio_requested = false;
+            let was_playing = audio.pause_if_playing(i18n);
+            if let Some(path) = rfd::FileDialog::new()
+                .add_filter("Audio", &["ogg", "mp3", "wav", "flac"])
+                .pick_file()
+            {
+                self.create_project_state.audio_path = Some(path.to_string_lossy().to_string());
+            }
+            audio.resume_if_was_playing(was_playing, i18n);
+        }
+
+        // Handle CurrentProject browse chart request
+        if self.current_project_state.browse_chart_requested {
+            self.current_project_state.browse_chart_requested = false;
+            let was_playing = audio.pause_if_playing(i18n);
+            if let Some(path) = rfd::FileDialog::new()
+                .add_filter("SPC Chart", &["spc"])
+                .pick_file()
+            {
+                let src = path.to_string_lossy().to_string();
+                match copy_file_to_project(&src, &self.current_project_state.project_dir) {
+                    Ok(dest) => {
+                        self.current_project_state.chart_path = dest.clone();
+                        current_project_action = Some(CurrentProjectAction::LoadChart(dest));
+                    }
+                    Err(_) => {
+                        self.current_project_state.chart_path = src.clone();
+                        current_project_action = Some(CurrentProjectAction::LoadChart(src));
+                    }
+                }
+            }
+            audio.resume_if_was_playing(was_playing, i18n);
+        }
+
+        // Handle CurrentProject browse audio request
+        if self.current_project_state.browse_audio_requested {
+            self.current_project_state.browse_audio_requested = false;
+            let was_playing = audio.pause_if_playing(i18n);
+            if let Some(path) = rfd::FileDialog::new()
+                .add_filter("Audio", &["ogg", "mp3", "wav", "flac"])
+                .pick_file()
+            {
+                let src = path.to_string_lossy().to_string();
+                match copy_file_to_project(&src, &self.current_project_state.project_dir) {
+                    Ok(dest) => {
+                        self.current_project_state.audio_path = dest.clone();
+                        current_project_action = Some(CurrentProjectAction::LoadAudio(dest));
+                    }
+                    Err(_) => {
+                        self.current_project_state.audio_path = src.clone();
+                        current_project_action = Some(CurrentProjectAction::LoadAudio(src));
+                    }
+                }
+            }
+            audio.resume_if_was_playing(was_playing, i18n);
         }
 
         UiOutput {

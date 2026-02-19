@@ -203,6 +203,23 @@ impl AudioController {
 
     // Actions
 
+    /// 如果正在播放则暂停，返回 true 表示之前在播放（用于文件对话框前暂停）。
+    pub fn pause_if_playing(&mut self, i18n: &I18n) -> bool {
+        if self.playing {
+            self.do_pause(i18n);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// 如果之前在播放则恢复播放（用于文件对话框后恢复）。
+    pub fn resume_if_was_playing(&mut self, was_playing: bool, i18n: &I18n) {
+        if was_playing {
+            self.do_play(i18n);
+        }
+    }
+
     pub fn toggle_play_pause(&mut self, i18n: &I18n) {
         if self.playing {
             self.do_pause(i18n);

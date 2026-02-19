@@ -10,6 +10,10 @@ pub struct CurrentProjectState {
     pub audio_path: String,
     /// Project directory (e.g. "projects/alamode"), used for copying files into.
     pub project_dir: String,
+    /// 当用户点击加载谱面按钮时置 true，由 orchestrator 处理文件对话框。
+    pub browse_chart_requested: bool,
+    /// 当用户点击加载音频按钮时置 true，由 orchestrator 处理文件对话框。
+    pub browse_audio_requested: bool,
 }
 
 /// Action returned from the current project window.
@@ -28,6 +32,8 @@ impl CurrentProjectState {
             chart_path: String::new(),
             audio_path: String::new(),
             project_dir: String::new(),
+            browse_chart_requested: false,
+            browse_audio_requested: false,
         }
     }
 }
@@ -41,7 +47,7 @@ pub fn draw_current_project_window(
         return None;
     }
 
-    let mut result = None;
+    let result = None;
     let mut should_close = false;
 
     egui::Window::new(i18n.t(TextKey::CurrentProjectTitle))
@@ -92,23 +98,7 @@ pub fn draw_current_project_window(
                                     .button(i18n.t(TextKey::CurrentProjectLoadChart))
                                     .clicked()
                                 {
-                                    if let Some(path) = rfd::FileDialog::new()
-                                        .add_filter("SPC Chart", &["spc"])
-                                        .pick_file()
-                                    {
-                                        let src = path.to_string_lossy().to_string();
-                                        match copy_file_to_project(&src, &state.project_dir) {
-                                            Ok(dest) => {
-                                                state.chart_path = dest.clone();
-                                                result = Some(CurrentProjectAction::LoadChart(dest));
-                                            }
-                                            Err(_) => {
-                                                // fallback: use original path
-                                                state.chart_path = src.clone();
-                                                result = Some(CurrentProjectAction::LoadChart(src));
-                                            }
-                                        }
-                                    }
+                                    state.browse_chart_requested = true;
                                 }
                             },
                         );
@@ -168,22 +158,7 @@ pub fn draw_current_project_window(
                                     .button(i18n.t(TextKey::CurrentProjectLoadAudio))
                                     .clicked()
                                 {
-                                    if let Some(path) = rfd::FileDialog::new()
-                                        .add_filter("Audio", &["ogg", "mp3", "wav", "flac"])
-                                        .pick_file()
-                                    {
-                                        let src = path.to_string_lossy().to_string();
-                                        match copy_file_to_project(&src, &state.project_dir) {
-                                            Ok(dest) => {
-                                                state.audio_path = dest.clone();
-                                                result = Some(CurrentProjectAction::LoadAudio(dest));
-                                            }
-                                            Err(_) => {
-                                                state.audio_path = src.clone();
-                                                result = Some(CurrentProjectAction::LoadAudio(src));
-                                            }
-                                        }
-                                    }
+                                    state.browse_audio_requested = true;
                                 }
                             },
                         );
@@ -241,7 +216,7 @@ pub fn draw_current_project_window(
 
 /// Copy a file into the project directory, preserving its filename.
 /// Returns the destination path on success.
-fn copy_file_to_project(src: &str, project_dir: &str) -> Result<String, String> {
+pub fn copy_file_to_project(src: &str, project_dir: &str) -> Result<String, String> {
     if project_dir.is_empty() {
         return Err("No project directory".to_string());
     }

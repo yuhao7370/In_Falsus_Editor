@@ -10,6 +10,8 @@ pub struct CreateProjectState {
     pub bpm: String,
     pub bpl: String,
     pub error_msg: Option<String>,
+    /// 当用户点击浏览按钮时置 true，由 orchestrator 处理文件对话框。
+    pub browse_audio_requested: bool,
 }
 
 /// 创建项目参数（不再直接执行磁盘操作，交给 ProjectLoader 异步处理）
@@ -33,6 +35,7 @@ impl CreateProjectState {
             bpm: "120".to_string(),
             bpl: "4".to_string(),
             error_msg: None,
+            browse_audio_requested: false,
         }
     }
 
@@ -42,6 +45,7 @@ impl CreateProjectState {
         self.bpm = "120".to_string();
         self.bpl = "4".to_string();
         self.error_msg = None;
+        self.browse_audio_requested = false;
     }
 }
 
@@ -102,12 +106,7 @@ pub fn draw_create_project_window(
                 );
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button(i18n.t(TextKey::CreateProjectBrowse)).clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                            .add_filter("Audio", &["ogg", "mp3", "wav", "flac"])
-                            .pick_file()
-                        {
-                            state.audio_path = Some(path.to_string_lossy().to_string());
-                        }
+                        state.browse_audio_requested = true;
                     }
                 });
             });
