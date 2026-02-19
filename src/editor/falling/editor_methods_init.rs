@@ -103,6 +103,8 @@ impl FallingGroundEditor {
             editing_note_backup: None,
             editing_event_backup: None,
             box_select: None,
+            clipboard: Vec::new(),
+            paste_mode: None,
         }
     }
 

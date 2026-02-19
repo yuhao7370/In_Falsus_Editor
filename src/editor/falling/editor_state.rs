@@ -212,6 +212,14 @@ struct BoxSelectState {
     current_y: f32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PasteMode {
+    /// 普通粘贴
+    Normal,
+    /// 镜像粘贴
+    Mirrored,
+}
+
 /// Snapshot of editor state for undo/redo.
 #[derive(Debug, Clone)]
 struct EditorSnapshot {
@@ -339,5 +347,9 @@ pub struct FallingGroundEditor {
     editing_event_backup: Option<TimelineEvent>,
     /// 框选状态
     box_select: Option<BoxSelectState>,
+    /// 剪贴板：存储复制/剪切的音符
+    clipboard: Vec<GroundNote>,
+    /// 粘贴模式：Normal 或 Mirrored
+    paste_mode: Option<PasteMode>,
 }
 

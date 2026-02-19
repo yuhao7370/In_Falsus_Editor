@@ -399,6 +399,139 @@ impl FallingGroundEditor {
         }
     }
 
+    /// 镜像一个音符：Ground lane 做 5-lane，Air 做 1.0-x，Flick 翻转方向。
+    fn mirror_note(note: &GroundNote) -> GroundNote {
+        let mut mirrored = note.clone();
+        match mirrored.kind {
+            GroundNoteKind::Tap | GroundNoteKind::Hold => {
+                // Ground: lane 镜像 0↔5, 1↔4, 2↔3
+                mirrored.lane = 5 - mirrored.lane.min(5);
+            }
+            GroundNoteKind::Flick => {
+                // Air Flick: center_x 镜像, flick_right 翻转
+                mirrored.center_x_norm = 1.0 - mirrored.center_x_norm;
+                mirrored.lane = air_x_to_lane(mirrored.center_x_norm);
+                mirrored.flick_right = !mirrored.flick_right;
+            }
+            GroundNoteKind::SkyArea => {
+                // SkyArea: shape 的 left/right 做 1.0-x 并交换
+                mirrored.center_x_norm = 1.0 - mirrored.center_x_norm;
+                mirrored.lane = air_x_to_lane(mirrored.center_x_norm);
+                if let Some(shape) = mirrored.skyarea_shape.as_mut() {
+                    let new_start_left = 1.0 - shape.start_right_norm;
+                    let new_start_right = 1.0 - shape.start_left_norm;
+                    let new_end_left = 1.0 - shape.end_right_norm;
+                    let new_end_right = 1.0 - shape.end_left_norm;
+                    shape.start_left_norm = new_start_left;
+                    shape.start_right_norm = new_start_right;
+                    shape.end_left_norm = new_end_left;
+                    shape.end_right_norm = new_end_right;
+                }
+            }
+        }
+        mirrored
+    }
+
+    /// 复制选中音符到剪贴板
+    fn copy_selected_to_clipboard(&mut self) {
+        if self.selected_note_ids.is_empty() {
+            self.status = "nothing to copy".to_owned();
+            return;
+        }
+        self.clipboard.clear();
+        for &nid in &self.selected_note_ids {
+            if let Some(note) = self.notes.iter().find(|n| n.id == nid) {
+                self.clipboard.push(note.clone());
+            }
+        }
+        // 按时间排序
+        self.clipboard.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
+        let count = self.clipboard.len();
+        self.status = format!("{} note(s) copied", count);
+    }
+
+    /// 剪切选中音符到剪贴板
+    fn cut_selected_to_clipboard(&mut self) {
+        if self.selected_note_ids.is_empty() {
+            self.status = "nothing to cut".to_owned();
+            return;
+        }
+        self.clipboard.clear();
+        for &nid in &self.selected_note_ids {
+            if let Some(note) = self.notes.iter().find(|n| n.id == nid) {
+                self.clipboard.push(note.clone());
+            }
+        }
+        self.clipboard.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
+        let count = self.clipboard.len();
+        // 删除选中音符
+        self.editing_note_backup = None;
+        self.snapshot_for_undo();
+        let ids = self.selected_note_ids.clone();
+        self.notes.retain(|n| !ids.contains(&n.id));
+        self.selected_note_id = None;
+        self.selected_note_ids.clear();
+        self.drag_state = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
+        self.status = format!("{} note(s) cut", count);
+    }
+
+    /// 原地镜像复制选中音符 (Ctrl+M)
+    fn mirror_selected_in_place(&mut self) {
+        if self.selected_note_ids.is_empty() {
+            self.status = "nothing to mirror".to_owned();
+            return;
+        }
+        self.snapshot_for_undo();
+        let ids: Vec<u64> = self.selected_note_ids.iter().copied().collect();
+        let mut new_notes = Vec::new();
+        for &nid in &ids {
+            if let Some(note) = self.notes.iter().find(|n| n.id == nid) {
+                let mut mirrored = Self::mirror_note(note);
+                mirrored.id = self.next_note_id;
+                self.next_note_id = self.next_note_id.saturating_add(1);
+                new_notes.push(mirrored);
+            }
+        }
+        let count = new_notes.len();
+        for n in new_notes {
+            self.notes.push(n);
+        }
+        self.sort_notes();
+        self.selected_note_ids.clear();
+        self.selected_note_id = None;
+        self.status = format!("{} note(s) mirrored in place", count);
+    }
+
+    /// 进入粘贴模式
+    fn enter_paste_mode(&mut self, mode: PasteMode) {
+        if self.clipboard.is_empty() {
+            self.status = "clipboard empty".to_owned();
+            return;
+        }
+        self.paste_mode = Some(mode);
+        // 清除放置工具和其他交互状态
+        self.place_note_type = None;
+        self.place_event_type = None;
+        self.pending_hold = None;
+        self.pending_skyarea = None;
+        self.drag_state = None;
+        self.multi_drag_state = None;
+        self.overlap_cycle = None;
+        self.hover_overlap_hint = None;
+        let label = match mode {
+            PasteMode::Normal => "paste",
+            PasteMode::Mirrored => "mirror paste",
+        };
+        self.status = format!("{} mode: click to place", label);
+    }
+
+    /// 退出粘贴模式
+    fn exit_paste_mode(&mut self) {
+        self.paste_mode = None;
+        self.status = "paste cancelled".to_owned();
+    }
 
 }
 

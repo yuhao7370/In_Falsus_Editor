@@ -169,7 +169,37 @@ impl FallingGroundEditor {
             }
         }
 
-        if allow_editor_input {
+        // ── 剪切/复制/粘贴/镜像 快捷键 ──
+        let ctrl_held = safe_key_down(KeyCode::LeftControl) || safe_key_down(KeyCode::RightControl);
+        if ctrl_held && self.paste_mode.is_none() {
+            if safe_key_pressed(KeyCode::C) {
+                self.copy_selected_to_clipboard();
+            } else if safe_key_pressed(KeyCode::X) {
+                self.cut_selected_to_clipboard();
+            } else if safe_key_pressed(KeyCode::V) {
+                self.enter_paste_mode(PasteMode::Normal);
+            } else if safe_key_pressed(KeyCode::B) {
+                self.enter_paste_mode(PasteMode::Mirrored);
+            } else if safe_key_pressed(KeyCode::M) {
+                self.mirror_selected_in_place();
+            }
+        } else if ctrl_held && self.paste_mode.is_some() {
+            // 在粘贴模式中也允许切换粘贴类型
+            if safe_key_pressed(KeyCode::V) {
+                self.paste_mode = Some(PasteMode::Normal);
+                self.status = "paste mode: click to place".to_owned();
+            } else if safe_key_pressed(KeyCode::B) {
+                self.paste_mode = Some(PasteMode::Mirrored);
+                self.status = "mirror paste mode: click to place".to_owned();
+            }
+        }
+
+        // ── 粘贴模式处理 ──
+        if self.paste_mode.is_some() {
+            self.handle_paste_input(ground_rect, air_rect, current_ms);
+        }
+
+        if allow_editor_input && self.paste_mode.is_none() {
             if safe_mouse_button_pressed(MouseButton::Right)
                 && (self.place_note_type.is_some()
                     || self.place_event_type.is_some()
@@ -270,6 +300,11 @@ impl FallingGroundEditor {
 
         self.draw_overlap_hint();
         self.draw_box_select_overlay();
+
+        // 绘制粘贴预览
+        if self.paste_mode.is_some() {
+            self.draw_paste_preview(ground_rect, air_rect, current_ms);
+        }
 
         actions
     }
