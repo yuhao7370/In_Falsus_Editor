@@ -66,14 +66,59 @@ jobs:
           Copy-Item -Recurse "i18n" "dist/In Falsus Editor/i18n"
           Compress-Archive -Path "dist/In Falsus Editor" -DestinationPath "${{ matrix.artifact_name }}.zip"
 
-      - name: Package (Linux/macOS)
-        if: matrix.os != 'windows-latest'
+      - name: Package (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           mkdir -p "dist/In Falsus Editor"
           cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "dist/In Falsus Editor/${{ matrix.final_binary }}"
           cp -r assets "dist/In Falsus Editor/assets"
           cp -r i18n "dist/In Falsus Editor/i18n"
+          cp icon.png "dist/In Falsus Editor/icon.png"
+          cp "In Falsus Editor.desktop" "dist/In Falsus Editor/In Falsus Editor.desktop"
           cd dist && tar czf "../${{ matrix.artifact_name }}.tar.gz" "In Falsus Editor"
+
+      - name: Package (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          APP="dist/In Falsus Editor.app/Contents"
+          mkdir -p "$APP/MacOS" "$APP/Resources"
+          # Create .icns from icon.png
+          mkdir -p icon.iconset
+          sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64     icon.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   icon.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256   icon.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png
+          iconutil -c icns icon.iconset -o "$APP/Resources/AppIcon.icns"
+          # Create Info.plist
+          cat > "$APP/Info.plist" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>In Falsus Editor</string>
+            <key>CFBundleIconFile</key>
+            <string>AppIcon</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.infalsus.editor</string>
+            <key>CFBundleName</key>
+            <string>In Falsus Editor</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleVersion</key>
+            <string>0.1.0</string>
+            <key>CFBundleShortVersionString</key>
+            <string>0.1.0</string>
+          </dict>
+          </plist>
+          EOF
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$APP/MacOS/${{ matrix.final_binary }}"
+          cp -r assets "$APP/Resources/assets"
+          cp -r i18n "$APP/Resources/i18n"
+          cd dist && tar czf "../${{ matrix.artifact_name }}.tar.gz" "In Falsus Editor.app"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

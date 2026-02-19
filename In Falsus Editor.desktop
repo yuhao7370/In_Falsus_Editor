@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=In Falsus Editor
+Exec=./In Falsus Editor
+Icon=icon
+Type=Application
+Categories=AudioVideo;Audio;
+Terminal=false
