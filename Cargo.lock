@@ -1897,7 +1897,7 @@ checksum = "c6673c9c245fda02a1e826e199133d1c3d1b8e4a392c9dfe55e4f90a2489b149"
 [[package]]
 name = "sasa"
 version = "0.1.0"
-source = "git+https://github.com/Mivik/sasa#459dbf860e00a664e207d1030c2e35f8ff52b177"
+source = "git+https://github.com/yuhao7370/sasa?rev=c0f8b8e#c0f8b8e01cc547d5e0f3da010c90345a79d61cba"
 dependencies = [
  "anyhow",
  "cpal",
