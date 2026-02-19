@@ -312,6 +312,8 @@ impl FallingGroundEditor {
                     self.waveform_task = None;
                     self.waveform_loading_path = None;
                     self.status = format!("waveform loaded: {path}");
+                    let msg = self.i18n.t(crate::i18n::TextKey::SpectrumLoadedOk).to_owned();
+                    self.push_toast(msg);
                 }
                 Ok(Err(err)) => {
                     self.waveform = None;
@@ -629,6 +631,17 @@ impl FallingGroundEditor {
     /// 推送一条 warn toast（由 main.rs drain）
     fn push_toast_warn(&mut self, msg: impl Into<String>) {
         self.pending_toasts.push((msg.into(), true));
+    }
+
+    /// Unified check: if spectrum would be visible but waveform is still loading, warn.
+    /// Called from set_show_spectrum and set_track_speed_enabled.
+    fn check_spectrum_loading_toast(&mut self) {
+        if self.show_spectrum && !self.track_speed_enabled
+            && self.waveform.is_none() && self.waveform_task.is_some()
+        {
+            let msg = self.i18n.t(crate::i18n::TextKey::SpectrumStillLoading).to_owned();
+            self.push_toast_warn(msg);
+        }
     }
 
     /// 取出所有待发送的 toast（由 main.rs 调用）

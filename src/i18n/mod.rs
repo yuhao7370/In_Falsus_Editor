@@ -217,6 +217,7 @@ pub enum TextKey {
     EditorCannotPasteExceedLane,
     EditorClipboardEmpty,
     SpectrumStillLoading,
+    SpectrumLoadedOk,
 }
 
 impl TextKey {
@@ -326,6 +327,7 @@ impl TextKey {
             TextKey::EditorCannotPasteExceedLane => "editor_cannot_paste_exceed_lane",
             TextKey::EditorClipboardEmpty => "editor_clipboard_empty",
             TextKey::SpectrumStillLoading => "spectrum_still_loading",
+            TextKey::SpectrumLoadedOk => "spectrum_loaded_ok",
         }
     }
 }

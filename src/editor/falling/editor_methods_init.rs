@@ -477,10 +477,7 @@ impl FallingGroundEditor {
     pub fn set_show_spectrum(&mut self, enabled: bool) {
         self.show_spectrum = enabled;
         self.status = format!("spectrum {}", if enabled { "on" } else { "off" });
-        if enabled && self.waveform.is_none() && self.waveform_task.is_some() {
-            let msg = self.i18n.t(crate::i18n::TextKey::SpectrumStillLoading).to_owned();
-            self.push_toast_warn(msg);
-        }
+        self.check_spectrum_loading_toast();
     }
 
     pub fn show_minimap(&self) -> bool {
@@ -993,6 +990,7 @@ impl FallingGroundEditor {
             "track speed {}",
             if enabled { "enabled" } else { "disabled" }
         );
+        self.check_spectrum_loading_toast();
     }
 }
 

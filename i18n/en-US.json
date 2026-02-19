@@ -102,5 +102,6 @@
   "editor_cannot_paste_wide_side_lane": "Cannot paste: wide note on side lane",
   "editor_cannot_paste_exceed_lane": "Cannot paste: note exceeds lane range",
   "editor_clipboard_empty": "Clipboard empty",
-  "spectrum_still_loading": "Spectrum data is still loading…"
+  "spectrum_still_loading": "Spectrum data is still loading…",
+  "spectrum_loaded_ok": "Spectrum data loaded"
 }
