@@ -21,7 +21,13 @@ impl FallingGroundEditor {
         let title_h = 20.0 * ui;
         let pad = 6.0 * ui;
 
-        draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::from_rgba(8, 10, 17, 255));
+        draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            Color::from_rgba(8, 10, 17, 255),
+        );
         draw_rectangle_lines(
             rect.x,
             rect.y,
@@ -35,7 +41,7 @@ impl FallingGroundEditor {
             rect.x + 8.0 * ui,
             rect.y + 16.0 * ui,
             TextParams {
-                font: self.text_font.as_ref(),
+                font: self.view.text_font.as_ref(),
                 font_size: scaled_font_size(16.0, 11, 36),
                 color: Color::from_rgba(210, 222, 246, 255),
                 ..Default::default()
@@ -80,9 +86,24 @@ impl FallingGroundEditor {
         let col_w = ((content.w - total_gap) / 4.0).max(2.0);
 
         let ground_rect_1 = Rect::new(content.x, content.y, col_w, content.h);
-        let sky_rect_1 = Rect::new(ground_rect_1.x + col_w + pair_gap, content.y, col_w, content.h);
-        let ground_rect_2 = Rect::new(sky_rect_1.x + col_w + group_gap, content.y, col_w, content.h);
-        let sky_rect_2 = Rect::new(ground_rect_2.x + col_w + pair_gap, content.y, col_w, content.h);
+        let sky_rect_1 = Rect::new(
+            ground_rect_1.x + col_w + pair_gap,
+            content.y,
+            col_w,
+            content.h,
+        );
+        let ground_rect_2 = Rect::new(
+            sky_rect_1.x + col_w + group_gap,
+            content.y,
+            col_w,
+            content.h,
+        );
+        let sky_rect_2 = Rect::new(
+            ground_rect_2.x + col_w + pair_gap,
+            content.y,
+            col_w,
+            content.h,
+        );
 
         let left_group_rect = Rect::new(
             ground_rect_1.x,
@@ -132,7 +153,6 @@ impl FallingGroundEditor {
     }
 }
 
-
 impl FallingGroundEditor {
     fn draw_minimap_page_columns(&self, layout: MinimapDrawLayout) {
         let ui = layout.ui;
@@ -175,7 +195,7 @@ impl FallingGroundEditor {
                 g_rect.x + 2.0 * ui,
                 g_rect.y + 12.0 * ui,
                 TextParams {
-                    font: self.text_font.as_ref(),
+                    font: self.view.text_font.as_ref(),
                     font_size: scaled_font_size(10.0, 8, 20),
                     color: Color::from_rgba(186, 216, 245, 196),
                     ..Default::default()
@@ -186,7 +206,7 @@ impl FallingGroundEditor {
                 a_rect.x + 2.0 * ui,
                 a_rect.y + 12.0 * ui,
                 TextParams {
-                    font: self.text_font.as_ref(),
+                    font: self.view.text_font.as_ref(),
                     font_size: scaled_font_size(10.0, 8, 20),
                     color: Color::from_rgba(214, 188, 246, 196),
                     ..Default::default()
@@ -220,7 +240,6 @@ impl FallingGroundEditor {
     }
 }
 
-
 impl FallingGroundEditor {
     fn draw_minimap_barlines(&self, layout: MinimapDrawLayout) {
         let ui = layout.ui;
@@ -235,7 +254,11 @@ impl FallingGroundEditor {
             let center_ms = (page_start_ms + page_end_ms) * 0.5;
             let ahead_ms = (page_end_ms - center_ms).max(0.0);
             let behind_ms = (center_ms - page_start_ms).max(0.0);
-            for barline in self.timeline.visible_barlines(center_ms, ahead_ms, behind_ms, 16) {
+            for barline in self
+                .editor_state
+                .timeline
+                .visible_barlines(center_ms, ahead_ms, behind_ms, 16)
+            {
                 if barline.time_ms < page_start_ms || barline.time_ms > page_end_ms {
                     continue;
                 }
@@ -263,7 +286,6 @@ impl FallingGroundEditor {
     }
 }
 
-
 impl FallingGroundEditor {
     fn draw_minimap_note_overview(&self, layout: MinimapDrawLayout) {
         let ui = layout.ui;
@@ -273,7 +295,7 @@ impl FallingGroundEditor {
 
         // 分两次绘制，确保 Flick 始终压在 SkyArea 上层。
         for flick_pass in [false, true] {
-            for note in &self.notes {
+            for note in &self.editor_state.notes {
                 if flick_pass != (note.kind == GroundNoteKind::Flick) {
                     continue;
                 }
@@ -311,8 +333,16 @@ impl FallingGroundEditor {
                         let eff_w = ground_note_effective_width(note.lane, note.width);
                         let total_w = ground_lane_w * eff_w as f32;
                         let note_w = (total_w * 0.74).max(1.0);
-                        let note_x = ground_rect.x + ground_lane_w * note.lane as f32 + (total_w - note_w) * 0.5;
-                        draw_rectangle(note_x, y_head - head_h * 0.5, note_w, head_h, lane_palette.tap);
+                        let note_x = ground_rect.x
+                            + ground_lane_w * note.lane as f32
+                            + (total_w - note_w) * 0.5;
+                        draw_rectangle(
+                            note_x,
+                            y_head - head_h * 0.5,
+                            note_w,
+                            head_h,
+                            lane_palette.tap,
+                        );
                     }
                     GroundNoteKind::Hold => {
                         let note_end = note.end_time_ms();
@@ -335,8 +365,10 @@ impl FallingGroundEditor {
                             let head_x = lane_x + (total_w - head_w) * 0.5;
                             let body_start = note_time.max(start_ms);
                             let body_end = note_end.min(end_ms);
-                            let y0 = self.minimap_segment_time_to_y(body_start, g_rect, start_ms, end_ms);
-                            let y1 = self.minimap_segment_time_to_y(body_end, g_rect, start_ms, end_ms);
+                            let y0 = self
+                                .minimap_segment_time_to_y(body_start, g_rect, start_ms, end_ms);
+                            let y1 =
+                                self.minimap_segment_time_to_y(body_end, g_rect, start_ms, end_ms);
                             let body_w = (head_w * 0.56).max(1.0);
                             let body_x = head_x + (head_w - body_w) * 0.5;
                             draw_rectangle(
@@ -359,8 +391,8 @@ impl FallingGroundEditor {
                                 );
                             }
                             if note_end >= start_ms && note_end <= end_ms {
-                                let y_tail_local =
-                                    self.minimap_segment_time_to_y(note_end, g_rect, start_ms, end_ms);
+                                let y_tail_local = self
+                                    .minimap_segment_time_to_y(note_end, g_rect, start_ms, end_ms);
                                 draw_rectangle(
                                     head_x,
                                     y_tail_local - head_h * 0.45,
@@ -386,7 +418,13 @@ impl FallingGroundEditor {
                         } else {
                             Color::from_rgba(246, 232, 122, 230)
                         };
-                        let bpm = self.timeline.point_at_time(note_time).bpm.abs().max(0.001);
+                        let bpm = self
+                            .editor_state
+                            .timeline
+                            .point_at_time(note_time)
+                            .bpm
+                            .abs()
+                            .max(0.001);
                         let subdiv_ms = 60_000.0 / bpm / 16.0;
                         let side_h = (subdiv_ms / page_duration_ms * sky_rect.h).max(head_h);
                         let side_x = if note.flick_right {
@@ -399,8 +437,12 @@ impl FallingGroundEditor {
                         } else {
                             center_x + note_w * 0.52
                         };
-                        let y_bottom =
-                            self.minimap_segment_time_to_y(note_time, sky_rect, page_start_ms, page_end_ms);
+                        let y_bottom = self.minimap_segment_time_to_y(
+                            note_time,
+                            sky_rect,
+                            page_start_ms,
+                            page_end_ms,
+                        );
                         let y_top = y_bottom - side_h;
                         let y_tip_top = y_bottom - flick_tip_h;
                         let mut top_curve = Vec::with_capacity(17);
@@ -439,7 +481,6 @@ impl FallingGroundEditor {
         }
     }
 }
-
 
 impl FallingGroundEditor {
     fn draw_minimap_skyarea_note(
@@ -561,7 +602,8 @@ impl FallingGroundEditor {
                 let x = s_rect.x + note.center_x_norm * s_rect.w;
                 let y_head_local =
                     self.minimap_segment_time_to_y(note_time, s_rect, start_ms, end_ms);
-                let y_tail_local = self.minimap_segment_time_to_y(note_end, s_rect, start_ms, end_ms);
+                let y_tail_local =
+                    self.minimap_segment_time_to_y(note_end, s_rect, start_ms, end_ms);
                 let head_w = (s_rect.w / 4.0 * 0.64).max(1.0);
                 draw_rectangle(
                     x - head_w * 0.5,
@@ -577,12 +619,18 @@ impl FallingGroundEditor {
                     head_h,
                     AIR_SKYAREA_TAIL_COLOR,
                 );
-                draw_line(x, y_head_local, x, y_tail_local, thin, AIR_SKYAREA_BODY_COLOR);
+                draw_line(
+                    x,
+                    y_head_local,
+                    x,
+                    y_tail_local,
+                    thin,
+                    AIR_SKYAREA_BODY_COLOR,
+                );
             }
         }
     }
 }
-
 
 impl FallingGroundEditor {
     fn draw_minimap_visible_highlight(
@@ -611,9 +659,14 @@ impl FallingGroundEditor {
             if overlap_end < overlap_start {
                 continue;
             }
-            let y_top = self.minimap_segment_time_to_y(overlap_end, group_rect, page_start_ms, page_end_ms);
-            let y_bottom =
-                self.minimap_segment_time_to_y(overlap_start, group_rect, page_start_ms, page_end_ms);
+            let y_top =
+                self.minimap_segment_time_to_y(overlap_end, group_rect, page_start_ms, page_end_ms);
+            let y_bottom = self.minimap_segment_time_to_y(
+                overlap_start,
+                group_rect,
+                page_start_ms,
+                page_end_ms,
+            );
             let highlight_h = (y_bottom - y_top).abs().max((2.0 * ui).max(1.0));
             let highlight = Rect::new(group_rect.x, y_top.min(y_bottom), group_rect.w, highlight_h);
             draw_rectangle(
@@ -637,7 +690,9 @@ impl FallingGroundEditor {
         }
 
         let current_y = self.minimap_segment_time_to_y(
-            visible.current_ms.clamp(layout.active_start_ms, layout.active_end_ms),
+            visible
+                .current_ms
+                .clamp(layout.active_start_ms, layout.active_end_ms),
             layout.active_group_rect,
             layout.active_start_ms,
             layout.active_end_ms,
@@ -654,4 +709,3 @@ impl FallingGroundEditor {
         active_highlight
     }
 }
-

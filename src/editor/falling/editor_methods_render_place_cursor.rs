@@ -2,7 +2,7 @@
 // 主要功能：根据当前工具绘制放置预览形状和辅助指示。
 impl FallingGroundEditor {
     fn draw_place_cursor(&self, rect: Rect, current_ms: f32) {
-        let Some(place_type) = self.place_note_type else {
+        let Some(place_type) = self.selection.place_note_type else {
             return;
         };
         if rect.h <= 8.0 {
@@ -17,8 +17,10 @@ impl FallingGroundEditor {
         if is_ground_tool(place_type) {
             let lane_w = rect.w / LANE_COUNT as f32;
             let judge_y = rect.y + rect.h * 0.82;
-            let preview_time =
-                self.apply_snap(self.pointer_to_time(my, current_ms, judge_y, rect.h).max(0.0));
+            let preview_time = self.apply_snap(
+                self.pointer_to_time(my, current_ms, judge_y, rect.h)
+                    .max(0.0),
+            );
             let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
             let lane = lane_from_x(mx, rect.x, lane_w);
             let palette = lane_note_palette(lane);
@@ -32,11 +34,12 @@ impl FallingGroundEditor {
             );
             match place_type {
                 PlaceNoteType::Hold => {
-                    if let Some(pending) = self.pending_hold {
+                    if let Some(pending) = self.selection.pending_hold {
                         let lane_x = rect.x + lane_w * pending.lane as f32;
                         let note_w = lane_w * 0.94;
                         let note_x = lane_x + (lane_w - note_w) * 0.5;
-                        let start_y = self.time_to_y(pending.start_time_ms, current_ms, judge_y, rect.h);
+                        let start_y =
+                            self.time_to_y(pending.start_time_ms, current_ms, judge_y, rect.h);
                         let y1 = start_y.min(preview_y);
                         let y2 = start_y.max(preview_y);
 
@@ -94,8 +97,10 @@ impl FallingGroundEditor {
                 return;
             }
             let judge_y = rect.y + rect.h * 0.82;
-            let preview_time =
-                self.apply_snap(self.pointer_to_time(my, current_ms, judge_y, rect.h).max(0.0));
+            let preview_time = self.apply_snap(
+                self.pointer_to_time(my, current_ms, judge_y, rect.h)
+                    .max(0.0),
+            );
             let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
             draw_line(
                 split_rect.x,
@@ -106,7 +111,7 @@ impl FallingGroundEditor {
                 Color::from_rgba(216, 232, 255, 188),
             );
             let x_norm_raw = ((mx - split_rect.x) / split_rect.w).clamp(0.0, 1.0);
-            let x_norm = snap_x_to_grid(x_norm_raw, self.x_split);
+            let x_norm = snap_x_to_grid(x_norm_raw, self.editor_state.x_split);
             let flick_width_norm = (1.0_f32 / 4.0).clamp(0.05, 1.0);
             let preview_half = if place_type == PlaceNoteType::Flick {
                 flick_width_norm * 0.5
@@ -128,8 +133,8 @@ impl FallingGroundEditor {
                 time_ms: preview_time,
                 duration_ms: 0.0,
                 width: flick_width_norm,
-                flick_right: self.place_flick_right,
-                x_split: self.x_split,
+                flick_right: self.selection.place_flick_right,
+                x_split: self.editor_state.x_split,
                 center_x_norm: center_norm,
                 skyarea_shape: None,
             };
@@ -137,7 +142,7 @@ impl FallingGroundEditor {
                 let side_h = self.flick_side_height_px(preview.time_ms, rect.h);
                 draw_flick_curve_shape(&preview, note_x, note_w, preview_y, side_h);
             } else {
-                if let Some(pending) = self.pending_skyarea {
+                if let Some(pending) = self.selection.pending_skyarea {
                     let half = DEFAULT_SKYAREA_WIDTH_NORM * 0.5;
                     let (start_time_ms, end_time_ms, raw_start, raw_end) =
                         if pending.start_time_ms <= preview_time {
@@ -168,11 +173,12 @@ impl FallingGroundEditor {
                         end_right_norm: end_right,
                         left_ease: Ease::Linear,
                         right_ease: Ease::Linear,
-                        start_x_split: self.x_split,
-                        end_x_split: self.x_split,
+                        start_x_split: self.editor_state.x_split,
+                        end_x_split: self.editor_state.x_split,
                         group_id: 0,
                     };
-                    let sky_preview_center = ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0);
+                    let sky_preview_center =
+                        ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0);
                     let preview_note = GroundNote {
                         id: 0,
                         kind: GroundNoteKind::SkyArea,
@@ -181,7 +187,7 @@ impl FallingGroundEditor {
                         duration_ms: (end_time_ms - start_time_ms).max(0.0),
                         width: DEFAULT_SKYAREA_WIDTH_NORM,
                         flick_right: true,
-                        x_split: self.x_split,
+                        x_split: self.editor_state.x_split,
                         center_x_norm: sky_preview_center,
                         skyarea_shape: Some(shape),
                     };
@@ -195,11 +201,15 @@ impl FallingGroundEditor {
                         false,
                     );
                 } else {
-                    draw_rectangle(note_x, preview_y - 8.0, note_w, 16.0, AIR_SKYAREA_HEAD_COLOR);
+                    draw_rectangle(
+                        note_x,
+                        preview_y - 8.0,
+                        note_w,
+                        16.0,
+                        AIR_SKYAREA_HEAD_COLOR,
+                    );
                 }
             }
         }
     }
-
 }
-

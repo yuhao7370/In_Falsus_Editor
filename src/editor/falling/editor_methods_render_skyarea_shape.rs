@@ -16,7 +16,7 @@ impl FallingGroundEditor {
         let has_tail = note.duration_ms > 0.0;
 
         // AutoPlay: 裁剪判定线以下部分
-        if self.autoplay_enabled && note.time_ms <= current_ms {
+        if self.view.autoplay_enabled && note.time_ms <= current_ms {
             clip_bottom = clip_bottom.min(judge_y);
             // 整个 SkyArea 已过判定线
             if !has_tail || note.end_time_ms() <= current_ms {
@@ -106,13 +106,19 @@ impl FallingGroundEditor {
 
         let head_w = (head_right - head_left).max(2.0);
         // AutoPlay: head 过判定线后不再绘制
-        let head_visible = if self.autoplay_enabled && note.time_ms <= current_ms {
+        let head_visible = if self.view.autoplay_enabled && note.time_ms <= current_ms {
             false
         } else {
             head_y >= clip_top - 18.0 && head_y <= clip_bottom + 18.0
         };
         if head_visible {
-            draw_rectangle(head_left, head_y - 8.0, head_w, 16.0, AIR_SKYAREA_HEAD_COLOR);
+            draw_rectangle(
+                head_left,
+                head_y - 8.0,
+                head_w,
+                16.0,
+                AIR_SKYAREA_HEAD_COLOR,
+            );
             if selected {
                 draw_selected_note_darken_rect(head_left, head_y - 8.0, head_w, 16.0);
                 draw_selected_note_outline(head_left, head_y - 8.0, head_w, 16.0);
@@ -120,21 +126,24 @@ impl FallingGroundEditor {
         }
 
         let tail_w = (tail_right - tail_left).max(2.0);
-        let tail_visible = if self.autoplay_enabled && has_tail && note.end_time_ms() <= current_ms {
-            false
-        } else {
-            has_tail && tail_y >= clip_top - 18.0 && tail_y <= clip_bottom + 18.0
-        };
+        let tail_visible =
+            if self.view.autoplay_enabled && has_tail && note.end_time_ms() <= current_ms {
+                false
+            } else {
+                has_tail && tail_y >= clip_top - 18.0 && tail_y <= clip_bottom + 18.0
+            };
         if tail_visible {
-            draw_rectangle(tail_left, tail_y - 8.0, tail_w, 16.0, AIR_SKYAREA_TAIL_COLOR);
+            draw_rectangle(
+                tail_left,
+                tail_y - 8.0,
+                tail_w,
+                16.0,
+                AIR_SKYAREA_TAIL_COLOR,
+            );
             if selected {
                 draw_selected_note_darken_rect(tail_left, tail_y - 8.0, tail_w, 16.0);
                 draw_selected_note_outline(tail_left, tail_y - 8.0, tail_w, 16.0);
             }
         }
     }
-
-
-
 }
-

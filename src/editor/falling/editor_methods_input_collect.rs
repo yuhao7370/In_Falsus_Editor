@@ -11,7 +11,7 @@ impl FallingGroundEditor {
     ) -> (HitScope, Vec<HitCandidate>) {
         let mut candidates = Vec::new();
 
-        if self.render_scope == RenderScope::Both {
+        if self.view.render_scope == RenderScope::Both {
             let Some(ground_rect) = ground_rect else {
                 return (HitScope::Mixed, candidates);
             };
@@ -57,7 +57,7 @@ impl FallingGroundEditor {
         let judge_y = rect.y + rect.h * 0.82;
         let mut candidates = Vec::new();
 
-        for (z, note) in self.notes.iter().enumerate() {
+        for (z, note) in self.editor_state.notes.iter().enumerate() {
             if !is_ground_kind(note.kind) {
                 continue;
             }
@@ -141,7 +141,7 @@ impl FallingGroundEditor {
         let split_rect = air_split_rect(rect);
 
         let mut candidates = Vec::new();
-        for (z, note) in self.notes.iter().enumerate() {
+        for (z, note) in self.editor_state.notes.iter().enumerate() {
             if !is_air_kind(note.kind) {
                 continue;
             }
@@ -154,17 +154,18 @@ impl FallingGroundEditor {
 
             if note.kind == GroundNoteKind::SkyArea {
                 if let Some(shape) = note.skyarea_shape {
-                    let head_left = split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
-                    let head_right = split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
-                    let tail_left = split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
-                    let tail_right = split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let head_left =
+                        split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let head_right =
+                        split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_left =
+                        split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_right =
+                        split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
                     let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
 
-                    let head_rect = note_end_hit_rect(
-                        head_left,
-                        (head_right - head_left).max(2.0),
-                        head_y,
-                    );
+                    let head_rect =
+                        note_end_hit_rect(head_left, (head_right - head_left).max(2.0), head_y);
                     if point_in_rect(mx, my, head_rect) {
                         push_best_hit_candidate(
                             &mut candidates,
@@ -179,11 +180,8 @@ impl FallingGroundEditor {
                         );
                     }
 
-                    let tail_rect = note_end_hit_rect(
-                        tail_left,
-                        (tail_right - tail_left).max(2.0),
-                        tail_y,
-                    );
+                    let tail_rect =
+                        note_end_hit_rect(tail_left, (tail_right - tail_left).max(2.0), tail_y);
                     if point_in_rect(mx, my, tail_rect) {
                         push_best_hit_candidate(
                             &mut candidates,
@@ -198,8 +196,14 @@ impl FallingGroundEditor {
                         );
                     }
 
-                    let min_left = shape.start_left_norm.min(shape.end_left_norm).clamp(0.0, 1.0);
-                    let max_right = shape.start_right_norm.max(shape.end_right_norm).clamp(0.0, 1.0);
+                    let min_left = shape
+                        .start_left_norm
+                        .min(shape.end_left_norm)
+                        .clamp(0.0, 1.0);
+                    let max_right = shape
+                        .start_right_norm
+                        .max(shape.end_right_norm)
+                        .clamp(0.0, 1.0);
                     let x1 = split_rect.x + min_left * split_rect.w;
                     let x2 = split_rect.x + max_right * split_rect.w;
                     let y1 = head_y.min(tail_y);
@@ -209,17 +213,17 @@ impl FallingGroundEditor {
                         let body_distance_sq =
                             skyarea_body_hit_distance_sq(mx, my, split_rect, shape, head_y, tail_y);
                         if let Some(distance_sq) = body_distance_sq {
-                        push_best_hit_candidate(
-                            &mut candidates,
-                            HitCandidate {
-                                note_id: note.id,
-                                scope: HitScope::Air,
-                                air_target: AirDragTarget::Body,
-                                part: HitPart::Body,
-                                distance_sq,
-                                z_order,
-                            },
-                        );
+                            push_best_hit_candidate(
+                                &mut candidates,
+                                HitCandidate {
+                                    note_id: note.id,
+                                    scope: HitScope::Air,
+                                    air_target: AirDragTarget::Body,
+                                    part: HitPart::Body,
+                                    distance_sq,
+                                    z_order,
+                                },
+                            );
                         }
                     }
                     continue;
@@ -268,8 +272,4 @@ impl FallingGroundEditor {
 
         candidates
     }
-
-
-
 }
-

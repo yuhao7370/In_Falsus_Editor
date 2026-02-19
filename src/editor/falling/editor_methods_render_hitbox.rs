@@ -14,7 +14,7 @@ impl FallingGroundEditor {
         let view_top = rect.y - 40.0;
         let view_bottom = rect.y + rect.h + 40.0;
 
-        for note in &self.notes {
+        for note in &self.editor_state.notes {
             if !is_ground_kind(note.kind) {
                 continue;
             }
@@ -54,14 +54,20 @@ impl FallingGroundEditor {
             }
 
             let label = format!("#{}", note.id);
-            let label_color = if self.selected_note_ids.contains(&note.id)
-                || self.selected_note_id == Some(note.id)
+            let label_color = if self.selection.selected_note_ids.contains(&note.id)
+                || self.selection.selected_note_id == Some(note.id)
             {
                 Color::from_rgba(255, 255, 60, 255)
             } else {
                 head_color
             };
-            draw_debug_hitbox_label(head_rect, rect, &label, label_color, self.text_font.as_ref());
+            draw_debug_hitbox_label(
+                head_rect,
+                rect,
+                &label,
+                label_color,
+                self.view.text_font.as_ref(),
+            );
         }
     }
 
@@ -79,7 +85,7 @@ impl FallingGroundEditor {
         let view_top = rect.y - 40.0;
         let view_bottom = rect.y + rect.h + 40.0;
 
-        for note in &self.notes {
+        for note in &self.editor_state.notes {
             if !is_air_kind(note.kind) {
                 continue;
             }
@@ -110,10 +116,14 @@ impl FallingGroundEditor {
 
             if note.kind == GroundNoteKind::SkyArea {
                 if let Some(shape) = note.skyarea_shape {
-                    let head_left = split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
-                    let head_right = split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
-                    let tail_left = split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
-                    let tail_right = split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let head_left =
+                        split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let head_right =
+                        split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_left =
+                        split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
+                    let tail_right =
+                        split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
                     let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
 
                     let head_rect =
@@ -122,7 +132,9 @@ impl FallingGroundEditor {
                         note_end_hit_rect(tail_left, (tail_right - tail_left).max(2.0), tail_y);
                     draw_debug_hitbox_rect(head_rect, clip_rect, head_color, 1.3);
                     draw_debug_hitbox_rect(tail_rect, clip_rect, tail_color, 1.3);
-                    draw_debug_skyarea_body_hit_overlay(split_rect, shape, head_y, tail_y, body_color);
+                    draw_debug_skyarea_body_hit_overlay(
+                        split_rect, shape, head_y, tail_y, body_color,
+                    );
                     label_rect = head_rect;
                 }
             } else {
@@ -135,14 +147,15 @@ impl FallingGroundEditor {
                 label_rect = head_rect;
                 if note.has_tail() {
                     let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
-                    let body_rect = note_body_hit_rect(note_x, note_w, head_y.min(tail_y), head_y.max(tail_y));
+                    let body_rect =
+                        note_body_hit_rect(note_x, note_w, head_y.min(tail_y), head_y.max(tail_y));
                     draw_debug_hitbox_rect(body_rect, clip_rect, body_color, 1.2);
                 }
             }
 
             let label = format!("#{}", note.id);
-            let label_color = if self.selected_note_ids.contains(&note.id)
-                || self.selected_note_id == Some(note.id)
+            let label_color = if self.selection.selected_note_ids.contains(&note.id)
+                || self.selection.selected_note_id == Some(note.id)
             {
                 Color::from_rgba(255, 255, 60, 255)
             } else {
@@ -153,12 +166,8 @@ impl FallingGroundEditor {
                 clip_rect,
                 &label,
                 label_color,
-                self.text_font.as_ref(),
+                self.view.text_font.as_ref(),
             );
         }
     }
-
-
-
 }
-

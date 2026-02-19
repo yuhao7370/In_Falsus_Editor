@@ -9,11 +9,37 @@ impl FallingGroundEditor {
         let split_rect = air_split_rect(rect);
 
         if overlay_mode {
-            draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::from_rgba(48, 40, 78, 28));
-            draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, Color::from_rgba(86, 94, 124, 120));
+            draw_rectangle(
+                rect.x,
+                rect.y,
+                rect.w,
+                rect.h,
+                Color::from_rgba(48, 40, 78, 28),
+            );
+            draw_rectangle_lines(
+                rect.x,
+                rect.y,
+                rect.w,
+                rect.h,
+                1.0,
+                Color::from_rgba(86, 94, 124, 120),
+            );
         } else {
-            draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::from_rgba(14, 18, 26, 255));
-            draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, Color::from_rgba(44, 58, 84, 255));
+            draw_rectangle(
+                rect.x,
+                rect.y,
+                rect.w,
+                rect.h,
+                Color::from_rgba(14, 18, 26, 255),
+            );
+            draw_rectangle_lines(
+                rect.x,
+                rect.y,
+                rect.w,
+                rect.h,
+                1.0,
+                Color::from_rgba(44, 58, 84, 255),
+            );
         }
 
         for i in 0..=4 {
@@ -35,7 +61,8 @@ impl FallingGroundEditor {
         }
 
         let judge_y = rect.y + rect.h * 0.82;
-        let (_ahead_ms, _behind_ms) = self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
+        let (_ahead_ms, _behind_ms) =
+            self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
         let top_label_baseline = self.title_top_baseline_px();
         let barline_label_font_size = self.barline_label_font_size();
         let barline_label_min_y = rect.y + self.scaled_ui_px(14.0);
@@ -51,8 +78,8 @@ impl FallingGroundEditor {
             );
         }
 
-        let current_vb = self.track_timeline.visual_beat_at(current_ms);
-        let pixels_per_ms_bl = (self.scroll_speed * rect.h / 1000.0).max(0.001);
+        let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+        let pixels_per_ms_bl = (self.view.scroll_speed * rect.h / 1000.0).max(0.001);
         // 计算视口对应的 visual_beat 范围（上方和下方）
         let vb_above = (judge_y - rect.y) / pixels_per_ms_bl;
         let vb_below = (rect.y + rect.h - judge_y) / pixels_per_ms_bl;
@@ -68,7 +95,14 @@ impl FallingGroundEditor {
                 BarLineKind::Beat => (1.3, Color::from_rgba(108, 140, 186, 182)),
                 BarLineKind::Subdivision => (0.9, Color::from_rgba(74, 102, 136, 140)),
             };
-            draw_line(split_rect.x, y, split_rect.x + split_rect.w, y, thickness, color);
+            draw_line(
+                split_rect.x,
+                y,
+                split_rect.x + split_rect.w,
+                y,
+                thickness,
+                color,
+            );
             if !overlay_mode
                 && barline.show_measure_label
                 && y >= barline_label_min_y
@@ -80,7 +114,7 @@ impl FallingGroundEditor {
 
         // 分两次绘制空中音符，保证 Flick 永远在 SkyArea 上层。
         for flick_pass in [false, true] {
-            for note in &self.notes {
+            for note in &self.editor_state.notes {
                 if !is_air_kind(note.kind) {
                     continue;
                 }
@@ -89,7 +123,7 @@ impl FallingGroundEditor {
                 }
 
                 // AutoPlay: 已被判定的音符不显示（或裁剪判定线以下部分）
-                let judged = self.autoplay_enabled && note.time_ms <= current_ms;
+                let judged = self.view.autoplay_enabled && note.time_ms <= current_ms;
                 if judged && !note.has_tail() {
                     continue;
                 }
@@ -100,7 +134,7 @@ impl FallingGroundEditor {
                 let x_norm = note.center_x_norm;
                 let center_x = split_rect.x + x_norm * split_rect.w;
                 let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-                let selected = self.selected_note_ids.contains(&note.id);
+                let selected = self.selection.selected_note_ids.contains(&note.id);
                 let lane_for_palette = note.lane.clamp(0, LANE_COUNT - 1);
                 let palette = lane_note_palette(lane_for_palette);
 
@@ -110,13 +144,7 @@ impl FallingGroundEditor {
                 if note.kind == GroundNoteKind::SkyArea {
                     if let Some(shape) = note.skyarea_shape {
                         self.draw_skyarea_shape(
-                            split_rect,
-                            current_ms,
-                            judge_y,
-                            rect.h,
-                            note,
-                            shape,
-                            selected,
+                            split_rect, current_ms, judge_y, rect.h, note, shape, selected,
                         );
                         continue;
                     }
@@ -180,7 +208,7 @@ impl FallingGroundEditor {
             }
         }
 
-        if self.debug_show_hitboxes {
+        if self.view.debug_show_hitboxes {
             self.draw_air_hitbox_overlay(rect, current_ms);
         }
 
@@ -201,7 +229,7 @@ impl FallingGroundEditor {
             rect.x + self.title_side_margin_px(),
             rect.y + top_label_baseline,
             TextParams {
-                font: self.text_font.as_ref(),
+                font: self.view.text_font.as_ref(),
                 font_size: self.title_font_size(),
                 color: if overlay_mode {
                     Color::from_rgba(214, 226, 250, 230)
@@ -218,7 +246,7 @@ impl FallingGroundEditor {
                 split_rect.x + self.title_side_margin_px(),
                 y - barline_label_baseline_offset,
                 TextParams {
-                    font: self.text_font.as_ref(),
+                    font: self.view.text_font.as_ref(),
                     font_size: barline_label_font_size,
                     color: Color::from_rgba(188, 216, 255, 236),
                     ..Default::default()
@@ -227,8 +255,4 @@ impl FallingGroundEditor {
         }
         self.end_view_clip_rect();
     }
-
-
-
 }
-

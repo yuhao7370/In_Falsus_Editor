@@ -2,11 +2,7 @@
 // 主要功能：负责布局计算、视图绘制顺序和交互调用编排。
 
 impl FallingGroundEditor {
-    pub fn draw(
-        &mut self,
-        area: Rect,
-        frame_ctx: &FrameContext,
-    ) -> Vec<FallingEditorAction> {
+    pub fn draw(&mut self, area: Rect, frame_ctx: &FrameContext) -> Vec<FallingEditorAction> {
         let current_sec = frame_ctx.current_sec;
         let audio_duration_sec = frame_ctx.duration_sec;
         let is_playing = frame_ctx.is_playing;
@@ -22,7 +18,7 @@ impl FallingGroundEditor {
             (area.h - header_h - footer_h - 10.0).max(40.0),
         );
         let (left_screen, right_screen) = self.split_portrait_screens(content_rect);
-        let minimap_screen = if self.show_minimap {
+        let minimap_screen = if self.view.show_minimap {
             self.minimap_screen_from_left_gap(content_rect, left_screen)
         } else {
             None
@@ -42,8 +38,21 @@ impl FallingGroundEditor {
 
         let lanes_rect = right_inner;
 
-        draw_rectangle(area.x, area.y, area.w, area.h, Color::from_rgba(10, 10, 12, 255));
-        draw_rectangle_lines(area.x, area.y, area.w, area.h, 1.0, Color::from_rgba(44, 44, 52, 255));
+        draw_rectangle(
+            area.x,
+            area.y,
+            area.w,
+            area.h,
+            Color::from_rgba(10, 10, 12, 255),
+        );
+        draw_rectangle_lines(
+            area.x,
+            area.y,
+            area.w,
+            area.h,
+            1.0,
+            Color::from_rgba(44, 44, 52, 255),
+        );
 
         if let Some(screen) = minimap_screen {
             draw_rectangle(
@@ -81,13 +90,12 @@ impl FallingGroundEditor {
         }
 
         let duration_sec = self.estimate_duration(audio_duration_sec).max(0.001);
-        let mut render_current_sec = if self.waveform_seek_active {
-            self.waveform_seek_sec
-                .clamp(0.0, duration_sec)
+        let mut render_current_sec = if self.view.waveform_seek_active {
+            self.view.waveform_seek_sec.clamp(0.0, duration_sec)
         } else {
             current_sec
         };
-        if let Some(target_sec) = self.minimap_drag_target_sec {
+        if let Some(target_sec) = self.view.minimap_drag_target_sec {
             render_current_sec = target_sec.clamp(0.0, duration_sec);
         }
         let mut current_ms = render_current_sec * 1000.0;
@@ -103,16 +111,16 @@ impl FallingGroundEditor {
                 &mut actions,
             );
         } else {
-            self.minimap_drag_active = false;
-            self.minimap_drag_offset_ms = 0.0;
-            self.minimap_drag_target_sec = None;
-            self.minimap_last_emit_sec = None;
+            self.view.minimap_drag_active = false;
+            self.view.minimap_drag_offset_ms = 0.0;
+            self.view.minimap_drag_target_sec = None;
+            self.view.minimap_last_emit_sec = None;
         }
-        if let Some(target_sec) = self.minimap_drag_target_sec {
+        if let Some(target_sec) = self.view.minimap_drag_target_sec {
             render_current_sec = target_sec.clamp(0.0, duration_sec);
             current_ms = render_current_sec * 1000.0;
         }
-        let (ground_rect, air_rect, event_rect) = match self.render_scope {
+        let (ground_rect, air_rect, event_rect) = match self.view.render_scope {
             RenderScope::Both => {
                 self.draw_event_view(left_inner, current_ms);
                 (Some(lanes_rect), Some(lanes_rect), Some(left_inner))
@@ -120,58 +128,60 @@ impl FallingGroundEditor {
             RenderScope::Split => (Some(left_inner), Some(lanes_rect), None),
         };
 
-        let allow_editor_input = !self.minimap_drag_active;
+        let allow_editor_input = !self.view.minimap_drag_active;
         // Delete key: remove selected note or event
         // (keyboard is already blocked when egui text input has focus or popup is open)
         if safe_key_pressed(KeyCode::Delete) {
-            if !self.selected_note_ids.is_empty() {
-                self.editing_note_backup = None; // discard backup — note(s) being deleted
+            if !self.selection.selected_note_ids.is_empty() {
+                self.selection.editing_note_backup = None; // discard backup — note(s) being deleted
                 self.snapshot_for_undo();
-                let ids = self.selected_note_ids.clone();
+                let ids = self.selection.selected_note_ids.clone();
                 let count = ids.len();
-                self.notes.retain(|n| !ids.contains(&n.id));
-                self.selected_note_id = None;
-                self.selected_note_ids.clear();
-                self.drag_state = None;
-                self.overlap_cycle = None;
-                self.hover_overlap_hint = None;
+                self.editor_state.notes.retain(|n| !ids.contains(&n.id));
+                self.selection.clear_note_selection();
+                self.selection.drag_state = None;
+                self.selection.overlap_cycle = None;
+                self.selection.hover_overlap_hint = None;
                 self.status = format!("{} note(s) deleted", count);
-            } else if let Some(note_id) = self.selected_note_id.take() {
-                self.editing_note_backup = None;
+            } else if let Some(note_id) = self.selection.selected_note_id.take() {
+                self.selection.editing_note_backup = None;
                 self.snapshot_for_undo();
-                self.notes.retain(|n| n.id != note_id);
-                self.drag_state = None;
-                self.overlap_cycle = None;
-                self.hover_overlap_hint = None;
+                self.editor_state.notes.retain(|n| n.id != note_id);
+                self.selection.drag_state = None;
+                self.selection.overlap_cycle = None;
+                self.selection.hover_overlap_hint = None;
                 self.status = format!("note {} deleted", note_id);
-            } else if !self.selected_event_ids.is_empty() {
-                self.editing_event_backup = None;
+            } else if !self.selection.selected_event_ids.is_empty() {
+                self.selection.editing_event_backup = None;
                 self.snapshot_for_undo();
-                let ids = self.selected_event_ids.clone();
+                let ids = self.selection.selected_event_ids.clone();
                 let count = ids.len();
-                self.timeline_events.retain(|e| !ids.contains(&e.id));
+                self.editor_state
+                    .timeline_events
+                    .retain(|e| !ids.contains(&e.id));
                 self.rebuild_bpm_timeline_from_events();
                 self.rebuild_track_source_from_events();
-                self.selected_event_id = None;
-                self.selected_event_ids.clear();
-                self.event_overlap_cycle = None;
-                self.event_hover_hint = None;
+                self.selection.clear_event_selection();
+                self.selection.event_overlap_cycle = None;
+                self.selection.event_hover_hint = None;
                 self.status = format!("{} event(s) deleted", count);
-            } else if let Some(event_id) = self.selected_event_id.take() {
-                self.editing_event_backup = None; // discard backup — event is being deleted
+            } else if let Some(event_id) = self.selection.selected_event_id.take() {
+                self.selection.editing_event_backup = None; // discard backup — event is being deleted
                 self.snapshot_for_undo();
-                self.timeline_events.retain(|e| e.id != event_id);
+                self.editor_state
+                    .timeline_events
+                    .retain(|e| e.id != event_id);
                 self.rebuild_bpm_timeline_from_events();
                 self.rebuild_track_source_from_events();
-                self.event_overlap_cycle = None;
-                self.event_hover_hint = None;
+                self.selection.event_overlap_cycle = None;
+                self.selection.event_hover_hint = None;
                 self.status = format!("event {} deleted", event_id);
             }
         }
 
         // ── 剪切/复制/粘贴/镜像 快捷键 ──
         let ctrl_held = safe_key_down(KeyCode::LeftControl) || safe_key_down(KeyCode::RightControl);
-        if ctrl_held && self.paste_mode.is_none() {
+        if ctrl_held && self.clipboard.paste_mode().is_none() {
             if safe_key_pressed(KeyCode::C) {
                 self.copy_selected_to_clipboard();
             } else if safe_key_pressed(KeyCode::X) {
@@ -180,7 +190,9 @@ impl FallingGroundEditor {
                 self.enter_paste_mode(PasteMode::Normal);
             } else if safe_key_pressed(KeyCode::B) {
                 // Ctrl+B：有选中 → 原地镜像（不复制），无选中 → 镜像粘贴
-                if !self.selected_note_ids.is_empty() || self.selected_note_id.is_some() {
+                if !self.selection.selected_note_ids.is_empty()
+                    || self.selection.selected_note_id.is_some()
+                {
                     self.mirror_selected_notes();
                 } else {
                     self.enter_paste_mode(PasteMode::Mirrored);
@@ -189,61 +201,61 @@ impl FallingGroundEditor {
                 // Ctrl+M：复制并镜像
                 self.mirror_selected_in_place();
             }
-        } else if ctrl_held && self.paste_mode.is_some() {
+        } else if ctrl_held && self.clipboard.paste_mode().is_some() {
             // 在粘贴模式中也允许切换粘贴类型
             if safe_key_pressed(KeyCode::V) {
-                self.paste_mode = Some(PasteMode::Normal);
+                self.clipboard.set_paste_mode(PasteMode::Normal);
                 self.status = "paste mode: click to place".to_owned();
             } else if safe_key_pressed(KeyCode::B) {
-                self.paste_mode = Some(PasteMode::Mirrored);
+                self.clipboard.set_paste_mode(PasteMode::Mirrored);
                 self.status = "mirror paste mode: click to place".to_owned();
             }
         }
 
         // ── 粘贴模式处理 ──
-        if self.paste_mode.is_some() {
+        if self.clipboard.paste_mode().is_some() {
             self.handle_paste_input(ground_rect, air_rect, current_ms);
         }
 
-        if allow_editor_input && self.paste_mode.is_none() {
+        if allow_editor_input && self.clipboard.paste_mode().is_none() {
             if safe_mouse_button_pressed(MouseButton::Right)
-                && (self.place_note_type.is_some()
-                    || self.place_event_type.is_some()
-                    || self.pending_hold.is_some()
-                    || self.pending_skyarea.is_some())
+                && (self.selection.place_note_type.is_some()
+                    || self.selection.place_event_type.is_some()
+                    || self.selection.pending_hold.is_some()
+                    || self.selection.pending_skyarea.is_some())
             {
-                self.place_note_type = None;
-                self.place_event_type = None;
-                self.pending_hold = None;
-                self.pending_skyarea = None;
-                self.drag_state = None;
-                self.overlap_cycle = None;
-                self.hover_overlap_hint = None;
-                self.selected_event_id = None;
-                self.selected_event_ids.clear();
-                self.event_overlap_cycle = None;
-                self.event_hover_hint = None;
+                self.selection.place_note_type = None;
+                self.selection.place_event_type = None;
+                self.selection.pending_hold = None;
+                self.selection.pending_skyarea = None;
+                self.selection.drag_state = None;
+                self.selection.overlap_cycle = None;
+                self.selection.hover_overlap_hint = None;
+                self.selection.clear_event_selection();
+                self.selection.event_overlap_cycle = None;
+                self.selection.event_hover_hint = None;
                 self.status = "place mode cleared".to_owned();
             }
 
-            if self.place_note_type.is_none() && self.place_event_type.is_none() {
+            if self.selection.place_note_type.is_none() && self.selection.place_event_type.is_none()
+            {
                 self.handle_note_selection_click(ground_rect, air_rect, current_ms);
                 self.update_hover_overlap_hint(ground_rect, air_rect, current_ms);
             } else {
-                self.overlap_cycle = None;
-                self.hover_overlap_hint = None;
+                self.selection.overlap_cycle = None;
+                self.selection.hover_overlap_hint = None;
             }
         } else {
-            self.drag_state = None;
-            self.overlap_cycle = None;
-            self.hover_overlap_hint = None;
+            self.selection.drag_state = None;
+            self.selection.overlap_cycle = None;
+            self.selection.hover_overlap_hint = None;
         }
 
         if allow_editor_input {
             // 框选优先：Alt+左键 启动/更新/结束框选
             self.handle_box_select(ground_rect, air_rect, event_rect, current_ms);
 
-            if self.box_select.is_none() {
+            if self.selection.box_select.is_none() {
                 if let Some(rect) = ground_rect {
                     self.handle_ground_input(rect, current_ms);
                 }
@@ -253,8 +265,8 @@ impl FallingGroundEditor {
             }
         }
 
-        let spectrum_ok = self.show_spectrum && !self.track_speed_enabled;
-        match self.render_scope {
+        let spectrum_ok = self.view.show_spectrum && !self.editor_state.track_speed_enabled;
+        match self.view.render_scope {
             RenderScope::Both => {
                 if let Some(rect) = ground_rect {
                     self.draw_ground_view(rect, current_ms, spectrum_ok);
@@ -275,13 +287,13 @@ impl FallingGroundEditor {
 
         let (mx, my) = safe_mouse_position();
         let using_note_cursor = if allow_editor_input {
-            match self.place_note_type {
-                Some(tool) if is_ground_tool(tool) => {
-                    ground_rect.map(|r| point_in_rect(mx, my, r)).unwrap_or(false)
-                }
-                Some(tool) if is_air_tool(tool) => {
-                    air_rect.map(|r| point_in_rect(mx, my, air_split_rect(r))).unwrap_or(false)
-                }
+            match self.selection.place_note_type {
+                Some(tool) if is_ground_tool(tool) => ground_rect
+                    .map(|r| point_in_rect(mx, my, r))
+                    .unwrap_or(false),
+                Some(tool) if is_air_tool(tool) => air_rect
+                    .map(|r| point_in_rect(mx, my, air_split_rect(r)))
+                    .unwrap_or(false),
                 _ => false,
             }
         } else {
@@ -289,7 +301,7 @@ impl FallingGroundEditor {
         };
         show_mouse(!using_note_cursor);
         if using_note_cursor {
-            match self.place_note_type {
+            match self.selection.place_note_type {
                 Some(tool) if is_ground_tool(tool) => {
                     if let Some(rect) = ground_rect {
                         self.draw_place_cursor(rect, current_ms);
@@ -308,14 +320,10 @@ impl FallingGroundEditor {
         self.draw_box_select_overlay();
 
         // 绘制粘贴预览
-        if self.paste_mode.is_some() {
+        if self.clipboard.paste_mode().is_some() {
             self.draw_paste_preview(ground_rect, air_rect, current_ms);
         }
 
         actions
     }
-
-
-
 }
-

@@ -18,14 +18,12 @@ impl FallingGroundEditor {
         // --- 开始框选 ---
         if alt_held && safe_mouse_button_pressed(MouseButton::Left) {
             // 开始框选时清除拖拽等状态，避免冲突
-            self.drag_state = None;
-            self.multi_drag_state = None;
+            self.selection.drag_state = None;
+            self.selection.multi_drag_state = None;
             // 清空之前的选中集合
-            self.selected_note_id = None;
-            self.selected_note_ids.clear();
-            self.selected_event_id = None;
-            self.selected_event_ids.clear();
-            self.box_select = Some(BoxSelectState {
+            self.selection.clear_note_selection();
+            self.selection.clear_event_selection();
+            self.selection.box_select = Some(BoxSelectState {
                 start_x: mx,
                 start_y: my,
                 current_x: mx,
@@ -35,7 +33,7 @@ impl FallingGroundEditor {
         }
 
         // --- 更新框选 ---
-        if let Some(ref mut bs) = self.box_select {
+        if let Some(ref mut bs) = self.selection.box_select {
             if safe_mouse_button_down(MouseButton::Left) {
                 bs.current_x = mx;
                 bs.current_y = my;
@@ -61,15 +59,16 @@ impl FallingGroundEditor {
                 // 累积选中：曾经被框进去的元素持续保留
                 // 互斥：note 优先
                 if !note_ids.is_empty() {
-                    self.selected_note_ids.extend(note_ids);
-                    self.selected_note_id = self.selected_note_ids.iter().next().copied();
+                    self.selection.selected_note_ids.extend(note_ids);
+                    self.selection.selected_note_id =
+                        self.selection.selected_note_ids.iter().next().copied();
                     // note 存在时清空 event
-                    self.selected_event_id = None;
-                    self.selected_event_ids.clear();
-                } else if !event_ids.is_empty() && self.selected_note_ids.is_empty() {
+                    self.selection.clear_event_selection();
+                } else if !event_ids.is_empty() && self.selection.selected_note_ids.is_empty() {
                     // 仅当没有累积的 note 时才收集 event
-                    self.selected_event_ids.extend(event_ids);
-                    self.selected_event_id = self.selected_event_ids.iter().next().copied();
+                    self.selection.selected_event_ids.extend(event_ids);
+                    self.selection.selected_event_id =
+                        self.selection.selected_event_ids.iter().next().copied();
                 }
                 // 如果当前帧框内为空，不做任何清除，保留已累积的选中
                 return;
@@ -77,9 +76,9 @@ impl FallingGroundEditor {
 
             // --- 松开鼠标：结束框选 ---
             // 选中结果已在上面实时更新，直接清除框选状态
-            let count_n = self.selected_note_ids.len();
-            let count_e = self.selected_event_ids.len();
-            self.box_select = None;
+            let count_n = self.selection.selected_note_ids.len();
+            let count_e = self.selection.selected_event_ids.len();
+            self.selection.box_select = None;
             if count_n > 0 {
                 self.status = format!("box-selected {} note(s)", count_n);
             } else if count_e > 0 {
@@ -90,12 +89,19 @@ impl FallingGroundEditor {
 
     /// 绘制框选矩形（半透明蓝色填充 + 边框）。
     pub(crate) fn draw_box_select_overlay(&self) {
-        if let Some(ref bs) = self.box_select {
+        if let Some(ref bs) = self.selection.box_select {
             let r = box_select_rect(bs);
             // 填充
             draw_rectangle(r.x, r.y, r.w, r.h, Color::from_rgba(80, 140, 255, 40));
             // 边框
-            draw_rectangle_lines(r.x, r.y, r.w, r.h, 1.0, Color::from_rgba(100, 170, 255, 180));
+            draw_rectangle_lines(
+                r.x,
+                r.y,
+                r.w,
+                r.h,
+                1.0,
+                Color::from_rgba(100, 170, 255, 180),
+            );
         }
     }
 
@@ -110,7 +116,7 @@ impl FallingGroundEditor {
         let lane_w = rect.w / LANE_COUNT as f32;
         let judge_y = rect.y + rect.h * 0.82;
 
-        for note in &self.notes {
+        for note in &self.editor_state.notes {
             if !is_ground_kind(note.kind) {
                 continue;
             }
@@ -137,7 +143,7 @@ impl FallingGroundEditor {
         let split_rect = air_split_rect(rect);
         let judge_y = rect.y + rect.h * 0.82;
 
-        for note in &self.notes {
+        for note in &self.editor_state.notes {
             if !is_air_kind(note.kind) {
                 continue;
             }
@@ -146,7 +152,12 @@ impl FallingGroundEditor {
             let note_w = air_note_width(note, split_rect.w);
             let note_h = 16.0;
 
-            let note_rect = Rect::new(center_x - note_w * 0.5, head_y - note_h * 0.5, note_w, note_h);
+            let note_rect = Rect::new(
+                center_x - note_w * 0.5,
+                head_y - note_h * 0.5,
+                note_w,
+                note_h,
+            );
             if rects_overlap(box_rect, note_rect) {
                 // 避免重复（Both 模式下 ground_rect == air_rect）
                 if !out.contains(&note.id) {
@@ -168,7 +179,7 @@ impl FallingGroundEditor {
         let ui = self.resolution_ui_scale();
         let event_half_h = 9.0 * ui;
 
-        for event in &self.timeline_events {
+        for event in &self.editor_state.timeline_events {
             let ey = self.time_to_y_linear(event.time_ms, current_ms, judge_y, rect.h);
             // 事件渲染为水平条，宽度占满 rect
             let event_rect = Rect::new(rect.x, ey - event_half_h, rect.w, event_half_h * 2.0);

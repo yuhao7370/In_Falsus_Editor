@@ -11,7 +11,7 @@ impl FallingGroundEditor {
         let inside = point_in_rect(mx, my, rect);
 
         if safe_mouse_button_pressed(MouseButton::Left) && inside {
-            if let Some(tool) = self.place_note_type {
+            if let Some(tool) = self.selection.place_note_type {
                 if !is_ground_tool(tool) {
                     return;
                 }
@@ -25,7 +25,7 @@ impl FallingGroundEditor {
                     PlaceNoteType::Tap => {
                         self.snapshot_for_undo();
                         self.push_note(GroundNote {
-                            id: self.next_note_id,
+                            id: self.editor_state.next_note_id,
                             kind: GroundNoteKind::Tap,
                             lane,
                             time_ms,
@@ -39,13 +39,13 @@ impl FallingGroundEditor {
                         self.status = "new tap created".to_owned();
                     }
                     PlaceNoteType::Hold => {
-                        if let Some(pending) = self.pending_hold.take() {
+                        if let Some(pending) = self.selection.pending_hold.take() {
                             let start = pending.start_time_ms.min(time_ms);
                             let end = pending.start_time_ms.max(time_ms);
                             let duration = (end - start).max(0.0);
                             self.snapshot_for_undo();
                             self.push_note(GroundNote {
-                                id: self.next_note_id,
+                                id: self.editor_state.next_note_id,
                                 kind: GroundNoteKind::Hold,
                                 lane: pending.lane,
                                 time_ms: start,
@@ -63,11 +63,12 @@ impl FallingGroundEditor {
                                 end.round()
                             );
                         } else {
-                            self.pending_hold = Some(PendingHoldPlacement {
+                            self.selection.pending_hold = Some(PendingHoldPlacement {
                                 lane,
                                 start_time_ms: time_ms,
                             });
-                            self.status = format!("hold head set: lane={} time={:.0}ms", lane, time_ms);
+                            self.status =
+                                format!("hold head set: lane={} time={:.0}ms", lane, time_ms);
                         }
                     }
                     _ => {}
@@ -76,25 +77,33 @@ impl FallingGroundEditor {
         }
 
         // Multi-drag: update all selected ground notes together
-        if self.multi_drag_state.is_some() {
+        if self.selection.multi_drag_state.is_some() {
             if safe_mouse_button_down(MouseButton::Left) {
-                let start_sec = self.multi_drag_state.as_ref().unwrap().start_time_sec;
+                let start_sec = self
+                    .selection
+                    .multi_drag_state
+                    .as_ref()
+                    .unwrap()
+                    .start_time_sec;
                 if get_time() - start_sec < DRAG_HOLD_TO_START_SEC {
                     return;
                 }
-                match self.multi_drag_state.as_ref().unwrap().mode {
+                match self.selection.multi_drag_state.as_ref().unwrap().mode {
                     MultiDragMode::GroundFull => self.update_multi_drag_ground(rect, current_ms),
                     MultiDragMode::TimeOnly => self.update_multi_drag_time_only(rect, current_ms),
                     MultiDragMode::AirFull => self.update_multi_drag_time_only(rect, current_ms),
                 }
-                self.status = format!("multi-drag {} note(s)", self.selected_note_ids.len());
+                self.status = format!(
+                    "multi-drag {} note(s)",
+                    self.selection.selected_note_ids.len()
+                );
             } else {
                 self.finish_multi_drag();
             }
             return;
         }
 
-        if let Some(drag) = self.drag_state {
+        if let Some(drag) = self.selection.drag_state {
             if safe_mouse_button_down(MouseButton::Left) {
                 if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {
                     return;
@@ -104,6 +113,7 @@ impl FallingGroundEditor {
                     self.pointer_to_time(my, current_ms, judge_y, rect.h) + drag.time_offset_ms;
                 let snapped_time = self.apply_snap(new_time.max(0.0));
                 if let Some(note) = self
+                    .editor_state
                     .notes
                     .iter_mut()
                     .find(|note| note.id == drag.note_id && is_ground_kind(note.kind))
@@ -121,14 +131,10 @@ impl FallingGroundEditor {
                     self.status = format!("dragging lane={} time={:.0}ms", lane, note.time_ms);
                 }
             } else {
-                self.drag_state = None;
+                self.selection.drag_state = None;
                 self.sort_notes();
                 self.refresh_note_edit_backup();
             }
         }
     }
-
-
-
 }
-

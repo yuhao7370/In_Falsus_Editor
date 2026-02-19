@@ -18,13 +18,18 @@ impl FallingGroundEditor {
 
         // 准备剪贴板音符（可能需要镜像）
         let source_notes: Vec<GroundNote> = if mirrored {
-            self.clipboard.iter().map(|n| Self::mirror_note(n)).collect()
+            self.clipboard
+                .notes()
+                .iter()
+                .map(|n| Self::mirror_note(n))
+                .collect()
         } else {
-            self.clipboard.clone()
+            self.clipboard.notes_cloned()
         };
 
         // 锚点：剪贴板中最早的音符
-        let anchor_time = source_notes.iter()
+        let anchor_time = source_notes
+            .iter()
             .map(|n| n.time_ms)
             .fold(f32::MAX, f32::min);
 
@@ -34,8 +39,15 @@ impl FallingGroundEditor {
 
         // 确定鼠标指向的时间
         let (target_time, lane_shift, x_shift) = self.compute_paste_offsets(
-            mx, my, current_ms, ground_rect, air_rect,
-            has_ground, has_air, &source_notes, anchor_time,
+            mx,
+            my,
+            current_ms,
+            ground_rect,
+            air_rect,
+            has_ground,
+            has_air,
+            &source_notes,
+            anchor_time,
         );
 
         let time_delta = target_time - anchor_time;
@@ -67,8 +79,10 @@ impl FallingGroundEditor {
                     if !has_ground || !has_air {
                         // 纯 air：应用 x 偏移
                         if let Some(shape) = p.skyarea_shape.as_mut() {
-                            shape.start_left_norm = (shape.start_left_norm + x_shift).clamp(0.0, 1.0);
-                            shape.start_right_norm = (shape.start_right_norm + x_shift).clamp(0.0, 1.0);
+                            shape.start_left_norm =
+                                (shape.start_left_norm + x_shift).clamp(0.0, 1.0);
+                            shape.start_right_norm =
+                                (shape.start_right_norm + x_shift).clamp(0.0, 1.0);
                             shape.end_left_norm = (shape.end_left_norm + x_shift).clamp(0.0, 1.0);
                             shape.end_right_norm = (shape.end_right_norm + x_shift).clamp(0.0, 1.0);
                         }
@@ -99,7 +113,8 @@ impl FallingGroundEditor {
         let _mixed = has_ground && has_air;
 
         // 找锚点音符（最早的那个）
-        let anchor_note = source_notes.iter()
+        let anchor_note = source_notes
+            .iter()
             .min_by(|a, b| a.time_ms.total_cmp(&b.time_ms))
             .unwrap();
 
@@ -154,15 +169,23 @@ impl FallingGroundEditor {
                         if let Some(shape) = &n.skyarea_shape {
                             let min_left = shape.start_left_norm.min(shape.end_left_norm);
                             let max_right = shape.start_right_norm.max(shape.end_right_norm);
-                            if min_left + x_shift < 0.0 { x_shift = -min_left; }
-                            if max_right + x_shift > 1.0 { x_shift = 1.0 - max_right; }
+                            if min_left + x_shift < 0.0 {
+                                x_shift = -min_left;
+                            }
+                            if max_right + x_shift > 1.0 {
+                                x_shift = 1.0 - max_right;
+                            }
                         }
                     } else {
                         let half_w = n.width.clamp(0.05, 1.0) * 0.5;
                         let left = n.center_x_norm - half_w;
                         let right = n.center_x_norm + half_w;
-                        if left + x_shift < 0.0 { x_shift = -left; }
-                        if right + x_shift > 1.0 { x_shift = 1.0 - right; }
+                        if left + x_shift < 0.0 {
+                            x_shift = -left;
+                        }
+                        if right + x_shift > 1.0 {
+                            x_shift = 1.0 - right;
+                        }
                     }
                 }
             }
@@ -186,7 +209,9 @@ impl FallingGroundEditor {
         air_rect: Option<Rect>,
         current_ms: f32,
     ) {
-        let Some(mode) = self.paste_mode else { return; };
+        let Some(mode) = self.clipboard.paste_mode() else {
+            return;
+        };
 
         // Esc 或右键取消
         if safe_key_pressed(KeyCode::Escape) || safe_mouse_button_pressed(MouseButton::Right) {
@@ -206,12 +231,18 @@ impl FallingGroundEditor {
                 if is_ground_kind(note.kind) {
                     let intended_w = (note.width.round() as usize).max(1);
                     if intended_w > 1 && (note.lane == 0 || note.lane >= 5) {
-                        let msg = self.i18n.t(crate::i18n::TextKey::EditorCannotPasteWideSideLane).to_owned();
+                        let msg = self
+                            .i18n
+                            .t(crate::i18n::TextKey::EditorCannotPasteWideSideLane)
+                            .to_owned();
                         self.push_toast_warn(msg);
                         return;
                     }
                     if intended_w > 1 && note.lane + intended_w > 5 {
-                        let msg = self.i18n.t(crate::i18n::TextKey::EditorCannotPasteExceedLane).to_owned();
+                        let msg = self
+                            .i18n
+                            .t(crate::i18n::TextKey::EditorCannotPasteExceedLane)
+                            .to_owned();
                         self.push_toast_warn(msg);
                         return;
                     }
@@ -220,13 +251,12 @@ impl FallingGroundEditor {
             self.snapshot_for_undo();
             let count = preview.len();
             for mut note in preview {
-                note.id = self.next_note_id;
-                self.next_note_id = self.next_note_id.saturating_add(1);
-                self.notes.push(note);
+                note.id = self.editor_state.next_note_id;
+                self.editor_state.next_note_id = self.editor_state.next_note_id.saturating_add(1);
+                self.editor_state.notes.push(note);
             }
             self.sort_notes();
-            self.selected_note_ids.clear();
-            self.selected_note_id = None;
+            self.selection.clear_note_selection();
             let key = if mirrored {
                 crate::i18n::TextKey::EditorMirrorPastedNotes
             } else {
@@ -237,7 +267,7 @@ impl FallingGroundEditor {
             self.push_toast(msg);
             // 不退出粘贴模式，允许连续粘贴（和参考项目一致）
             // 如果想粘贴后退出，取消下面的注释：
-            // self.paste_mode = None;
+            // self.clipboard.clear_paste_mode();
         }
     }
 
@@ -248,7 +278,9 @@ impl FallingGroundEditor {
         air_rect: Option<Rect>,
         current_ms: f32,
     ) {
-        let Some(mode) = self.paste_mode else { return; };
+        let Some(mode) = self.clipboard.paste_mode() else {
+            return;
+        };
         let mirrored = mode == PasteMode::Mirrored;
         let preview = self.compute_paste_preview(ground_rect, air_rect, current_ms, mirrored);
         if preview.is_empty() {
@@ -271,8 +303,13 @@ impl FallingGroundEditor {
                     let y1 = head_y.min(tail_y);
                     let y2 = head_y.max(tail_y);
                     let (body_x, body_w) = (note_x + note_w * 0.04, note_w * 0.92);
-                    draw_rectangle(body_x, y1, body_w, (y2 - y1).max(1.0),
-                        Color::from_rgba(236, 204, 120, preview_alpha / 2));
+                    draw_rectangle(
+                        body_x,
+                        y1,
+                        body_w,
+                        (y2 - y1).max(1.0),
+                        Color::from_rgba(236, 204, 120, preview_alpha / 2),
+                    );
                 }
 
                 let head_color = Color::from_rgba(255, 222, 140, preview_alpha);
@@ -292,8 +329,7 @@ impl FallingGroundEditor {
                 if note.kind == GroundNoteKind::SkyArea {
                     if let Some(shape) = note.skyarea_shape {
                         self.draw_skyarea_shape(
-                            split_rect, current_ms, judge_y, rect.h,
-                            note, shape, false,
+                            split_rect, current_ms, judge_y, rect.h, note, shape, false,
                         );
                     }
                 } else if note.kind == GroundNoteKind::Flick {
@@ -308,9 +344,7 @@ impl FallingGroundEditor {
         }
 
         // 绘制粘贴模式提示线（最早音符的时间线）
-        let anchor_time = preview.iter()
-            .map(|n| n.time_ms)
-            .fold(f32::MAX, f32::min);
+        let anchor_time = preview.iter().map(|n| n.time_ms).fold(f32::MAX, f32::min);
         if let Some(rect) = ground_rect {
             let judge_y = rect.y + rect.h * 0.82;
             let y = self.time_to_y(anchor_time, current_ms, judge_y, rect.h);
