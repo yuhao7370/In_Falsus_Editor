@@ -212,10 +212,11 @@ impl FallingGroundEditor {
             }
         }
 
+        let spectrum_ok = self.show_spectrum && !self.track_speed_enabled;
         match self.render_scope {
             RenderScope::Both => {
                 if let Some(rect) = ground_rect {
-                    self.draw_ground_view(rect, current_ms, self.show_spectrum);
+                    self.draw_ground_view(rect, current_ms, spectrum_ok);
                 }
                 if let Some(rect) = air_rect {
                     self.draw_air_view(rect, current_ms, true, false);
@@ -223,10 +224,10 @@ impl FallingGroundEditor {
             }
             RenderScope::Split => {
                 if let Some(rect) = air_rect {
-                    self.draw_air_view(rect, current_ms, false, self.show_spectrum);
+                    self.draw_air_view(rect, current_ms, false, spectrum_ok);
                 }
                 if let Some(rect) = ground_rect {
-                    self.draw_ground_view(rect, current_ms, self.show_spectrum);
+                    self.draw_ground_view(rect, current_ms, spectrum_ok);
                 }
             }
         }
