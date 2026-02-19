@@ -14,7 +14,7 @@ use ui::info_toast::InfoToastManager;
 use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, PropertyEditState, draw_note_selector_panel, draw_snap_slider_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
-use ui::input_state::{set_pointer_blocked, safe_mouse_wheel, free_mouse_wheel};
+use ui::input_state::{set_pointer_blocked, set_keyboard_blocked, safe_mouse_wheel, free_mouse_wheel};
 use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 use ui::settings_window::{SettingsCategory, draw_settings_window};
 use ui::current_project_window::{CurrentProjectAction, CurrentProjectState, draw_current_project_window};
@@ -282,6 +282,7 @@ async fn main() {
 
         let mut top_menu_result = TopMenuResult { action: None, any_popup_open: false };
         let mut egui_wants_pointer = false;
+        let mut egui_wants_keyboard = false;
         let mut total_right_panels_px = note_panel_width_px;
         let mut open_project_result: Option<(String, String)> = None;
         let mut create_project_result: Option<CreateProjectParams> = None;
@@ -349,8 +350,12 @@ async fn main() {
                 || ctx.is_pointer_over_area()
                 || top_menu_result.any_popup_open;
             egui_wants_pointer = raw_egui_pointer;
+            // 键盘拦截：仅当 egui 文本框获得焦点或弹窗/窗口打开时阻断键盘快捷键
+            egui_wants_keyboard = ctx.wants_keyboard_input()
+                || top_menu_result.any_popup_open;
         });
         set_pointer_blocked(egui_wants_pointer);
+        set_keyboard_blocked(egui_wants_keyboard);
 
         // Handle CreateProject action: open the create project window
         if top_menu_result.action == Some(TopMenuAction::CreateProject) {

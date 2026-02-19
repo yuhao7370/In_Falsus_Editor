@@ -7,6 +7,7 @@ use macroquad::prelude::*;
 
 thread_local! {
     static POINTER_BLOCKED: Cell<bool> = Cell::new(false);
+    static KEYBOARD_BLOCKED: Cell<bool> = Cell::new(false);
 }
 
 /// 每帧由 main loop 调用，设置当前帧 egui 是否拦截了鼠标
@@ -57,14 +58,24 @@ pub fn safe_mouse_wheel() -> (f32, f32) {
     }
 }
 
-/// 安全版 is_key_pressed — 被 egui 拦截时返回 false，防止按键穿透到编辑器
-pub fn safe_key_pressed(key: KeyCode) -> bool {
-    !is_pointer_blocked() && is_key_pressed(key)
+/// 每帧由 main loop 调用，设置当前帧 egui 是否拦截了键盘（文本框获得焦点 / 弹窗打开）
+pub fn set_keyboard_blocked(blocked: bool) {
+    KEYBOARD_BLOCKED.with(|c| c.set(blocked));
 }
 
-/// 安全版 is_key_down — 被 egui 拦截时返回 false
+/// 查询当前帧键盘是否被 egui 拦截
+pub fn is_keyboard_blocked() -> bool {
+    KEYBOARD_BLOCKED.with(|c| c.get())
+}
+
+/// 安全版 is_key_pressed — 被 egui 键盘拦截时返回 false，防止按键穿透到编辑器
+pub fn safe_key_pressed(key: KeyCode) -> bool {
+    !is_keyboard_blocked() && is_key_pressed(key)
+}
+
+/// 安全版 is_key_down — 被 egui 键盘拦截时返回 false
 pub fn safe_key_down(key: KeyCode) -> bool {
-    !is_pointer_blocked() && is_key_down(key)
+    !is_keyboard_blocked() && is_key_down(key)
 }
 
 /// 自由版 is_key_pressed — 不受 egui 拦截影响，任何时候都返回真实按键状态
