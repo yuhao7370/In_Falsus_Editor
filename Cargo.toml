@@ -12,5 +12,5 @@ sasa = { git = "https://github.com/Mivik/sasa", default-features = false, featur
 rfd = "0.15"
 rustfft = "6"
 
-[build-dependencies]
+[target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
