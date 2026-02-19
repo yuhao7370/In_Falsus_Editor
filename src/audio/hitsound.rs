@@ -1,5 +1,6 @@
 use sasa::backend::cpal::{CpalBackend, CpalSettings};
 use sasa::{AudioClip, AudioManager, Music, MusicParams};
+use std::collections::VecDeque;
 
 const ASSETS_TAP: &str = "assets/tap.wav";
 const ASSETS_ARC: &str = "assets/arc.wav";
@@ -11,7 +12,7 @@ pub struct HitSoundPlayer {
     audio_manager: AudioManager,
     tap_clip: Option<AudioClip>,
     arc_clip: Option<AudioClip>,
-    voices: Vec<Music>,
+    voices: VecDeque<Music>,
     tap_volume: f32,
     arc_volume: f32,
     master_volume: f32,
@@ -34,7 +35,7 @@ impl HitSoundPlayer {
             audio_manager,
             tap_clip,
             arc_clip,
-            voices: Vec::new(),
+            voices: VecDeque::new(),
             tap_volume: 1.0,
             arc_volume: 1.0,
             master_volume: 1.0,
@@ -88,11 +89,12 @@ impl HitSoundPlayer {
         match music {
             Ok(mut m) => {
                 let _ = m.play();
-                self.voices.push(m);
+                self.voices.push_back(m);
                 // Evict oldest voices if over limit — explicitly pause before removing
                 while self.voices.len() > self.max_voices {
-                    let mut old = self.voices.remove(0);
-                    let _ = old.pause();
+                    if let Some(mut old) = self.voices.pop_front() {
+                        let _ = old.pause();
+                    }
                 }
             }
             Err(e) => {
