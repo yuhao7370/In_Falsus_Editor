@@ -48,7 +48,18 @@ impl FallingGroundEditor {
         };
 
         let initial_subdivision = 4u32;
-        let cached_barlines = timeline.precompute_all_barlines(&track_timeline, 600_000.0, initial_subdivision);
+        let init_duration_ms = {
+            let mut max_ms: f32 = 0.0;
+            for n in &notes {
+                let end = n.time_ms + n.duration_ms;
+                if end > max_ms { max_ms = end; }
+            }
+            for e in &timeline_events {
+                if e.time_ms > max_ms { max_ms = e.time_ms; }
+            }
+            (max_ms + 30_000.0).max(60_000.0)
+        };
+        let cached_barlines = timeline.precompute_all_barlines(&track_timeline, init_duration_ms, initial_subdivision);
 
         Self {
             chart_path: path.to_owned(),

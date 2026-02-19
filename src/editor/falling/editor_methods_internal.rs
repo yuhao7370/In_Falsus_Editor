@@ -56,11 +56,29 @@ impl FallingGroundEditor {
         subdivision_ms / 1000.0 * pixels_per_sec
     }
 
+    /// 根据谱面内容和波形时长动态计算小节线预计算范围（毫秒）。
+    fn effective_duration_ms(&self) -> f32 {
+        let mut max_ms: f32 = 0.0;
+        for n in &self.notes {
+            let end = n.time_ms + n.duration_ms;
+            if end > max_ms { max_ms = end; }
+        }
+        for e in &self.timeline_events {
+            if e.time_ms > max_ms { max_ms = e.time_ms; }
+        }
+        if let Some(w) = &self.waveform {
+            let w_ms = w.duration_sec * 1000.0;
+            if w_ms > max_ms { max_ms = w_ms; }
+        }
+        // 加 30 秒缓冲，最小 60 秒
+        (max_ms + 30_000.0).max(60_000.0)
+    }
+
     /// 重建小节线缓存。在 BPM/track/subdivision 变化时调用。
     fn rebuild_barline_cache(&mut self) {
         self.cached_barlines = self.timeline.precompute_all_barlines(
             &self.track_timeline,
-            600_000.0,
+            self.effective_duration_ms(),
             self.snap_division,
         );
         self.cached_barlines_subdivision = self.snap_division;
