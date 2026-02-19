@@ -299,7 +299,6 @@ impl FallingGroundEditor {
         } else {
             false
         };
-        show_mouse(!using_note_cursor);
         if using_note_cursor {
             match self.selection.place_note_type {
                 Some(tool) if is_ground_tool(tool) => {
