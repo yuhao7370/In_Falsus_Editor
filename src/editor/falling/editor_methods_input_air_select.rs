@@ -112,6 +112,25 @@ impl FallingGroundEditor {
             }
         }
 
+        // Multi-drag: update all selected air notes together
+        if self.multi_drag_state.is_some() {
+            if safe_mouse_button_down(MouseButton::Left) {
+                let start_sec = self.multi_drag_state.as_ref().unwrap().start_time_sec;
+                if get_time() - start_sec < DRAG_HOLD_TO_START_SEC {
+                    return;
+                }
+                match self.multi_drag_state.as_ref().unwrap().mode {
+                    MultiDragMode::AirFull => self.update_multi_drag_air(rect, current_ms),
+                    MultiDragMode::TimeOnly => self.update_multi_drag_time_only(rect, current_ms),
+                    MultiDragMode::GroundFull => self.update_multi_drag_time_only(rect, current_ms),
+                }
+                self.status = format!("multi-drag {} note(s)", self.selected_note_ids.len());
+            } else {
+                self.finish_multi_drag();
+            }
+            return;
+        }
+
         if let Some(drag) = self.drag_state {
             if safe_mouse_button_down(MouseButton::Left) {
                 if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {
@@ -220,9 +239,11 @@ impl FallingGroundEditor {
         current_ms: f32,
     ) {
         let (mx, my) = safe_mouse_position();
+        let shift_held = safe_key_down(KeyCode::LeftShift) || safe_key_down(KeyCode::RightShift);
 
         if safe_mouse_button_pressed(MouseButton::Right) {
             self.selected_note_id = None;
+            self.selected_note_ids.clear();
             self.drag_state = None;
             self.overlap_cycle = None;
             self.hover_overlap_hint = None;
@@ -236,8 +257,10 @@ impl FallingGroundEditor {
 
         let (scope, candidates) = self.collect_hit_candidates(mx, my, ground_rect, air_rect, current_ms);
         if candidates.is_empty() {
-            // Blank click or out-of-surface click should reset click-cycle + drag latch.
-            // Keep selected_note_id unchanged so user can inspect last selection.
+            if !shift_held {
+                // Blank click without Shift: clear multi-selection but keep selected_note_id for inspection.
+                self.selected_note_ids.clear();
+            }
             self.overlap_cycle = None;
             self.hover_overlap_hint = None;
             self.drag_state = None;
@@ -254,8 +277,6 @@ impl FallingGroundEditor {
             .and_then(|selected_id| candidates.iter().position(|c| c.note_id == selected_id));
 
         let selected_index = if candidates.len() > 1 {
-            // In overlap region, prefer keeping current selected note on single click.
-            // Cycling to another overlapped note is only via overlap double-click.
             let mut index = selected_note_index.unwrap_or(0);
             let mut double_click_armed = selected_note_index.is_some();
             if let Some(prev) = &self.overlap_cycle {
@@ -275,7 +296,6 @@ impl FallingGroundEditor {
                             did_cycle = true;
                             double_click_armed = false;
                         } else {
-                            // Prior pair expired; this click becomes the new first click.
                             index = selected_note_index.unwrap_or(previous_in_current);
                             double_click_armed = true;
                         }
@@ -303,18 +323,56 @@ impl FallingGroundEditor {
         };
 
         let selected = candidates[selected_index];
-        self.selected_note_id = Some(selected.note_id);
-        self.selected_event_id = None;
-        self.event_overlap_cycle = None;
-        self.event_hover_hint = None;
-        self.start_drag_for_candidate(selected, mx, my, current_ms, ground_rect, air_rect);
-        if candidates.len() > 1 && did_cycle {
-            self.status = format!(
-                "overlap select {}/{} (note={})",
-                selected_index + 1,
-                candidates.len(),
-                selected.note_id
-            );
+        let clicked_id = selected.note_id;
+
+        if shift_held {
+            // Shift+Click: toggle note in/out of multi-selection set
+            if self.selected_note_ids.contains(&clicked_id) {
+                self.selected_note_ids.remove(&clicked_id);
+                // Update selected_note_id to another note in the set, or None
+                self.selected_note_id = self.selected_note_ids.iter().next().copied();
+            } else {
+                // If there was a single selection not yet in the set, add it first
+                if let Some(prev_id) = self.selected_note_id {
+                    self.selected_note_ids.insert(prev_id);
+                }
+                self.selected_note_ids.insert(clicked_id);
+                self.selected_note_id = Some(clicked_id);
+            }
+            // Shift-click does not start drag
+            self.drag_state = None;
+            self.selected_event_id = None;
+            self.event_overlap_cycle = None;
+            self.event_hover_hint = None;
+            let count = self.selected_note_ids.len();
+            self.status = format!("selected {} note(s)", count);
+        } else {
+            // Normal click: check if clicked note is already in multi-selection
+            if self.selected_note_ids.len() >= 2 && self.selected_note_ids.contains(&clicked_id) {
+                // Start multi-drag for all selected notes
+                self.selected_note_id = Some(clicked_id);
+                self.selected_event_id = None;
+                self.event_overlap_cycle = None;
+                self.event_hover_hint = None;
+                self.start_multi_drag(clicked_id, mx, my, current_ms, ground_rect, air_rect);
+            } else {
+                // Single select (clear multi-selection)
+                self.selected_note_ids.clear();
+                self.selected_note_ids.insert(clicked_id);
+                self.selected_note_id = Some(clicked_id);
+                self.selected_event_id = None;
+                self.event_overlap_cycle = None;
+                self.event_hover_hint = None;
+                self.start_drag_for_candidate(selected, mx, my, current_ms, ground_rect, air_rect);
+                if candidates.len() > 1 && did_cycle {
+                    self.status = format!(
+                        "overlap select {}/{} (note={})",
+                        selected_index + 1,
+                        candidates.len(),
+                        selected.note_id
+                    );
+                }
+            }
         }
     }
 

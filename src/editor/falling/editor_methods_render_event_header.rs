@@ -362,6 +362,7 @@ impl FallingGroundEditor {
 
                     self.selected_event_id = Some(ids[index]);
                     self.selected_note_id = None;
+                    self.selected_note_ids.clear();
                     self.overlap_cycle = None;
                     self.hover_overlap_hint = None;
                     self.event_overlap_cycle = Some(EventOverlapCycle {
@@ -385,6 +386,7 @@ impl FallingGroundEditor {
             } else {
                     self.selected_event_id = Some(ids[0]);
                     self.selected_note_id = None;
+                    self.selected_note_ids.clear();
                     self.overlap_cycle = None;
                     self.hover_overlap_hint = None;
                     self.event_overlap_cycle = None;

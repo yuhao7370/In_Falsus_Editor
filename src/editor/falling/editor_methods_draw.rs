@@ -124,8 +124,20 @@ impl FallingGroundEditor {
         // Delete key: remove selected note or event
         // (keyboard is already blocked when egui text input has focus or popup is open)
         if safe_key_pressed(KeyCode::Delete) {
-            if let Some(note_id) = self.selected_note_id.take() {
-                self.editing_note_backup = None; // discard backup — note is being deleted
+            if !self.selected_note_ids.is_empty() {
+                self.editing_note_backup = None; // discard backup — note(s) being deleted
+                self.snapshot_for_undo();
+                let ids = self.selected_note_ids.clone();
+                let count = ids.len();
+                self.notes.retain(|n| !ids.contains(&n.id));
+                self.selected_note_id = None;
+                self.selected_note_ids.clear();
+                self.drag_state = None;
+                self.overlap_cycle = None;
+                self.hover_overlap_hint = None;
+                self.status = format!("{} note(s) deleted", count);
+            } else if let Some(note_id) = self.selected_note_id.take() {
+                self.editing_note_backup = None;
                 self.snapshot_for_undo();
                 self.notes.retain(|n| n.id != note_id);
                 self.drag_state = None;

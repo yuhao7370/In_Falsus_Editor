@@ -100,7 +100,7 @@ impl FallingGroundEditor {
                 let x_norm = note.center_x_norm;
                 let center_x = split_rect.x + x_norm * split_rect.w;
                 let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-                let selected = self.selected_note_id == Some(note.id);
+                let selected = self.selected_note_ids.contains(&note.id);
                 let lane_for_palette = note.lane.clamp(0, LANE_COUNT - 1);
                 let palette = lane_note_palette(lane_for_palette);
 

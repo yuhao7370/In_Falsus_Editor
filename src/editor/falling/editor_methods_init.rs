@@ -55,7 +55,9 @@ impl FallingGroundEditor {
             notes,
             next_note_id,
             selected_note_id: None,
+            selected_note_ids: HashSet::new(),
             drag_state: None,
+            multi_drag_state: None,
             timeline,
             track_timeline,
             track_source,
@@ -292,8 +294,10 @@ impl FallingGroundEditor {
 
         // Clear selection / drag state
         self.selected_note_id = None;
+        self.selected_note_ids.clear();
         self.selected_event_id = None;
         self.drag_state = None;
+        self.multi_drag_state = None;
         self.pending_hold = None;
         self.pending_skyarea = None;
         self.overlap_cycle = None;
@@ -690,8 +694,19 @@ impl FallingGroundEditor {
 
     pub fn deselect_note(&mut self) {
         self.selected_note_id = None;
+        self.selected_note_ids.clear();
         self.overlap_cycle = None;
         self.hover_overlap_hint = None;
+    }
+
+    /// Returns the number of currently selected notes (multi-select).
+    pub fn selected_note_count(&self) -> usize {
+        self.selected_note_ids.len()
+    }
+
+    /// Returns true if the given note id is in the multi-selection set.
+    pub fn is_note_selected(&self, id: u64) -> bool {
+        self.selected_note_ids.contains(&id)
     }
 
     // ── Property panel: Event ──

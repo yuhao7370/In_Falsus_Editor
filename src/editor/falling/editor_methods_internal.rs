@@ -130,7 +130,9 @@ impl FallingGroundEditor {
         };
         self.track_timeline = TrackTimeline::from_source(&self.timeline, track_src);
         self.rebuild_barline_cache();
+        self.selected_note_ids.clear();
         self.drag_state = None;
+        self.multi_drag_state = None;
         self.overlap_cycle = None;
         self.hover_overlap_hint = None;
         self.event_overlap_cycle = None;

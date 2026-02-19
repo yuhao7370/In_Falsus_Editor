@@ -24,6 +24,45 @@ enum AirDragTarget {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MultiDragMode {
+    /// 仅地面音符：支持 lane 平移 + 时间移动
+    GroundFull,
+    /// 仅天空音符且 x_split 相同：支持 X 平移 + 时间移动
+    AirFull,
+    /// 混合选择 或 天空音符 x_split 不同：仅时间移动
+    TimeOnly,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MultiDragNoteSnapshot {
+    note_id: u64,
+    original_time_ms: f32,
+    original_lane: usize,
+    original_width: f32,
+    original_center_x_norm: f32,
+    original_duration_ms: f32,
+    // SkyArea shape snapshot
+    sky_start_left: f32,
+    sky_start_right: f32,
+    sky_end_left: f32,
+    sky_end_right: f32,
+}
+
+#[derive(Debug, Clone)]
+struct MultiDragState {
+    anchor_note_id: u64,
+    time_offset_ms: f32,
+    lane_offset: i32,
+    start_time_sec: f64,
+    start_mouse_x: f32,
+    start_mouse_y: f32,
+    mode: MultiDragMode,
+    common_x_split: f64,
+    scope: HitScope,
+    initial_notes: Vec<MultiDragNoteSnapshot>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HitScope {
     Ground,
     Air,
@@ -241,7 +280,9 @@ pub struct FallingGroundEditor {
     notes: Vec<GroundNote>,
     next_note_id: u64,
     selected_note_id: Option<u64>,
+    selected_note_ids: HashSet<u64>,
     drag_state: Option<DragState>,
+    multi_drag_state: Option<MultiDragState>,
     timeline: BpmTimeline,
     track_timeline: TrackTimeline,
     track_source: TrackSourceData,

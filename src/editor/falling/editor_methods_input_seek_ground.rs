@@ -75,6 +75,25 @@ impl FallingGroundEditor {
             }
         }
 
+        // Multi-drag: update all selected ground notes together
+        if self.multi_drag_state.is_some() {
+            if safe_mouse_button_down(MouseButton::Left) {
+                let start_sec = self.multi_drag_state.as_ref().unwrap().start_time_sec;
+                if get_time() - start_sec < DRAG_HOLD_TO_START_SEC {
+                    return;
+                }
+                match self.multi_drag_state.as_ref().unwrap().mode {
+                    MultiDragMode::GroundFull => self.update_multi_drag_ground(rect, current_ms),
+                    MultiDragMode::TimeOnly => self.update_multi_drag_time_only(rect, current_ms),
+                    MultiDragMode::AirFull => self.update_multi_drag_time_only(rect, current_ms),
+                }
+                self.status = format!("multi-drag {} note(s)", self.selected_note_ids.len());
+            } else {
+                self.finish_multi_drag();
+            }
+            return;
+        }
+
         if let Some(drag) = self.drag_state {
             if safe_mouse_button_down(MouseButton::Left) {
                 if get_time() - drag.start_time_sec < DRAG_HOLD_TO_START_SEC {

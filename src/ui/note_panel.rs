@@ -260,7 +260,8 @@ pub fn draw_note_selector_panel(
     let ppp = ctx.pixels_per_point().max(0.000_1);
     let panel_width_points = NOTE_PANEL_BASE_WIDTH_POINTS;
 
-    let sel_note = editor.selected_note_properties();
+    let multi_count = editor.selected_note_count();
+    let sel_note = if multi_count <= 1 { editor.selected_note_properties() } else { None };
     let sel_event = editor.selected_event_properties();
     let sel_note_id = sel_note.as_ref().map(|n| n.id);
     let sel_event_id = sel_event.as_ref().map(|e| e.id);
@@ -376,6 +377,15 @@ pub fn draw_note_selector_panel(
 }
 
 fn draw_tool_selector(ui: &mut egui::Ui, i18n: &I18n, editor: &mut FallingGroundEditor) {
+    let multi_count = editor.selected_note_count();
+    if multi_count > 1 {
+        ui.label(egui::RichText::new(format!("Selected {} note(s)", multi_count))
+            .size(TITLE_SIZE).color(egui::Color32::from_rgb(180, 220, 255)));
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new("Press Delete to remove")
+            .size(12.0).color(egui::Color32::from_rgb(140, 140, 150)));
+        ui.separator();
+    }
     ui.label("Note");
     let current_note = editor.place_note_type();
     let current_event = editor.place_event_type();

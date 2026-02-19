@@ -88,7 +88,7 @@ impl FallingGroundEditor {
             let note_w = note_head_width(note, lane_w);
             let note_x = ground_note_x(note, rect.x, lane_w);
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-            let selected = self.selected_note_id == Some(note.id);
+            let selected = self.selected_note_ids.contains(&note.id);
             let palette = lane_note_palette(note.lane);
 
             if note.has_tail() {
