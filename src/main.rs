@@ -1,3 +1,4 @@
+mod app;
 mod audio;
 mod chart;
 mod editor;
@@ -5,199 +6,26 @@ mod i18n;
 mod settings;
 mod ui;
 
+use app::constants::*;
+use app::menu_actions::handle_top_menu_action;
+use app::setup::{apply_settings_to_editor, window_conf};
 use audio::controller::AudioController;
 use editor::falling::{FallingEditorAction, FallingGroundEditor};
 use i18n::{I18n, TextKey};
 use macroquad::prelude::*;
+use settings::{modify_settings, settings};
+use ui::audio_debug_window::draw_audio_debug_window;
+use ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
+use ui::current_project_window::{CurrentProjectAction, CurrentProjectState, draw_current_project_window};
 use ui::fonts::{init_egui_fonts, load_macroquad_cjk_font};
 use ui::info_toast::InfoToastManager;
+use ui::input_state::{free_mouse_wheel, safe_mouse_wheel, set_keyboard_blocked, set_pointer_blocked};
+use ui::loading_status::{LoadAction, ProjectLoader};
 use ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, PropertyEditState, draw_note_selector_panel, draw_snap_slider_panel};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
-use ui::scale::{BASE_HEIGHT, BASE_WIDTH, ui_scale_factor};
-use ui::input_state::{set_pointer_blocked, set_keyboard_blocked, safe_mouse_wheel, free_mouse_wheel};
-use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
+use ui::scale::ui_scale_factor;
 use ui::settings_window::{SettingsCategory, draw_settings_window};
-use ui::audio_debug_window::draw_audio_debug_window;
-use ui::current_project_window::{CurrentProjectAction, CurrentProjectState, draw_current_project_window};
-use ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
-use ui::loading_status::{LoadAction, ProjectLoader};
-use settings::{settings, modify_settings, modify_settings_nosave};
-
-const TOP_BAR_HEIGHT: f32 = 32.0;
-const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
-
-/// 开发模式：设为 true 时启动自动加载下方指定的谱面和音频，方便调试。
-const DEV_MODE: bool = true;
-// const DEV_CHART_PATH: &str = "songs/alamode/alamode3.spc";
-// const DEV_AUDIO_PATH: &str = "songs/alamode/music.ogg";
-const DEV_CHART_PATH: &str = "testchart/grievouslady2.spc";
-const DEV_AUDIO_PATH: &str = "testchart/music.ogg";
-
-fn window_conf() -> Conf {
-    Conf {
-        window_title: "In Falsus Editor".to_owned(),
-        window_width: BASE_WIDTH as i32,
-        window_height: BASE_HEIGHT as i32,
-        window_resizable: true,
-        ..Default::default()
-    }
-}
-
-fn handle_top_menu_action(
-    action: TopMenuAction,
-    editor: &mut FallingGroundEditor,
-    audio: &mut AudioController,
-    i18n: &mut I18n,
-    info_toasts: &mut InfoToastManager,
-) {
-    match action {
-        TopMenuAction::CreateProject => {
-            audio.status = i18n.t(TextKey::ActionCreateProject).to_owned();
-        }
-        TopMenuAction::OpenProject | TopMenuAction::CurrentProject => {
-            audio.status.clear();
-        }
-        TopMenuAction::SaveChart => {
-            match editor.save_chart() {
-                Ok(()) => audio.status = format!("谱面已保存: {}", editor.chart_path()),
-                Err(e) => audio.status = format!("保存失败: {e}"),
-            }
-        }
-        TopMenuAction::HotReloadChart => {
-            match editor.reload_chart() {
-                Ok(true) => audio.status = i18n.t(TextKey::ActionHotReloadChart).to_owned(),
-                Ok(false) => audio.status = i18n.t(TextKey::ActionHotReloadChartNoChange).to_owned(),
-                Err(e) => audio.status = format!("{}: {e}", i18n.t(TextKey::ActionHotReloadChartFailed)),
-            }
-        }
-        TopMenuAction::Undo => {
-            if !editor.undo() { info_toasts.push_warn(i18n.t(TextKey::ActionNothingToUndo)); }
-            audio.status = i18n.t(TextKey::ActionUndo).to_owned();
-        }
-        TopMenuAction::Redo => {
-            if !editor.redo() { info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo)); }
-            audio.status = i18n.t(TextKey::ActionRedo).to_owned();
-        }
-        TopMenuAction::Cut => audio.status = i18n.t(TextKey::ActionCut).to_owned(),
-        TopMenuAction::Copy => audio.status = i18n.t(TextKey::ActionCopy).to_owned(),
-        TopMenuAction::Paste => audio.status = i18n.t(TextKey::ActionPaste).to_owned(),
-        TopMenuAction::SetLanguage(language) => {
-            i18n.set_language(language.clone());
-            editor.set_i18n(i18n.clone());
-            modify_settings(|s| s.set_language_from(&language));
-            audio.status = i18n.t(TextKey::ActionLanguageSwitched)
-                .replace("{lang}", i18n.language_display_name(&language));
-        }
-        TopMenuAction::SetMasterVolume(vol) => {
-            audio.set_master_volume(vol, i18n);
-            modify_settings(|s| s.master_volume = vol);
-            audio.status.clear();
-        }
-        TopMenuAction::SetMusicVolume(vol) => {
-            audio.set_music_volume(vol, i18n);
-            modify_settings(|s| s.music_volume = vol);
-            audio.status.clear();
-        }
-        TopMenuAction::SetAutoPlay(enabled) => {
-            editor.set_autoplay_enabled(enabled);
-            modify_settings(|s| s.autoplay = enabled);
-        }
-        TopMenuAction::SetShowSpectrum(enabled) => {
-            editor.set_show_spectrum(enabled);
-            modify_settings(|s| s.show_spectrum = enabled);
-        }
-        TopMenuAction::SetDebugHitbox(enabled) => {
-            editor.set_debug_show_hitboxes(enabled);
-            modify_settings(|s| s.debug_hitbox = enabled);
-            audio.status = if enabled {
-                i18n.t(TextKey::ActionDebugHitboxOn).to_owned()
-            } else {
-                i18n.t(TextKey::ActionDebugHitboxOff).to_owned()
-            };
-        }
-        TopMenuAction::SetMinimapVisible(enabled) => {
-            editor.set_show_minimap(enabled);
-            modify_settings(|s| s.show_minimap = enabled);
-            audio.status = if enabled {
-                i18n.t(TextKey::ActionMinimapOn).to_owned()
-            } else {
-                i18n.t(TextKey::ActionMinimapOff).to_owned()
-            };
-        }
-        TopMenuAction::SetRenderScope(scope) => {
-            editor.set_render_scope(scope);
-        }
-        TopMenuAction::SetScrollSpeed(speed) => {
-            editor.set_scroll_speed(speed);
-            modify_settings_nosave(|s| s.scroll_speed = speed);
-            audio.status.clear();
-        }
-        TopMenuAction::SetScrollSpeedFinal(speed) => {
-            editor.set_scroll_speed(speed);
-            modify_settings(|s| s.scroll_speed = speed);
-            audio.status = format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), speed);
-        }
-        TopMenuAction::SetSnapDivision(division) => {
-            editor.set_snap_division(division);
-            modify_settings_nosave(|s| s.snap_division = division);
-            audio.status.clear();
-        }
-        TopMenuAction::SetSnapDivisionFinal(division) => {
-            editor.set_snap_division(division);
-            modify_settings(|s| s.snap_division = division);
-            audio.status = format!("{}: {}x", i18n.t(TextKey::SettingsBarlineSnap), division);
-        }
-        TopMenuAction::SetXSplit(value) => {
-            editor.set_x_split(value);
-            modify_settings(|s| s.x_split = value);
-            audio.status = format!("{}: {}", i18n.t(TextKey::SettingsXSplit), value);
-        }
-        TopMenuAction::SetXSplitEditable(enabled) => {
-            editor.set_xsplit_editable(enabled);
-            modify_settings(|s| s.xsplit_editable = enabled);
-        }
-        TopMenuAction::SetHitsoundEnabled(enabled) => {
-            audio.set_hitsound_enabled(enabled);
-            modify_settings(|s| s.hitsound_enabled = enabled);
-        }
-        TopMenuAction::SetHitsoundTapVolume(vol) => {
-            audio.set_hitsound_tap_volume(vol);
-            modify_settings(|s| s.hitsound_tap_volume = vol);
-        }
-        TopMenuAction::SetHitsoundArcVolume(vol) => {
-            audio.set_hitsound_arc_volume(vol);
-            modify_settings(|s| s.hitsound_arc_volume = vol);
-        }
-        TopMenuAction::SetHitsoundDelay(ms) => {
-            audio.set_hitsound_delay_ms(ms);
-            modify_settings(|s| s.hitsound_delay_ms = ms);
-        }
-        TopMenuAction::SetDebugAudio(enabled) => {
-            modify_settings(|s| s.debug_audio = enabled);
-        }
-    }
-}
-
-/// 将全局设置应用到 editor 和 audio
-fn apply_settings_to_editor(editor: &mut FallingGroundEditor, audio: &mut AudioController, i18n: &I18n) {
-    let s = settings();
-    editor.set_scroll_speed(s.scroll_speed);
-    editor.set_snap_division(s.snap_division);
-    editor.set_autoplay_enabled(s.autoplay);
-    editor.set_show_spectrum(s.show_spectrum);
-    editor.set_show_minimap(s.show_minimap);
-    editor.set_x_split(s.x_split);
-    editor.set_xsplit_editable(s.xsplit_editable);
-    editor.set_debug_show_hitboxes(s.debug_hitbox);
-    editor.set_i18n(i18n.clone());
-    audio.set_master_volume(s.master_volume, i18n);
-    audio.set_music_volume(s.music_volume, i18n);
-    audio.set_hitsound_enabled(s.hitsound_enabled);
-    audio.set_hitsound_tap_volume(s.hitsound_tap_volume);
-    audio.set_hitsound_arc_volume(s.hitsound_arc_volume);
-    audio.set_hitsound_max_voices(s.hitsound_max_voices);
-    audio.set_hitsound_delay_ms(s.hitsound_delay_ms);
-}
+use ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -231,7 +59,6 @@ async fn main() {
         audio.status =
             "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
     }
-    // info_toasts.push("Info toasts enabled. Press F8 for multi-toast test.");
 
     loop {
         clear_background(Color::from_rgba(7, 7, 10, 255));
@@ -293,8 +120,6 @@ async fn main() {
                 note_panel_width_px,
                 menu_height + top_bar_height + 4.0 * ui_scale,
             );
-            // note_panel_width_px is for progress bar (excludes snap panel).
-            // total_right_panels_px includes snap panel for editor width.
             total_right_panels_px = note_panel_width_px + snap_panel_px;
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);
             // Draw create project window (if open)
@@ -312,46 +137,42 @@ async fn main() {
                     }
                 }
             }
-            // Check if pointer is over egui widgets/panels.
             let raw_egui_pointer = ctx.is_using_pointer()
                 || ctx.is_pointer_over_area()
                 || top_menu_result.any_popup_open;
             egui_wants_pointer = raw_egui_pointer;
-            // 键盘拦截：仅当 egui 文本框获得焦点或弹窗/窗口打开时阻断键盘快捷键
             egui_wants_keyboard = ctx.wants_keyboard_input()
                 || top_menu_result.any_popup_open;
         });
         set_pointer_blocked(egui_wants_pointer);
         set_keyboard_blocked(egui_wants_keyboard);
 
-        // Handle CreateProject action: open the create project window
+        // Handle CreateProject action
         if top_menu_result.action == Some(TopMenuAction::CreateProject) {
             create_project_state.reset();
             create_project_state.open = true;
-            top_menu_result.action = None; // consume it
+            top_menu_result.action = None;
         }
 
-        // Handle CurrentProject action: 打开当前项目信息窗口
+        // Handle CurrentProject action
         if top_menu_result.action == Some(TopMenuAction::CurrentProject) {
             let cp = editor.chart_path().to_string();
             current_project_state.chart_path = cp.clone();
             current_project_state.audio_path = audio.track_path().unwrap_or("").to_string();
-            // Derive project_dir from chart_path parent
             current_project_state.project_dir = std::path::Path::new(&cp)
                 .parent()
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_default();
             current_project_state.open = true;
-            top_menu_result.action = None; // consume it
+            top_menu_result.action = None;
         }
 
-        // Handle OpenProject action: 直接弹出文件选择器选 .iffproj
+        // Handle OpenProject action
         if top_menu_result.action == Some(TopMenuAction::OpenProject) {
             if let Some(path) = rfd::FileDialog::new()
                 .add_filter("IFF Project", &["iffproj"])
                 .pick_file()
             {
-                // 获取 iffproj 文件所在目录，用于解析相对路径
                 let proj_dir = path.parent().unwrap_or(std::path::Path::new("."));
                 match std::fs::read_to_string(&path) {
                     Ok(content) => {
@@ -360,7 +181,6 @@ async fn main() {
                                 let chart = json.get("chart_path").and_then(|v| v.as_str()).map(|s| s.to_string());
                                 let audio_val = json.get("audio_path").and_then(|v| v.as_str()).map(|s| s.to_string());
                                 if let (Some(cp_raw), Some(ap_raw)) = (chart, audio_val) {
-                                    // 将相对路径解析为基于 iffproj 目录的绝对路径
                                     let cp_path = std::path::Path::new(&cp_raw);
                                     let ap_path = std::path::Path::new(&ap_raw);
                                     let cp = if cp_path.is_absolute() { cp_raw } else { proj_dir.join(cp_path).to_string_lossy().to_string() };
@@ -370,17 +190,13 @@ async fn main() {
                                     info_toasts.push_warn("iffproj 文件缺少 chart_path 或 audio_path 字段");
                                 }
                             }
-                            Err(e) => {
-                                info_toasts.push_warn(format!("解析 iffproj 失败: {e}"));
-                            }
+                            Err(e) => info_toasts.push_warn(format!("解析 iffproj 失败: {e}")),
                         }
                     }
-                    Err(e) => {
-                        info_toasts.push_warn(format!("读取 iffproj 失败: {e}"));
-                    }
+                    Err(e) => info_toasts.push_warn(format!("读取 iffproj 失败: {e}")),
                 }
             }
-            top_menu_result.action = None; // consume it
+            top_menu_result.action = None;
         }
 
         if let Some(action) = top_menu_result.action {
@@ -399,7 +215,7 @@ async fn main() {
             }
         }
 
-        // Handle current project window actions (load missing chart/audio)
+        // Handle current project window actions
         if let Some(cp_action) = current_project_action {
             match cp_action {
                 CurrentProjectAction::LoadChart(chart_path) => {
@@ -436,7 +252,6 @@ async fn main() {
         {
             let prev_status = project_loader.status_text().to_owned();
             let action = project_loader.tick();
-            // 状态文本变化时更新 pinned toast
             let new_status = project_loader.status_text();
             if new_status != prev_status {
                 if new_status.is_empty() {
@@ -452,7 +267,6 @@ async fn main() {
                     editor = FallingGroundEditor::from_chart_path(&chart_path);
                     editor.set_text_font(font_backup);
                     apply_settings_to_editor(&mut editor, &mut audio, &i18n);
-                    // 进入下一阶段：读取音频字节
                     project_loader.advance_after_chart_load(chart_path, audio_path);
                     info_toasts.pin(project_loader.status_text());
                 }
@@ -475,12 +289,8 @@ async fn main() {
             let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
             if ctrl && is_key_pressed(KeyCode::S) {
                 match editor.save_chart() {
-                    Ok(()) => {
-                        info_toasts.push(format!("谱面已保存: {}", editor.chart_path()));
-                    }
-                    Err(e) => {
-                        info_toasts.push(format!("保存失败: {e}"));
-                    }
+                    Ok(()) => info_toasts.push(format!("谱面已保存: {}", editor.chart_path())),
+                    Err(e) => info_toasts.push(format!("保存失败: {e}")),
                 }
             }
             if ctrl && is_key_pressed(KeyCode::Z) {
@@ -499,13 +309,7 @@ async fn main() {
             }
         }
 
-        // if is_key_pressed(KeyCode::F8) {
-        //     info_toasts.push("Info A: multi-toast test");
-        //     info_toasts.push("Info B: animation should be smooth");
-        //     info_toasts.push("Info C: dismisses in queue order");
-        // }
-
-        // 4. Wheel: Ctrl+wheel = flow speed (free, ignores egui block), otherwise seek
+        // 4. Wheel: Ctrl+wheel = flow speed, otherwise seek
         let (_, free_wheel_y) = free_mouse_wheel();
         let (_, mq_wheel_y) = safe_mouse_wheel();
         let ctrl_down = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
@@ -537,6 +341,7 @@ async fn main() {
         let is_playing = audio.is_playing();
         let editor_width =
             (screen_width() - panel_pad * 2.0 - total_right_panels_px - editor_gap).max(360.0);
+
         // 5. Top progress bar
         let progress_output = draw_top_progress_bar(
             ui_scale,
