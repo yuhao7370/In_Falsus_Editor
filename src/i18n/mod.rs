@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-const ZH_CN_FILE_PATH: &str = "i18n/zh-CN.json";
-const EN_US_FILE_PATH: &str = "i18n/en-US.json";
 const ZH_CN_FALLBACK_JSON: &str = include_str!("../../i18n/zh-CN.json");
 const EN_US_FALLBACK_JSON: &str = include_str!("../../i18n/en-US.json");
+const I18N_DIR: &str = "i18n";
 
 type Messages = HashMap<String, String>;
 
@@ -25,32 +24,89 @@ fn load_messages_from_disk(path: &str) -> Option<Messages> {
     parse_messages(text)
 }
 
-fn load_messages(path: &str, fallback_json: &str) -> Messages {
-    load_messages_from_disk(path)
-        .or_else(|| parse_messages(fallback_json))
-        .unwrap_or_default()
+/// Scan the i18n directory and load all .json files.
+/// Returns a map of language code (e.g. "zh-CN") to Messages.
+fn discover_languages() -> HashMap<String, Messages> {
+    let mut all = HashMap::new();
+
+    // Always include compiled-in fallbacks
+    if let Some(msgs) = parse_messages(ZH_CN_FALLBACK_JSON) {
+        all.insert("zh-CN".to_owned(), msgs);
+    }
+    if let Some(msgs) = parse_messages(EN_US_FALLBACK_JSON) {
+        all.insert("en-US".to_owned(), msgs);
+    }
+
+    // Scan i18n/ directory for additional or overriding language files
+    if let Ok(entries) = std::fs::read_dir(I18N_DIR) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    let lang_code = stem.to_owned();
+                    if let Some(msgs) = load_messages_from_disk(&path.to_string_lossy()) {
+                        all.insert(lang_code, msgs);
+                    }
+                }
+            }
+        }
+    }
+
+    all
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Language {
-    ZhCn,
-    EnUs,
-}
+/// Language identifier — a thin wrapper around a locale string like "zh-CN", "en-US", "ja-JP".
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Language(pub String);
 
 impl Language {
+    pub const ZH_CN: &'static str = "zh-CN";
+    pub const EN_US: &'static str = "en-US";
+
+    pub fn zh_cn() -> Self {
+        Self(Self::ZH_CN.to_owned())
+    }
+
+    pub fn en_us() -> Self {
+        Self(Self::EN_US.to_owned())
+    }
+
+    pub fn code(&self) -> &str {
+        &self.0
+    }
+
     pub fn detect() -> Self {
         for key in ["LC_ALL", "LC_MESSAGES", "LANG"] {
             if let Ok(value) = std::env::var(key) {
                 let value = value.to_ascii_lowercase();
                 if value.contains("zh") {
-                    return Self::ZhCn;
+                    return Self::zh_cn();
                 }
                 if value.contains("en") {
-                    return Self::EnUs;
+                    return Self::en_us();
                 }
             }
         }
-        Self::ZhCn
+        Self::zh_cn()
+    }
+
+    /// Parse a settings string (e.g. "zh-cn") into a Language.
+    /// Case-insensitive matching against available languages, falls back to zh-CN.
+    pub fn from_settings(s: &str, available: &[Language]) -> Self {
+        let lower = s.to_ascii_lowercase();
+        for lang in available {
+            if lang.0.to_ascii_lowercase() == lower {
+                return lang.clone();
+            }
+        }
+        // Partial match: "zh" → first zh-*, "en" → first en-*
+        for lang in available {
+            let lang_lower = lang.0.to_ascii_lowercase();
+            if lang_lower.starts_with(&lower) || lower.starts_with(&lang_lower.split('-').next().unwrap_or("")) {
+                return lang.clone();
+            }
+        }
+        Self::zh_cn()
     }
 }
 
@@ -145,6 +201,20 @@ pub enum TextKey {
     ActionHotReloadChartFailed,
     ActionHotReloadChartNoChange,
     SettingsDebugAudio,
+    // ── Editor internal messages ──
+    ActionLanguageSwitched,
+    EditorNothingToCopy,
+    EditorCopiedNotes,
+    EditorNothingToCut,
+    EditorCutNotes,
+    EditorNothingToMirror,
+    EditorMirroredNotes,
+    EditorCopyMirroredNotes,
+    EditorPastedNotes,
+    EditorMirrorPastedNotes,
+    EditorCannotPasteWideSideLane,
+    EditorCannotPasteExceedLane,
+    EditorClipboardEmpty,
 }
 
 impl TextKey {
@@ -239,6 +309,20 @@ impl TextKey {
             TextKey::ActionHotReloadChartFailed => "action_hot_reload_chart_failed",
             TextKey::ActionHotReloadChartNoChange => "action_hot_reload_chart_no_change",
             TextKey::SettingsDebugAudio => "settings_debug_audio",
+            // Editor internal
+            TextKey::ActionLanguageSwitched => "action_language_switched",
+            TextKey::EditorNothingToCopy => "editor_nothing_to_copy",
+            TextKey::EditorCopiedNotes => "editor_copied_notes",
+            TextKey::EditorNothingToCut => "editor_nothing_to_cut",
+            TextKey::EditorCutNotes => "editor_cut_notes",
+            TextKey::EditorNothingToMirror => "editor_nothing_to_mirror",
+            TextKey::EditorMirroredNotes => "editor_mirrored_notes",
+            TextKey::EditorCopyMirroredNotes => "editor_copy_mirrored_notes",
+            TextKey::EditorPastedNotes => "editor_pasted_notes",
+            TextKey::EditorMirrorPastedNotes => "editor_mirror_pasted_notes",
+            TextKey::EditorCannotPasteWideSideLane => "editor_cannot_paste_wide_side_lane",
+            TextKey::EditorCannotPasteExceedLane => "editor_cannot_paste_exceed_lane",
+            TextKey::EditorClipboardEmpty => "editor_clipboard_empty",
         }
     }
 }
@@ -246,8 +330,8 @@ impl TextKey {
 #[derive(Debug, Clone)]
 pub struct I18n {
     language: Language,
-    zh_cn: Messages,
-    en_us: Messages,
+    /// All loaded language packs: language code → messages
+    packs: HashMap<String, Messages>,
 }
 
 impl I18n {
@@ -258,40 +342,62 @@ impl I18n {
     pub fn new(language: Language) -> Self {
         Self {
             language,
-            zh_cn: load_messages(ZH_CN_FILE_PATH, ZH_CN_FALLBACK_JSON),
-            en_us: load_messages(EN_US_FILE_PATH, EN_US_FALLBACK_JSON),
+            packs: discover_languages(),
         }
     }
 
-    fn active_messages(&self) -> &Messages {
-        match self.language {
-            Language::ZhCn => &self.zh_cn,
-            Language::EnUs => &self.en_us,
-        }
+    /// Create from a settings string (e.g. "zh-cn").
+    pub fn from_settings(lang_str: &str) -> Self {
+        let packs = discover_languages();
+        let available: Vec<Language> = packs.keys().map(|k| Language(k.clone())).collect();
+        let language = Language::from_settings(lang_str, &available);
+        Self { language, packs }
     }
 
-    fn fallback_messages(&self) -> &Messages {
-        match self.language {
-            Language::ZhCn => &self.en_us,
-            Language::EnUs => &self.zh_cn,
+    fn active_messages(&self) -> Option<&Messages> {
+        self.packs.get(self.language.code())
+    }
+
+    fn fallback_messages(&self) -> Option<&Messages> {
+        // Fallback to en-US, then zh-CN
+        if self.language.code() != Language::EN_US {
+            self.packs.get(Language::EN_US)
+        } else {
+            self.packs.get(Language::ZH_CN)
         }
     }
 
     pub fn t(&self, key: TextKey) -> &str {
         let key_name = key.as_str();
         self.active_messages()
-            .get(key_name)
-            .or_else(|| self.fallback_messages().get(key_name))
+            .and_then(|m| m.get(key_name))
+            .or_else(|| self.fallback_messages().and_then(|m| m.get(key_name)))
             .map(String::as_str)
             .unwrap_or(key_name)
     }
 
-    pub fn language(&self) -> Language {
-        self.language
+    pub fn language(&self) -> &Language {
+        &self.language
     }
 
     pub fn set_language(&mut self, language: Language) {
         self.language = language;
+    }
+
+    /// Returns all available language codes, sorted.
+    pub fn available_languages(&self) -> Vec<Language> {
+        let mut langs: Vec<Language> = self.packs.keys().map(|k| Language(k.clone())).collect();
+        langs.sort_by(|a, b| a.0.cmp(&b.0));
+        langs
+    }
+
+    /// Get the display name for a language (looks up "language_name" key in that language's pack).
+    pub fn language_display_name<'a>(&'a self, lang: &'a Language) -> &'a str {
+        self.packs
+            .get(lang.code())
+            .and_then(|m| m.get("language_name"))
+            .map(String::as_str)
+            .unwrap_or(lang.code())
     }
 
     pub fn with_detail(&self, key: TextKey, detail: impl std::fmt::Display) -> String {

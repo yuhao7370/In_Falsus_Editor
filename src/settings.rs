@@ -1,4 +1,4 @@
-use crate::i18n::Language;
+use crate::i18n::{I18n, Language};
 use serde::{Deserialize, Serialize};
 
 const SETTINGS_FILE: &str = "settings.json";
@@ -101,17 +101,11 @@ impl AppSettings {
         }
     }
 
-    pub fn language_enum(&self) -> Language {
-        match self.language.as_str() {
-            "en-us" => Language::EnUs,
-            _ => Language::ZhCn,
-        }
+    pub fn language_enum(&self, i18n: &I18n) -> Language {
+        Language::from_settings(&self.language, &i18n.available_languages())
     }
 
-    pub fn set_language_from(&mut self, lang: Language) {
-        self.language = match lang {
-            Language::ZhCn => "zh-cn".to_owned(),
-            Language::EnUs => "en-us".to_owned(),
-        };
+    pub fn set_language_from(&mut self, lang: &Language) {
+        self.language = lang.code().to_ascii_lowercase();
     }
 }

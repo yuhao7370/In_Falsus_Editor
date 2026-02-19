@@ -353,7 +353,7 @@ pub struct FallingGroundEditor {
     paste_mode: Option<PasteMode>,
     /// 待发送的 Toast 通知队列（由 main.rs drain 到 InfoToastManager）
     pending_toasts: Vec<(String, bool)>,
-    /// 语言：0=中文, 1=英文
-    language: u8,
+    /// 国际化实例
+    i18n: crate::i18n::I18n,
 }
 

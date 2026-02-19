@@ -1,13 +1,8 @@
 // 文件说明：编辑器内部通用操作函数集合。
 // 主要功能：封装音符增删改、排序、吸附和状态维护。
 impl FallingGroundEditor {
-    /// 双语文本助手：language==0 返回中文，否则返回英文。
-    fn tl(&self, zh: &str, en: &str) -> String {
-        if self.language == 0 { zh.to_owned() } else { en.to_owned() }
-    }
-
-    pub fn set_language(&mut self, lang: u8) {
-        self.language = lang;
+    pub fn set_i18n(&mut self, i18n: crate::i18n::I18n) {
+        self.i18n = i18n;
     }
 
     fn pointer_to_time(&self, mouse_y: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
@@ -444,7 +439,7 @@ impl FallingGroundEditor {
     /// 复制选中音符到剪贴板
     fn copy_selected_to_clipboard(&mut self) {
         if self.selected_note_ids.is_empty() {
-            let msg = self.tl("没有可复制的音符", "nothing to copy");
+            let msg = self.i18n.t(crate::i18n::TextKey::EditorNothingToCopy).to_owned();
             self.status = msg;
             return;
         }
@@ -456,11 +451,8 @@ impl FallingGroundEditor {
         }
         self.clipboard.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
         let count = self.clipboard.len();
-        let msg = if self.language == 0 {
-            format!("已复制 {} 个音符", count)
-        } else {
-            format!("copied {} note(s)", count)
-        };
+        let msg = self.i18n.t(crate::i18n::TextKey::EditorCopiedNotes)
+            .replace("{count}", &count.to_string());
         self.status = msg.clone();
         self.push_toast(msg);
     }
@@ -468,7 +460,7 @@ impl FallingGroundEditor {
     /// 剪切选中音符到剪贴板
     fn cut_selected_to_clipboard(&mut self) {
         if self.selected_note_ids.is_empty() {
-            let msg = self.tl("没有可剪切的音符", "nothing to cut");
+            let msg = self.i18n.t(crate::i18n::TextKey::EditorNothingToCut).to_owned();
             self.status = msg.clone();
             self.push_toast_warn(msg);
             return;
@@ -490,11 +482,8 @@ impl FallingGroundEditor {
         self.drag_state = None;
         self.overlap_cycle = None;
         self.hover_overlap_hint = None;
-        let msg = if self.language == 0 {
-            format!("已剪切 {} 个音符", count)
-        } else {
-            format!("cut {} note(s)", count)
-        };
+        let msg = self.i18n.t(crate::i18n::TextKey::EditorCutNotes)
+            .replace("{count}", &count.to_string());
         self.status = msg.clone();
         self.push_toast(msg);
     }
@@ -502,7 +491,7 @@ impl FallingGroundEditor {
     /// 原地镜像选中音符，不复制 (Ctrl+B)
     fn mirror_selected_notes(&mut self) {
         if self.selected_note_ids.is_empty() {
-            let msg = self.tl("没有可镜像的音符", "nothing to mirror");
+            let msg = self.i18n.t(crate::i18n::TextKey::EditorNothingToMirror).to_owned();
             self.status = msg.clone();
             self.push_toast_warn(msg);
             return;
@@ -521,11 +510,8 @@ impl FallingGroundEditor {
             }
         }
         self.sort_notes();
-        let msg = if self.language == 0 {
-            format!("已镜像 {} 个音符", count)
-        } else {
-            format!("{} note(s) mirrored", count)
-        };
+        let msg = self.i18n.t(crate::i18n::TextKey::EditorMirroredNotes)
+            .replace("{count}", &count.to_string());
         self.status = msg.clone();
         self.push_toast(msg);
     }
@@ -533,7 +519,7 @@ impl FallingGroundEditor {
     /// 复制并镜像选中音符 (Ctrl+M)
     fn mirror_selected_in_place(&mut self) {
         if self.selected_note_ids.is_empty() {
-            let msg = self.tl("没有可镜像的音符", "nothing to mirror");
+            let msg = self.i18n.t(crate::i18n::TextKey::EditorNothingToMirror).to_owned();
             self.status = msg.clone();
             self.push_toast_warn(msg);
             return;
@@ -556,11 +542,8 @@ impl FallingGroundEditor {
         self.sort_notes();
         self.selected_note_ids.clear();
         self.selected_note_id = None;
-        let msg = if self.language == 0 {
-            format!("已复制并镜像 {} 个音符", count)
-        } else {
-            format!("{} note(s) copy+mirrored", count)
-        };
+        let msg = self.i18n.t(crate::i18n::TextKey::EditorCopyMirroredNotes)
+            .replace("{count}", &count.to_string());
         self.status = msg.clone();
         self.push_toast(msg);
     }
@@ -568,7 +551,7 @@ impl FallingGroundEditor {
     /// 进入粘贴模式
     fn enter_paste_mode(&mut self, mode: PasteMode) {
         if self.clipboard.is_empty() {
-            self.status = self.tl("剪贴板为空", "clipboard empty");
+            self.status = self.i18n.t(crate::i18n::TextKey::EditorClipboardEmpty).to_owned();
             return;
         }
         self.paste_mode = Some(mode);

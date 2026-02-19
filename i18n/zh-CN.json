@@ -1,4 +1,5 @@
 {
+  "language_name": "中文",
   "player_label_volume": "音乐音量",
   "settings_master_volume": "总音量",
   "menu_file": "文件",
@@ -87,5 +88,18 @@
   "action_hot_reload_chart": "谱面已热重载",
   "action_hot_reload_chart_failed": "热重载谱面失败",
   "action_hot_reload_chart_no_change": "谱面无变化",
-  "settings_debug_audio": "音频调试窗口"
+  "settings_debug_audio": "音频调试窗口",
+  "action_language_switched": "语言已切换为 {lang}",
+  "editor_nothing_to_copy": "没有可复制的音符",
+  "editor_copied_notes": "已复制 {count} 个音符",
+  "editor_nothing_to_cut": "没有可剪切的音符",
+  "editor_cut_notes": "已剪切 {count} 个音符",
+  "editor_nothing_to_mirror": "没有可镜像的音符",
+  "editor_mirrored_notes": "已镜像 {count} 个音符",
+  "editor_copy_mirrored_notes": "已复制并镜像 {count} 个音符",
+  "editor_pasted_notes": "已粘贴 {count} 个音符",
+  "editor_mirror_pasted_notes": "已镜像粘贴 {count} 个音符",
+  "editor_cannot_paste_wide_side_lane": "无法粘贴：宽音符不能放在边缘轨道",
+  "editor_cannot_paste_exceed_lane": "无法粘贴：音符超出轨道范围",
+  "editor_clipboard_empty": "剪贴板为空"
 }

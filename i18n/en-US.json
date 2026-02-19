@@ -1,4 +1,5 @@
 {
+  "language_name": "English",
   "player_label_volume": "Music Volume",
   "settings_master_volume": "Master Volume",
   "menu_file": "File",
@@ -87,5 +88,18 @@
   "action_hot_reload_chart": "Chart hot reloaded",
   "action_hot_reload_chart_failed": "Failed to hot reload chart",
   "action_hot_reload_chart_no_change": "Chart unchanged",
-  "settings_debug_audio": "Audio Debug Window"
+  "settings_debug_audio": "Audio Debug Window",
+  "action_language_switched": "Language switched to {lang}",
+  "editor_nothing_to_copy": "Nothing to copy",
+  "editor_copied_notes": "Copied {count} note(s)",
+  "editor_nothing_to_cut": "Nothing to cut",
+  "editor_cut_notes": "Cut {count} note(s)",
+  "editor_nothing_to_mirror": "Nothing to mirror",
+  "editor_mirrored_notes": "Mirrored {count} note(s)",
+  "editor_copy_mirrored_notes": "Copy+mirrored {count} note(s)",
+  "editor_pasted_notes": "Pasted {count} note(s)",
+  "editor_mirror_pasted_notes": "Mirror pasted {count} note(s)",
+  "editor_cannot_paste_wide_side_lane": "Cannot paste: wide note on side lane",
+  "editor_cannot_paste_exceed_lane": "Cannot paste: note exceeds lane range",
+  "editor_clipboard_empty": "Clipboard empty"
 }

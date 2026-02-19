@@ -206,12 +206,12 @@ impl FallingGroundEditor {
                 if is_ground_kind(note.kind) {
                     let intended_w = (note.width.round() as usize).max(1);
                     if intended_w > 1 && (note.lane == 0 || note.lane >= 5) {
-                        let msg = self.tl("无法粘贴：宽音符不能放在边缘轨道", "cannot paste: wide note on side lane");
+                        let msg = self.i18n.t(crate::i18n::TextKey::EditorCannotPasteWideSideLane).to_owned();
                         self.push_toast_warn(msg);
                         return;
                     }
                     if intended_w > 1 && note.lane + intended_w > 5 {
-                        let msg = self.tl("无法粘贴：音符超出轨道范围", "cannot paste: note exceeds lane range");
+                        let msg = self.i18n.t(crate::i18n::TextKey::EditorCannotPasteExceedLane).to_owned();
                         self.push_toast_warn(msg);
                         return;
                     }
@@ -227,13 +227,12 @@ impl FallingGroundEditor {
             self.sort_notes();
             self.selected_note_ids.clear();
             self.selected_note_id = None;
-            let msg = if self.language == 0 {
-                if mirrored { format!("已镜像粘贴 {} 个音符", count) }
-                else { format!("已粘贴 {} 个音符", count) }
+            let key = if mirrored {
+                crate::i18n::TextKey::EditorMirrorPastedNotes
             } else {
-                if mirrored { format!("mirror pasted {} note(s)", count) }
-                else { format!("pasted {} note(s)", count) }
+                crate::i18n::TextKey::EditorPastedNotes
             };
+            let msg = self.i18n.t(key).replace("{count}", &count.to_string());
             self.status = msg.clone();
             self.push_toast(msg);
             // 不退出粘贴模式，允许连续粘贴（和参考项目一致）

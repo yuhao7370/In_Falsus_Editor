@@ -106,7 +106,7 @@ impl FallingGroundEditor {
             clipboard: Vec::new(),
             paste_mode: None,
             pending_toasts: Vec::new(),
-            language: 0,
+            i18n: crate::i18n::I18n::detect(),
         }
     }
 

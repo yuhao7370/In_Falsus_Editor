@@ -2,7 +2,7 @@ use crate::editor::falling::RenderScope;
 use crate::i18n::{I18n, Language, TextKey};
 use egui_macroquad::egui;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TopMenuAction {
     CreateProject,
     OpenProject,

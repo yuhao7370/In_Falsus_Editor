@@ -7,7 +7,7 @@ mod ui;
 
 use audio::controller::AudioController;
 use editor::falling::{FallingEditorAction, FallingGroundEditor};
-use i18n::{I18n, Language, TextKey};
+use i18n::{I18n, TextKey};
 use macroquad::prelude::*;
 use ui::fonts::{init_egui_fonts, load_macroquad_cjk_font};
 use ui::info_toast::InfoToastManager;
@@ -104,14 +104,12 @@ fn handle_top_menu_action(
             audio.status = i18n.t(TextKey::ActionPaste).to_owned();
         }
         TopMenuAction::SetLanguage(language) => {
-            i18n.set_language(language);
-            editor.set_language(match language { Language::ZhCn => 0, Language::EnUs => 1 });
-            app_settings.set_language_from(language);
+            i18n.set_language(language.clone());
+            editor.set_i18n(i18n.clone());
+            app_settings.set_language_from(&language);
             app_settings.save();
-            audio.status = match language {
-                Language::ZhCn => i18n.t(TextKey::ActionSetLanguageZh).to_owned(),
-                Language::EnUs => i18n.t(TextKey::ActionSetLanguageEn).to_owned(),
-            };
+            audio.status = i18n.t(TextKey::ActionLanguageSwitched)
+                .replace("{lang}", i18n.language_display_name(&language));
         }
         TopMenuAction::SetMasterVolume(vol) => {
             audio.set_master_volume(vol, i18n);
@@ -221,7 +219,7 @@ fn handle_top_menu_action(
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut app_settings = AppSettings::load();
-    let mut i18n = I18n::new(app_settings.language_enum());
+    let mut i18n = I18n::from_settings(&app_settings.language);
     let mut egui_fonts_ready = false;
 
     // DEV_MODE: 自动加载指定谱面和音频；否则启动空编辑器
@@ -255,7 +253,7 @@ async fn main() {
     editor.set_x_split(app_settings.x_split);
     editor.set_xsplit_editable(app_settings.xsplit_editable);
     editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
-    editor.set_language(match i18n.language() { Language::ZhCn => 0, _ => 1 });
+    editor.set_i18n(i18n.clone());
     audio.set_master_volume(app_settings.master_volume, &i18n);
     audio.set_music_volume(app_settings.music_volume, &i18n);
     audio.set_hitsound_enabled(app_settings.hitsound_enabled);
@@ -507,7 +505,7 @@ async fn main() {
                     editor.set_x_split(app_settings.x_split);
                     editor.set_xsplit_editable(app_settings.xsplit_editable);
                     editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
-                    editor.set_language(match i18n.language() { Language::ZhCn => 0, _ => 1 });
+                    editor.set_i18n(i18n.clone());
                     // 进入下一阶段：读取音频字节
                     project_loader.advance_after_chart_load(chart_path, audio_path);
                     info_toasts.pin(project_loader.status_text());

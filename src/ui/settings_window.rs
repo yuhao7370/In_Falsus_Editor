@@ -1,4 +1,4 @@
-use crate::i18n::{I18n, Language, TextKey};
+use crate::i18n::{I18n, TextKey};
 use crate::ui::snap_slider::draw_snap_slider;
 use crate::ui::top_menu::TopMenuAction;
 use egui_macroquad::egui;
@@ -184,13 +184,12 @@ pub fn draw_settings_window(
 
                     match *selected_category {
                         SettingsCategory::Language => {
-                            let zh_sel = i18n.language() == Language::ZhCn;
-                            if draw_setting_row(ui, i18n.t(TextKey::LanguageChinese), zh_sel).clicked() {
-                                action = Some(TopMenuAction::SetLanguage(Language::ZhCn));
-                            }
-                            let en_sel = i18n.language() == Language::EnUs;
-                            if draw_setting_row(ui, i18n.t(TextKey::LanguageEnglish), en_sel).clicked() {
-                                action = Some(TopMenuAction::SetLanguage(Language::EnUs));
+                            for lang in i18n.available_languages() {
+                                let is_sel = i18n.language() == &lang;
+                                let display = i18n.language_display_name(&lang);
+                                if draw_setting_row(ui, display, is_sel).clicked() {
+                                    action = Some(TopMenuAction::SetLanguage(lang));
+                                }
                             }
                         }
                         SettingsCategory::Audio => {
