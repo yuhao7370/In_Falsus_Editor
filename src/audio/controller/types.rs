@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 /// High-level audio controller.
 ///
 /// Position strategy:
@@ -18,7 +20,7 @@ pub struct AudioController {
     playing: bool,
 
     duration_sec: f32,
-    track_path: Option<String>,
+    track_path: Option<Arc<str>>,
     /// Dirty flag: only sync track_path/duration from backend when a load occurs.
     metadata_dirty: bool,
     music_volume: f32,
@@ -43,7 +45,7 @@ pub struct AudioController {
 pub struct FrameContext {
     pub current_sec: f32,
     pub duration_sec: f32,
-    pub track_path: Option<String>,
+    pub track_path: Option<Arc<str>>,
     pub is_playing: bool,
 }
 

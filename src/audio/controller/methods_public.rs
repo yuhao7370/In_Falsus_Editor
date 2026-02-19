@@ -20,7 +20,7 @@ impl AudioController {
         let (duration_sec, track_path, music_volume) = match &mut player {
             Some(p) => {
                 let snap = p.snapshot();
-                (snap.duration_sec, snap.track_path.clone(), snap.volume)
+                (snap.duration_sec, snap.track_path.map(std::sync::Arc::<str>::from), snap.volume)
             }
             None => (0.0, None, 1.0),
         };
@@ -109,7 +109,7 @@ impl AudioController {
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
             if self.metadata_dirty {
-                self.track_path = snap.track_path;
+                self.track_path = snap.track_path.map(std::sync::Arc::<str>::from);
                 self.metadata_dirty = false;
             }
             // Note: we don't sync volume from backend; we manage it ourselves.
@@ -326,7 +326,7 @@ impl AudioController {
             }
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
-            self.track_path = snap.track_path;
+            self.track_path = snap.track_path.map(std::sync::Arc::<str>::from);
             self.music_volume = snap.volume;
             self.anchor_pos = 0.0;
             self.anchor_time = get_time();
@@ -347,7 +347,7 @@ impl AudioController {
             }
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
-            self.track_path = snap.track_path;
+            self.track_path = snap.track_path.map(std::sync::Arc::<str>::from);
             self.music_volume = snap.volume;
             self.anchor_pos = 0.0;
             self.anchor_time = get_time();
@@ -368,7 +368,7 @@ impl AudioController {
             }
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
-            self.track_path = snap.track_path;
+            self.track_path = snap.track_path.map(std::sync::Arc::<str>::from);
             self.music_volume = snap.volume;
             self.anchor_pos = 0.0;
             self.anchor_time = get_time();
@@ -479,7 +479,7 @@ impl AudioController {
             fps,
             delta_time: dt,
             has_backend: self.player.is_some(),
-            track_path: self.track_path.clone().unwrap_or_default(),
+            track_path: self.track_path.as_deref().unwrap_or_default().to_owned(),
         }
     }
 }
