@@ -170,6 +170,7 @@ impl FallingGroundEditor {
                         right_ease: Ease::Linear,
                         start_x_split: self.x_split,
                         end_x_split: self.x_split,
+                        group_id: 0,
                     };
                     let sky_preview_center = ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0);
                     let preview_note = GroundNote {

@@ -166,5 +166,7 @@ struct SkyAreaShape {
     /// Per-shape x_split from the chart file.
     start_x_split: f64,
     end_x_split: f64,
+    /// SkyArea group id (V2); V1 defaults to 0.
+    group_id: i32,
 }
 

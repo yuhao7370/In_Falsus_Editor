@@ -213,7 +213,7 @@ impl FallingGroundEditor {
                             left_ease: shape.left_ease,
                             right_ease: shape.right_ease,
                             duration: note.duration_ms as f64,
-                            group_id: 0,
+                            group_id: shape.group_id,
                         });
                     }
                 }
@@ -508,6 +508,7 @@ impl FallingGroundEditor {
             end_left_norm: 0.0, end_right_norm: 0.0,
             left_ease: Ease::Linear, right_ease: Ease::Linear,
             start_x_split: self.x_split, end_x_split: self.x_split,
+            group_id: 0,
         };
         let shape = note.skyarea_shape.unwrap_or(default_shape);
         // Flick: use per-note x_split

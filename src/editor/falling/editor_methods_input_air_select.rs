@@ -87,6 +87,7 @@ impl FallingGroundEditor {
                                     right_ease: Ease::Linear,
                                     start_x_split: self.x_split,
                                     end_x_split: self.x_split,
+                                    group_id: 0,
                                 }),
                             });
                             self.status = format!(

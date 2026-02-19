@@ -176,7 +176,7 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 left_ease,
                 right_ease,
                 duration,
-                ..
+                group_id,
             } => {
                 let start_split = (*start_x_split as f32).max(1.0);
                 let end_split = (*end_x_split as f32).max(1.0);
@@ -214,6 +214,7 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                         right_ease: *right_ease,
                         start_x_split: *start_x_split,
                         end_x_split: *end_x_split,
+                        group_id: *group_id,
                     }),
                 });
                 next_id += 1;
