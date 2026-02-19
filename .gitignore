@@ -36,3 +36,6 @@ build.bat
 icon_tmp.jpg
 my.token
 /sasa
+/sign
+/android_assets
+/build/android

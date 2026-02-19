@@ -3,6 +3,7 @@ use macroquad::text::{Font, load_ttf_font};
 use std::{path::Path, sync::Arc};
 
 const PROJECT_FONT_CANDIDATES: &[&str] = &[
+    "assets/cjk_font.ttf",
     "assets/HarmonyOS_Sans_SC_Regular.ttf",
     "assets/HarmonyOS_Sans_Regular.ttf",
     "assets/simhei.ttf",
@@ -35,6 +36,9 @@ const SYSTEM_FONT_CANDIDATES: &[&str] = &[
     "/System/Library/Fonts/STHeiti Light.ttc",
     "/Library/Fonts/Microsoft/Microsoft YaHei.ttf",
 ];
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+const SYSTEM_FONT_CANDIDATES: &[&str] = &[];
 
 fn try_load_font(fonts: &mut egui::FontDefinitions, font_path: &str, font_name: &str) -> bool {
     let Ok(font_data) = std::fs::read(font_path) else {
