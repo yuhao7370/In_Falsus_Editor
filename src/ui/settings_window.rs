@@ -1,7 +1,7 @@
 use crate::i18n::{I18n, TextKey};
 use crate::settings::settings;
 use crate::ui::snap_slider::draw_snap_slider;
-use crate::ui::top_menu::TopMenuAction;
+use crate::ui::top_menu::{SettingsAction, TopMenuAction};
 use egui_macroquad::egui;
 
 const CATEGORY_ITEM_HEIGHT: f32 = 32.0;
@@ -193,7 +193,7 @@ pub fn draw_settings_window(
                                 let is_sel = i18n.language() == &lang;
                                 let display = i18n.language_display_name(&lang);
                                 if draw_setting_row(ui, display, is_sel).clicked() {
-                                    action = Some(TopMenuAction::SetLanguage(lang));
+                                    action = Some(TopMenuAction::Settings(SettingsAction::SetLanguage(lang)));
                                 }
                             }
                         }
@@ -209,7 +209,7 @@ pub fn draw_settings_window(
                                 .show_value(true)
                                 .text("");
                             if ui.add_enabled(volume_enabled, master_slider).changed() && volume_enabled {
-                                action = Some(TopMenuAction::SetMasterVolume(master_vol));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetMasterVolume(master_vol)));
                             }
 
                             // Music volume
@@ -224,13 +224,13 @@ pub fn draw_settings_window(
                                 .show_value(true)
                                 .text("");
                             if ui.add_enabled(volume_enabled, music_slider).changed() && volume_enabled {
-                                action = Some(TopMenuAction::SetMusicVolume(music_vol));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetMusicVolume(music_vol)));
                             }
 
                             ui.add_space(8.0);
                             // Hitsound toggle
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsHitsoundEnabled), current_hitsound_enabled).clicked() {
-                                action = Some(TopMenuAction::SetHitsoundEnabled(!current_hitsound_enabled));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetHitsoundEnabled(!current_hitsound_enabled)));
                             }
 
                             // Tap hitsound volume (0% ~ 200%)
@@ -246,7 +246,7 @@ pub fn draw_settings_window(
                                 .show_value(true)
                                 .text("");
                             if ui.add_enabled(current_hitsound_enabled, tap_slider).changed() {
-                                action = Some(TopMenuAction::SetHitsoundTapVolume(tap_vol));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetHitsoundTapVolume(tap_vol)));
                             }
 
                             // Arc hitsound volume (0% ~ 200%)
@@ -262,7 +262,7 @@ pub fn draw_settings_window(
                                 .show_value(true)
                                 .text("");
                             if ui.add_enabled(current_hitsound_enabled, arc_slider).changed() {
-                                action = Some(TopMenuAction::SetHitsoundArcVolume(arc_vol));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetHitsoundArcVolume(arc_vol)));
                             }
 
                             // Hitsound delay (-100ms ~ +100ms)
@@ -278,18 +278,18 @@ pub fn draw_settings_window(
                                 .show_value(true)
                                 .text("");
                             if ui.add_enabled(current_hitsound_enabled, delay_slider).changed() {
-                                action = Some(TopMenuAction::SetHitsoundDelay(delay));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetHitsoundDelay(delay)));
                             }
                         }
                         SettingsCategory::Display => {
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsAutoPlay), current_autoplay).clicked() {
-                                action = Some(TopMenuAction::SetAutoPlay(!current_autoplay));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetAutoPlay(!current_autoplay)));
                             }
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsShowSpectrum), current_show_spectrum).clicked() {
-                                action = Some(TopMenuAction::SetShowSpectrum(!current_show_spectrum));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetShowSpectrum(!current_show_spectrum)));
                             }
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsShowMinimap), current_show_minimap).clicked() {
-                                action = Some(TopMenuAction::SetMinimapVisible(!current_show_minimap));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetMinimapVisible(!current_show_minimap)));
                             }
                             ui.add_space(4.0);
                             ui.label(
@@ -299,7 +299,7 @@ pub fn draw_settings_window(
                             ui.horizontal(|ui| {
                                 if ui.add(egui::Button::new("-").min_size(egui::vec2(28.0, 26.0))).clicked() {
                                     let new_speed = (current_scroll_speed - scroll_speed_step).max(min_scroll_speed);
-                                    action = Some(TopMenuAction::SetScrollSpeedFinal(new_speed));
+                                    action = Some(TopMenuAction::Settings(SettingsAction::SetScrollSpeedFinal(new_speed)));
                                 }
                                 ui.spacing_mut().slider_width = (ui.available_width() - 108.0).max(60.0);
                                 let mut speed = current_scroll_speed;
@@ -309,14 +309,14 @@ pub fn draw_settings_window(
                                     .text("H/s");
                                 let response = ui.add(slider);
                                 if response.changed() {
-                                    action = Some(TopMenuAction::SetScrollSpeed(speed));
+                                    action = Some(TopMenuAction::Settings(SettingsAction::SetScrollSpeed(speed)));
                                 }
                                 if response.drag_stopped() {
-                                    action = Some(TopMenuAction::SetScrollSpeedFinal(speed));
+                                    action = Some(TopMenuAction::Settings(SettingsAction::SetScrollSpeedFinal(speed)));
                                 }
                                 if ui.add(egui::Button::new("+").min_size(egui::vec2(28.0, 26.0))).clicked() {
                                     let new_speed = (current_scroll_speed + scroll_speed_step).min(max_scroll_speed);
-                                    action = Some(TopMenuAction::SetScrollSpeedFinal(new_speed));
+                                    action = Some(TopMenuAction::Settings(SettingsAction::SetScrollSpeedFinal(new_speed)));
                                 }
                             });
                             ui.add_space(4.0);
@@ -334,15 +334,15 @@ pub fn draw_settings_window(
                             let (changed, finished) = draw_snap_slider(ui, current_snap_division, snap_width);
                             if let Some(new_div) = changed {
                                 // While dragging, update value silently (no toast)
-                                action = Some(TopMenuAction::SetSnapDivision(new_div));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetSnapDivision(new_div)));
                             }
                             if finished {
                                 // On release / click, trigger toast
-                                action = Some(TopMenuAction::SetSnapDivisionFinal(current_snap_division));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetSnapDivisionFinal(current_snap_division)));
                             }
                             // If both changed and finished on the same frame, final wins
                             if changed.is_some() && finished {
-                                action = Some(TopMenuAction::SetSnapDivisionFinal(changed.unwrap()));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetSnapDivisionFinal(changed.unwrap())));
                             }
                             ui.add_space(4.0);
                             ui.label(
@@ -358,19 +358,19 @@ pub fn draw_settings_window(
                                     .text("");
                                 let response = ui.add(slider);
                                 if response.changed() || response.drag_stopped() {
-                                    action = Some(TopMenuAction::SetXSplit(x_split));
+                                    action = Some(TopMenuAction::Settings(SettingsAction::SetXSplit(x_split)));
                                 }
                             });
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsXSplitEditable), current_xsplit_editable).clicked() {
-                                action = Some(TopMenuAction::SetXSplitEditable(!current_xsplit_editable));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetXSplitEditable(!current_xsplit_editable)));
                             }
                         }
                         SettingsCategory::Debug => {
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugHitbox), current_debug_hitbox).clicked() {
-                                action = Some(TopMenuAction::SetDebugHitbox(!current_debug_hitbox));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetDebugHitbox(!current_debug_hitbox)));
                             }
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugAudio), current_debug_audio).clicked() {
-                                action = Some(TopMenuAction::SetDebugAudio(!current_debug_audio));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetDebugAudio(!current_debug_audio)));
                             }
                         }
                     }

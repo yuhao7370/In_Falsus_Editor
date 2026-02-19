@@ -11,7 +11,7 @@ use crate::ui::input_state::{set_keyboard_blocked, set_pointer_blocked};
 use crate::ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, PropertyEditState, draw_note_selector_panel, draw_snap_slider_panel};
 use crate::ui::scale::ui_scale_factor;
 use crate::ui::settings_window::{SettingsCategory, draw_settings_window};
-use crate::ui::top_menu::{TopMenuAction, TopMenuResult, draw_top_menu};
+use crate::ui::top_menu::{FileAction, TopMenuAction, TopMenuResult, draw_top_menu};
 
 use super::constants::*;
 
@@ -143,14 +143,14 @@ impl UiOrchestrator {
         set_keyboard_blocked(egui_wants_keyboard);
 
         // Handle CreateProject action
-        if top_menu_result.action == Some(TopMenuAction::CreateProject) {
+        if top_menu_result.action == Some(TopMenuAction::File(FileAction::CreateProject)) {
             self.create_project_state.reset();
             self.create_project_state.open = true;
             top_menu_result.action = None;
         }
 
         // Handle CurrentProject action
-        if top_menu_result.action == Some(TopMenuAction::CurrentProject) {
+        if top_menu_result.action == Some(TopMenuAction::File(FileAction::CurrentProject)) {
             let cp = editor.chart_path().to_string();
             self.current_project_state.chart_path = cp.clone();
             self.current_project_state.audio_path = audio.track_path().unwrap_or("").to_string();
@@ -163,7 +163,7 @@ impl UiOrchestrator {
         }
 
         // Handle OpenProject action (with audio pause/resume)
-        if top_menu_result.action == Some(TopMenuAction::OpenProject) {
+        if top_menu_result.action == Some(TopMenuAction::File(FileAction::OpenProject)) {
             let was_playing = audio.pause_if_playing(i18n);
             open_project_result = Self::pick_open_project(info_toasts);
             audio.resume_if_was_playing(was_playing, i18n);

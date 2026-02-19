@@ -3,17 +3,25 @@ use crate::i18n::{I18n, Language, TextKey};
 use egui_macroquad::egui;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TopMenuAction {
+pub enum FileAction {
     CreateProject,
     OpenProject,
     CurrentProject,
     SaveChart,
     HotReloadChart,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EditAction {
     Undo,
     Redo,
     Cut,
     Copy,
     Paste,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SettingsAction {
     SetLanguage(Language),
     SetMasterVolume(f32),
     SetMusicVolume(f32),
@@ -33,6 +41,13 @@ pub enum TopMenuAction {
     SetHitsoundArcVolume(f32),
     SetHitsoundDelay(i32),
     SetDebugAudio(bool),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TopMenuAction {
+    File(FileAction),
+    Edit(EditAction),
+    Settings(SettingsAction),
 }
 
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
@@ -190,32 +205,32 @@ pub fn draw_top_menu(
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::CreateProject,
+                        TopMenuAction::File(FileAction::CreateProject),
                         i18n.t(TextKey::FileCreateProject),
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::OpenProject,
+                        TopMenuAction::File(FileAction::OpenProject),
                         i18n.t(TextKey::FileOpenProject),
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::CurrentProject,
+                        TopMenuAction::File(FileAction::CurrentProject),
                         i18n.t(TextKey::FileCurrentProject),
                     );
                     ui.separator();
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::SaveChart,
+                        TopMenuAction::File(FileAction::SaveChart),
                         i18n.t(TextKey::FileSaveChart),
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::HotReloadChart,
+                        TopMenuAction::File(FileAction::HotReloadChart),
                         i18n.t(TextKey::FileHotReloadChart),
                     );
                 });
@@ -224,32 +239,32 @@ pub fn draw_top_menu(
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::Undo,
+                        TopMenuAction::Edit(EditAction::Undo),
                         i18n.t(TextKey::EditUndo),
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::Redo,
+                        TopMenuAction::Edit(EditAction::Redo),
                         i18n.t(TextKey::EditRedo),
                     );
                     ui.separator();
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::Cut,
+                        TopMenuAction::Edit(EditAction::Cut),
                         i18n.t(TextKey::EditCut),
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::Copy,
+                        TopMenuAction::Edit(EditAction::Copy),
                         i18n.t(TextKey::EditCopy),
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
-                        TopMenuAction::Paste,
+                        TopMenuAction::Edit(EditAction::Paste),
                         i18n.t(TextKey::EditPaste),
                     );
                 });
@@ -380,7 +395,7 @@ pub fn draw_top_menu(
                                 RenderScope::Split
                             };
                             if clicked_scope != current_render_scope {
-                                action = Some(TopMenuAction::SetRenderScope(clicked_scope));
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetRenderScope(clicked_scope)));
                             }
                         }
                     }
