@@ -445,27 +445,31 @@ impl FallingGroundEditor {
                         );
                         let y_top = y_bottom - side_h;
                         let y_tip_top = y_bottom - flick_tip_h;
-                        let mut top_curve = Vec::with_capacity(17);
-                        for i in 0..=16 {
-                            let t = i as f32 / 16.0;
+                        const CURVE_STEPS: usize = 16;
+                        let mut top_curve = [Vec2::new(0.0, 0.0); CURVE_STEPS + 1];
+                        for i in 0..=CURVE_STEPS {
+                            let t = i as f32 / CURVE_STEPS as f32;
                             let eased = ease_progress(Ease::SineOut, t);
                             let x = lerp(side_x, tip_x, t);
                             let y = lerp(y_top, y_tip_top, eased);
-                            top_curve.push(Vec2::new(x, y));
+                            top_curve[i] = Vec2::new(x, y);
                         }
-                        let mut polygon = Vec::with_capacity(22);
-                        polygon.push(Vec2::new(side_x, y_bottom));
-                        polygon.extend_from_slice(&top_curve);
-                        polygon.push(Vec2::new(tip_x, y_bottom));
-                        for i in 1..(polygon.len() - 1) {
+                        let base = Vec2::new(side_x, y_bottom);
+                        for i in 0..CURVE_STEPS {
                             draw_triangle(
-                                polygon[0],
-                                polygon[i],
-                                polygon[i + 1],
+                                base,
+                                top_curve[i],
+                                top_curve[i + 1],
                                 Color::new(flick_color.r, flick_color.g, flick_color.b, 0.52),
                             );
                         }
-                        for i in 0..(top_curve.len() - 1) {
+                        draw_triangle(
+                            base,
+                            top_curve[CURVE_STEPS],
+                            Vec2::new(tip_x, y_bottom),
+                            Color::new(flick_color.r, flick_color.g, flick_color.b, 0.52),
+                        );
+                        for i in 0..CURVE_STEPS {
                             let a = top_curve[i];
                             let b = top_curve[i + 1];
                             draw_line(a.x, a.y, b.x, b.y, thin, flick_color);
