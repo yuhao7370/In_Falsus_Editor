@@ -36,3 +36,9 @@ build.bat
 icon_tmp.jpg
 my.token
 /sasa
+
+# Android packaging local artifacts
+/android_assets/
+/sign/
+*.jks
+*.keystore
