@@ -105,6 +105,8 @@ impl FallingGroundEditor {
             box_select: None,
             clipboard: Vec::new(),
             paste_mode: None,
+            pending_toasts: Vec::new(),
+            language: 0,
         }
     }
 

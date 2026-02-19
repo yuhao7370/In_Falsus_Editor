@@ -105,6 +105,7 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetLanguage(language) => {
             i18n.set_language(language);
+            editor.set_language(match language { Language::ZhCn => 0, Language::EnUs => 1 });
             app_settings.set_language_from(language);
             app_settings.save();
             audio.status = match language {
@@ -254,6 +255,7 @@ async fn main() {
     editor.set_x_split(app_settings.x_split);
     editor.set_xsplit_editable(app_settings.xsplit_editable);
     editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
+    editor.set_language(match i18n.language() { Language::ZhCn => 0, _ => 1 });
     audio.set_master_volume(app_settings.master_volume, &i18n);
     audio.set_music_volume(app_settings.music_volume, &i18n);
     audio.set_hitsound_enabled(app_settings.hitsound_enabled);
@@ -505,6 +507,7 @@ async fn main() {
                     editor.set_x_split(app_settings.x_split);
                     editor.set_xsplit_editable(app_settings.xsplit_editable);
                     editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
+                    editor.set_language(match i18n.language() { Language::ZhCn => 0, _ => 1 });
                     // 进入下一阶段：读取音频字节
                     project_loader.advance_after_chart_load(chart_path, audio_path);
                     info_toasts.pin(project_loader.status_text());
@@ -632,6 +635,15 @@ async fn main() {
                 FallingEditorAction::MinimapSeekTo(sec) => {
                     audio.handle_editor_seek(sec, &i18n);
                 }
+            }
+        }
+
+        // 6b. Drain editor toasts → info_toasts
+        for (msg, is_warn) in editor.drain_toasts() {
+            if is_warn {
+                info_toasts.push_warn(&msg);
+            } else {
+                info_toasts.push(&msg);
             }
         }
 

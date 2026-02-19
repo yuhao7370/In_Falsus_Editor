@@ -117,11 +117,26 @@ impl FallingGroundEditor {
                 let lane_w = rect.w / LANE_COUNT as f32;
                 let mouse_lane = lane_from_x(mx, rect.x, lane_w) as i32;
                 lane_shift = mouse_lane - anchor_note.lane as i32;
-                // Clamp lane_shift 使所有 ground 音符都在范围内
+                // Clamp lane_shift：考虑每个音符的有效宽度
+                let mut shift_min = i32::MIN;
+                let mut shift_max = i32::MAX;
                 for n in source_notes.iter().filter(|n| is_ground_kind(n.kind)) {
-                    let new_lane = n.lane as i32 + lane_shift;
-                    if new_lane < 0 { lane_shift = lane_shift + (0 - new_lane); }
-                    if new_lane >= LANE_COUNT as i32 { lane_shift = lane_shift - (new_lane - LANE_COUNT as i32 + 1); }
+                    // 用原始宽度判断约束，确保目标 lane 不会截断宽度
+                    let intended_w = (n.width.round() as usize).max(1);
+                    let (min_lane, max_lane) = if intended_w > 1 {
+                        // 宽音符只能在 lane 1..4，且 lane + intended_w <= 5
+                        (1i32, 5i32.saturating_sub(intended_w as i32).max(1))
+                    } else {
+                        (0i32, LANE_COUNT as i32 - 1)
+                    };
+                    shift_min = shift_min.max(min_lane - n.lane as i32);
+                    shift_max = shift_max.min(max_lane - n.lane as i32);
+                }
+                if shift_min > shift_max {
+                    // 无法满足所有约束，不移动
+                    lane_shift = 0;
+                } else {
+                    lane_shift = lane_shift.clamp(shift_min, shift_max);
                 }
             }
         } else if has_air && !has_ground {
@@ -186,6 +201,22 @@ impl FallingGroundEditor {
             if preview.is_empty() {
                 return;
             }
+            // 验证地面音符宽度约束：宽音符不能放在 lane 0/5，不能超出范围
+            for note in &preview {
+                if is_ground_kind(note.kind) {
+                    let intended_w = (note.width.round() as usize).max(1);
+                    if intended_w > 1 && (note.lane == 0 || note.lane >= 5) {
+                        let msg = self.tl("无法粘贴：宽音符不能放在边缘轨道", "cannot paste: wide note on side lane");
+                        self.push_toast_warn(msg);
+                        return;
+                    }
+                    if intended_w > 1 && note.lane + intended_w > 5 {
+                        let msg = self.tl("无法粘贴：音符超出轨道范围", "cannot paste: note exceeds lane range");
+                        self.push_toast_warn(msg);
+                        return;
+                    }
+                }
+            }
             self.snapshot_for_undo();
             let count = preview.len();
             for mut note in preview {
@@ -196,8 +227,15 @@ impl FallingGroundEditor {
             self.sort_notes();
             self.selected_note_ids.clear();
             self.selected_note_id = None;
-            let label = if mirrored { "mirror pasted" } else { "pasted" };
-            self.status = format!("{} {} note(s)", label, count);
+            let msg = if self.language == 0 {
+                if mirrored { format!("已镜像粘贴 {} 个音符", count) }
+                else { format!("已粘贴 {} 个音符", count) }
+            } else {
+                if mirrored { format!("mirror pasted {} note(s)", count) }
+                else { format!("pasted {} note(s)", count) }
+            };
+            self.status = msg.clone();
+            self.push_toast(msg);
             // 不退出粘贴模式，允许连续粘贴（和参考项目一致）
             // 如果想粘贴后退出，取消下面的注释：
             // self.paste_mode = None;

@@ -1,6 +1,15 @@
 // 文件说明：编辑器内部通用操作函数集合。
 // 主要功能：封装音符增删改、排序、吸附和状态维护。
 impl FallingGroundEditor {
+    /// 双语文本助手：language==0 返回中文，否则返回英文。
+    fn tl(&self, zh: &str, en: &str) -> String {
+        if self.language == 0 { zh.to_owned() } else { en.to_owned() }
+    }
+
+    pub fn set_language(&mut self, lang: u8) {
+        self.language = lang;
+    }
+
     fn pointer_to_time(&self, mouse_y: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
         // scroll_speed 单位：屏高/秒，visual_beat 单位：毫秒等效（speed=1 时 = dt_ms）
         let pixels_per_ms = (self.scroll_speed * lane_h / 1000.0).max(0.001);
@@ -435,7 +444,8 @@ impl FallingGroundEditor {
     /// 复制选中音符到剪贴板
     fn copy_selected_to_clipboard(&mut self) {
         if self.selected_note_ids.is_empty() {
-            self.status = "nothing to copy".to_owned();
+            let msg = self.tl("没有可复制的音符", "nothing to copy");
+            self.status = msg;
             return;
         }
         self.clipboard.clear();
@@ -444,16 +454,23 @@ impl FallingGroundEditor {
                 self.clipboard.push(note.clone());
             }
         }
-        // 按时间排序
         self.clipboard.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
         let count = self.clipboard.len();
-        self.status = format!("{} note(s) copied", count);
+        let msg = if self.language == 0 {
+            format!("已复制 {} 个音符", count)
+        } else {
+            format!("copied {} note(s)", count)
+        };
+        self.status = msg.clone();
+        self.push_toast(msg);
     }
 
     /// 剪切选中音符到剪贴板
     fn cut_selected_to_clipboard(&mut self) {
         if self.selected_note_ids.is_empty() {
-            self.status = "nothing to cut".to_owned();
+            let msg = self.tl("没有可剪切的音符", "nothing to cut");
+            self.status = msg.clone();
+            self.push_toast_warn(msg);
             return;
         }
         self.clipboard.clear();
@@ -464,7 +481,6 @@ impl FallingGroundEditor {
         }
         self.clipboard.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
         let count = self.clipboard.len();
-        // 删除选中音符
         self.editing_note_backup = None;
         self.snapshot_for_undo();
         let ids = self.selected_note_ids.clone();
@@ -474,13 +490,52 @@ impl FallingGroundEditor {
         self.drag_state = None;
         self.overlap_cycle = None;
         self.hover_overlap_hint = None;
-        self.status = format!("{} note(s) cut", count);
+        let msg = if self.language == 0 {
+            format!("已剪切 {} 个音符", count)
+        } else {
+            format!("cut {} note(s)", count)
+        };
+        self.status = msg.clone();
+        self.push_toast(msg);
     }
 
-    /// 原地镜像复制选中音符 (Ctrl+M)
+    /// 原地镜像选中音符，不复制 (Ctrl+B)
+    fn mirror_selected_notes(&mut self) {
+        if self.selected_note_ids.is_empty() {
+            let msg = self.tl("没有可镜像的音符", "nothing to mirror");
+            self.status = msg.clone();
+            self.push_toast_warn(msg);
+            return;
+        }
+        self.snapshot_for_undo();
+        let ids: Vec<u64> = self.selected_note_ids.iter().copied().collect();
+        let mut count = 0usize;
+        for &nid in &ids {
+            if let Some(note) = self.notes.iter().find(|n| n.id == nid).cloned() {
+                let mirrored = Self::mirror_note(&note);
+                if let Some(n) = self.notes.iter_mut().find(|n| n.id == nid) {
+                    *n = mirrored;
+                    n.id = nid; // 保持原 ID
+                    count += 1;
+                }
+            }
+        }
+        self.sort_notes();
+        let msg = if self.language == 0 {
+            format!("已镜像 {} 个音符", count)
+        } else {
+            format!("{} note(s) mirrored", count)
+        };
+        self.status = msg.clone();
+        self.push_toast(msg);
+    }
+
+    /// 复制并镜像选中音符 (Ctrl+M)
     fn mirror_selected_in_place(&mut self) {
         if self.selected_note_ids.is_empty() {
-            self.status = "nothing to mirror".to_owned();
+            let msg = self.tl("没有可镜像的音符", "nothing to mirror");
+            self.status = msg.clone();
+            self.push_toast_warn(msg);
             return;
         }
         self.snapshot_for_undo();
@@ -501,13 +556,19 @@ impl FallingGroundEditor {
         self.sort_notes();
         self.selected_note_ids.clear();
         self.selected_note_id = None;
-        self.status = format!("{} note(s) mirrored in place", count);
+        let msg = if self.language == 0 {
+            format!("已复制并镜像 {} 个音符", count)
+        } else {
+            format!("{} note(s) copy+mirrored", count)
+        };
+        self.status = msg.clone();
+        self.push_toast(msg);
     }
 
     /// 进入粘贴模式
     fn enter_paste_mode(&mut self, mode: PasteMode) {
         if self.clipboard.is_empty() {
-            self.status = "clipboard empty".to_owned();
+            self.status = self.tl("剪贴板为空", "clipboard empty");
             return;
         }
         self.paste_mode = Some(mode);
@@ -531,6 +592,21 @@ impl FallingGroundEditor {
     fn exit_paste_mode(&mut self) {
         self.paste_mode = None;
         self.status = "paste cancelled".to_owned();
+    }
+
+    /// 推送一条 info toast（由 main.rs drain）
+    fn push_toast(&mut self, msg: impl Into<String>) {
+        self.pending_toasts.push((msg.into(), false));
+    }
+
+    /// 推送一条 warn toast（由 main.rs drain）
+    fn push_toast_warn(&mut self, msg: impl Into<String>) {
+        self.pending_toasts.push((msg.into(), true));
+    }
+
+    /// 取出所有待发送的 toast（由 main.rs 调用）
+    pub fn drain_toasts(&mut self) -> Vec<(String, bool)> {
+        std::mem::take(&mut self.pending_toasts)
     }
 
 }

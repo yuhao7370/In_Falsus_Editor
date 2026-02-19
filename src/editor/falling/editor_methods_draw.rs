@@ -179,8 +179,14 @@ impl FallingGroundEditor {
             } else if safe_key_pressed(KeyCode::V) {
                 self.enter_paste_mode(PasteMode::Normal);
             } else if safe_key_pressed(KeyCode::B) {
-                self.enter_paste_mode(PasteMode::Mirrored);
+                // Ctrl+B：有选中 → 原地镜像（不复制），无选中 → 镜像粘贴
+                if !self.selected_note_ids.is_empty() || self.selected_note_id.is_some() {
+                    self.mirror_selected_notes();
+                } else {
+                    self.enter_paste_mode(PasteMode::Mirrored);
+                }
             } else if safe_key_pressed(KeyCode::M) {
+                // Ctrl+M：复制并镜像
                 self.mirror_selected_in_place();
             }
         } else if ctrl_held && self.paste_mode.is_some() {
