@@ -37,6 +37,16 @@ pub struct AudioController {
     estimated_speed: f32,
 }
 
+/// 每帧音频状态快照，供编辑器和 UI 组件使用。
+/// 由 `AudioController::frame_snapshot()` 生成，避免同一帧内多次调用 getter。
+#[derive(Debug, Clone)]
+pub struct FrameContext {
+    pub current_sec: f32,
+    pub duration_sec: f32,
+    pub track_path: Option<String>,
+    pub is_playing: bool,
+}
+
 /// 音频调试快照，供调试窗口显示。
 #[derive(Debug, Clone)]
 pub struct AudioDebugSnapshot {

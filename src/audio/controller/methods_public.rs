@@ -174,6 +174,16 @@ impl AudioController {
         self.playing
     }
 
+    /// 生成当前帧的音频状态快照，供编辑器和 UI 组件使用。
+    pub fn frame_snapshot(&self) -> FrameContext {
+        FrameContext {
+            current_sec: self.current_sec(),
+            duration_sec: self.duration_sec,
+            track_path: self.track_path.clone(),
+            is_playing: self.playing,
+        }
+    }
+
     pub fn music_volume(&self) -> f32 {
         self.music_volume
     }

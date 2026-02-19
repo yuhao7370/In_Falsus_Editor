@@ -5,12 +5,12 @@ impl FallingGroundEditor {
     pub fn draw(
         &mut self,
         area: Rect,
-        current_sec: f32,
-        audio_duration_sec: f32,
-        audio_path: Option<&str>,
-        is_playing: bool,
+        frame_ctx: &FrameContext,
     ) -> Vec<FallingEditorAction> {
-        self.sync_waveform(audio_path);
+        let current_sec = frame_ctx.current_sec;
+        let audio_duration_sec = frame_ctx.duration_sec;
+        let is_playing = frame_ctx.is_playing;
+        self.sync_waveform(frame_ctx.track_path.as_deref());
         let mut actions = Vec::new();
 
         let header_h = 0.0;

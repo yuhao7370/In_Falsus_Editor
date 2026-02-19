@@ -335,10 +335,7 @@ async fn main() {
         }
 
         // Read snapshot values after input mutations this frame
-        let mut current_sec = audio.current_sec();
-        let duration_sec = audio.duration_sec();
-        let track_path = audio.track_path().map(|s| s.to_owned());
-        let is_playing = audio.is_playing();
+        let mut frame_ctx = audio.frame_snapshot();
         let editor_width =
             (screen_width() - panel_pad * 2.0 - total_right_panels_px - editor_gap).max(360.0);
 
@@ -348,16 +345,14 @@ async fn main() {
             menu_height,
             top_bar_height,
             note_panel_width_px,
-            current_sec,
-            duration_sec,
-            is_playing,
+            &frame_ctx,
             macroquad_font.as_ref(),
             &mut top_progress_state,
         );
-        current_sec = progress_output.display_sec;
+        frame_ctx.current_sec = progress_output.display_sec;
         if let Some(seek_sec) = progress_output.seek_to_sec {
             audio.handle_editor_seek(seek_sec, &i18n);
-            current_sec = audio.current_sec();
+            frame_ctx.current_sec = audio.current_sec();
         }
 
         // 6. Editor
@@ -371,10 +366,7 @@ async fn main() {
 
         for action in editor.draw(
             editor_rect,
-            current_sec,
-            duration_sec,
-            track_path.as_deref(),
-            is_playing,
+            &frame_ctx,
         ) {
             match action {
                 FallingEditorAction::SeekTo(sec) => {

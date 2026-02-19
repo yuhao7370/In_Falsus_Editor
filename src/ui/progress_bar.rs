@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use crate::audio::controller::FrameContext;
 use super::input_state::{
     is_pointer_blocked, safe_mouse_button_down, safe_mouse_button_pressed,
 };
@@ -101,12 +102,13 @@ pub fn draw_top_progress_bar(
     menu_height: f32,
     top_bar_height: f32,
     note_panel_width_px: f32,
-    current_sec: f32,
-    duration_sec: f32,
-    is_playing: bool,
+    frame_ctx: &FrameContext,
     font: Option<&Font>,
     state: &mut TopProgressBarState,
 ) -> TopProgressBarOutput {
+    let current_sec = frame_ctx.current_sec;
+    let duration_sec = frame_ctx.duration_sec;
+    let is_playing = frame_ctx.is_playing;
     let pointer_blocked = is_pointer_blocked();
     let dragging_progress = state.drag_active;
     let mut display_sec = current_sec;
