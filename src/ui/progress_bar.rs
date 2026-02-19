@@ -3,6 +3,69 @@ use super::input_state::{
     is_pointer_blocked, safe_mouse_button_down, safe_mouse_button_pressed,
 };
 
+/// 通过系统原生 API 查询鼠标左键物理状态，不依赖窗口事件。
+/// 解决鼠标拖出窗口外松开后 macroquad 收不到 MouseButtonUp 的问题。
+#[cfg(target_os = "windows")]
+fn is_left_mouse_physically_down() -> bool {
+    unsafe extern "system" {
+        fn GetAsyncKeyState(vKey: i32) -> i16;
+    }
+    const VK_LBUTTON: i32 = 0x01;
+    unsafe { GetAsyncKeyState(VK_LBUTTON) & (1i16 << 15) != 0 }
+}
+
+#[cfg(target_os = "macos")]
+fn is_left_mouse_physically_down() -> bool {
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGEventSourceButtonState(state_id: i32, button: u32) -> bool;
+    }
+    const K_CG_EVENT_SOURCE_STATE_COMBINED_SESSION: i32 = 0;
+    const K_CG_MOUSE_BUTTON_LEFT: u32 = 0;
+    unsafe {
+        CGEventSourceButtonState(K_CG_EVENT_SOURCE_STATE_COMBINED_SESSION, K_CG_MOUSE_BUTTON_LEFT)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn is_left_mouse_physically_down() -> bool {
+    use std::ptr;
+    unsafe extern "C" {
+        fn XOpenDisplay(name: *const i8) -> *mut std::ffi::c_void;
+        fn XDefaultRootWindow(display: *mut std::ffi::c_void) -> u64;
+        fn XQueryPointer(
+            display: *mut std::ffi::c_void, w: u64,
+            root_return: *mut u64, child_return: *mut u64,
+            root_x: *mut i32, root_y: *mut i32,
+            win_x: *mut i32, win_y: *mut i32,
+            mask_return: *mut u32,
+        ) -> i32;
+        fn XCloseDisplay(display: *mut std::ffi::c_void) -> i32;
+    }
+    unsafe {
+        let display = XOpenDisplay(ptr::null());
+        if display.is_null() {
+            return is_mouse_button_down(MouseButton::Left);
+        }
+        let root = XDefaultRootWindow(display);
+        let (mut rr, mut cr) = (0u64, 0u64);
+        let (mut rx, mut ry, mut wx, mut wy) = (0i32, 0i32, 0i32, 0i32);
+        let mut mask = 0u32;
+        XQueryPointer(
+            display, root, &mut rr, &mut cr,
+            &mut rx, &mut ry, &mut wx, &mut wy, &mut mask,
+        );
+        XCloseDisplay(display);
+        const BUTTON1_MASK: u32 = 1 << 8;
+        mask & BUTTON1_MASK != 0
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn is_left_mouse_physically_down() -> bool {
+    is_mouse_button_down(MouseButton::Left)
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct TopProgressBarState {
     drag_active: bool,
@@ -145,9 +208,10 @@ pub fn draw_top_progress_bar(
                 state.drag_active = true;
                 state.seek_sec = mouse_seek_sec;
             }
-            // Continue drag with raw input when crossing into egui areas after drag has started.
+            // Use OS-level API to check physical mouse state, bypassing macroquad's
+            // window event system which misses MouseButtonUp when released outside window.
             let drag_down = if state.drag_active {
-                is_mouse_button_down(MouseButton::Left)
+                is_left_mouse_physically_down()
             } else {
                 safe_mouse_button_down(MouseButton::Left)
             };
@@ -156,6 +220,8 @@ pub fn draw_top_progress_bar(
             }
             if state.drag_active && !drag_down {
                 state.drag_active = false;
+                // Use current frame's mouse position so fast mouse-out drags land correctly
+                state.seek_sec = mouse_seek_sec;
                 seek_to_sec = Some(state.seek_sec);
                 display_sec = state.seek_sec.clamp(0.0, duration_sec);
             } else if state.drag_active {
