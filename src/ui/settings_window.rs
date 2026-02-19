@@ -1,4 +1,5 @@
 use crate::i18n::{I18n, TextKey};
+use crate::settings::settings;
 use crate::ui::snap_slider::draw_snap_slider;
 use crate::ui::top_menu::TopMenuAction;
 use egui_macroquad::egui;
@@ -109,27 +110,31 @@ pub fn draw_settings_window(
     i18n: &I18n,
     open: &mut bool,
     selected_category: &mut SettingsCategory,
-    current_master_volume: f32,
-    current_music_volume: f32,
     volume_enabled: bool,
-    current_debug_hitbox: bool,
-    current_autoplay: bool,
-    current_show_spectrum: bool,
-    current_show_minimap: bool,
-    current_scroll_speed: f32,
     min_scroll_speed: f32,
     max_scroll_speed: f32,
     scroll_speed_step: f32,
-    current_snap_division: u32,
-    current_x_split: f64,
-    current_xsplit_editable: bool,
-    current_hitsound_enabled: bool,
-    current_hitsound_tap_volume: f32,
-    current_hitsound_arc_volume: f32,
-    current_hitsound_delay_ms: i32,
-    current_debug_audio: bool,
 ) -> Option<TopMenuAction> {
     let mut action = None;
+
+    // 从全局设置读取当前值（短暂持锁后立即释放）
+    let s = settings();
+    let current_master_volume = s.master_volume;
+    let current_music_volume = s.music_volume;
+    let current_debug_hitbox = s.debug_hitbox;
+    let current_autoplay = s.autoplay;
+    let current_show_spectrum = s.show_spectrum;
+    let current_show_minimap = s.show_minimap;
+    let current_scroll_speed = s.scroll_speed;
+    let current_snap_division = s.snap_division;
+    let current_x_split = s.x_split;
+    let current_xsplit_editable = s.xsplit_editable;
+    let current_hitsound_enabled = s.hitsound_enabled;
+    let current_hitsound_tap_volume = s.hitsound_tap_volume;
+    let current_hitsound_arc_volume = s.hitsound_arc_volume;
+    let current_hitsound_delay_ms = s.hitsound_delay_ms;
+    let current_debug_audio = s.debug_audio;
+    drop(s);
 
     let mut is_open = *open;
     egui::Window::new(i18n.t(TextKey::MenuSettings))

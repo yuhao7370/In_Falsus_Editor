@@ -1,7 +1,30 @@
 use crate::i18n::{I18n, Language};
 use serde::{Deserialize, Serialize};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 const SETTINGS_FILE: &str = "settings.json";
+
+static SETTINGS: LazyLock<Mutex<AppSettings>> = LazyLock::new(|| {
+    Mutex::new(AppSettings::load_from_file())
+});
+
+/// 获取设置的只读锁
+pub fn settings() -> MutexGuard<'static, AppSettings> {
+    SETTINGS.lock().unwrap()
+}
+
+/// 修改设置并自动保存
+pub fn modify_settings(f: impl FnOnce(&mut AppSettings)) {
+    let mut s = SETTINGS.lock().unwrap();
+    f(&mut s);
+    s.save();
+}
+
+/// 修改设置但不保存（用于拖拽中间态）
+pub fn modify_settings_nosave(f: impl FnOnce(&mut AppSettings)) {
+    let mut s = SETTINGS.lock().unwrap();
+    f(&mut s);
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
@@ -88,7 +111,7 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
-    pub fn load() -> Self {
+    pub fn load_from_file() -> Self {
         match std::fs::read_to_string(SETTINGS_FILE) {
             Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
             Err(_) => Self::default(),

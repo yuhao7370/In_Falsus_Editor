@@ -21,7 +21,7 @@ use ui::audio_debug_window::draw_audio_debug_window;
 use ui::current_project_window::{CurrentProjectAction, CurrentProjectState, draw_current_project_window};
 use ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
 use ui::loading_status::{LoadAction, ProjectLoader};
-use settings::AppSettings;
+use settings::{settings, modify_settings, modify_settings_nosave};
 
 const TOP_BAR_HEIGHT: f32 = 32.0;
 const EGUI_MENU_BASE_HEIGHT: f32 = 32.0;
@@ -49,94 +49,66 @@ fn handle_top_menu_action(
     audio: &mut AudioController,
     i18n: &mut I18n,
     info_toasts: &mut InfoToastManager,
-    app_settings: &mut AppSettings,
 ) {
     match action {
         TopMenuAction::CreateProject => {
             audio.status = i18n.t(TextKey::ActionCreateProject).to_owned();
         }
         TopMenuAction::OpenProject | TopMenuAction::CurrentProject => {
-            // Handled separately in main loop
             audio.status.clear();
         }
         TopMenuAction::SaveChart => {
             match editor.save_chart() {
-                Ok(()) => {
-                    audio.status = format!("谱面已保存: {}", editor.chart_path());
-                }
-                Err(e) => {
-                    audio.status = format!("保存失败: {e}");
-                }
+                Ok(()) => audio.status = format!("谱面已保存: {}", editor.chart_path()),
+                Err(e) => audio.status = format!("保存失败: {e}"),
             }
         }
         TopMenuAction::HotReloadChart => {
             match editor.reload_chart() {
-                Ok(true) => {
-                    audio.status = i18n.t(TextKey::ActionHotReloadChart).to_owned();
-                }
-                Ok(false) => {
-                    audio.status = i18n.t(TextKey::ActionHotReloadChartNoChange).to_owned();
-                }
-                Err(e) => {
-                    audio.status = format!("{}: {e}", i18n.t(TextKey::ActionHotReloadChartFailed));
-                }
+                Ok(true) => audio.status = i18n.t(TextKey::ActionHotReloadChart).to_owned(),
+                Ok(false) => audio.status = i18n.t(TextKey::ActionHotReloadChartNoChange).to_owned(),
+                Err(e) => audio.status = format!("{}: {e}", i18n.t(TextKey::ActionHotReloadChartFailed)),
             }
         }
         TopMenuAction::Undo => {
-            if !editor.undo() {
-                info_toasts.push_warn(i18n.t(TextKey::ActionNothingToUndo));
-            }
+            if !editor.undo() { info_toasts.push_warn(i18n.t(TextKey::ActionNothingToUndo)); }
             audio.status = i18n.t(TextKey::ActionUndo).to_owned();
         }
         TopMenuAction::Redo => {
-            if !editor.redo() {
-                info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo));
-            }
+            if !editor.redo() { info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo)); }
             audio.status = i18n.t(TextKey::ActionRedo).to_owned();
         }
-        TopMenuAction::Cut => {
-            audio.status = i18n.t(TextKey::ActionCut).to_owned();
-        }
-        TopMenuAction::Copy => {
-            audio.status = i18n.t(TextKey::ActionCopy).to_owned();
-        }
-        TopMenuAction::Paste => {
-            audio.status = i18n.t(TextKey::ActionPaste).to_owned();
-        }
+        TopMenuAction::Cut => audio.status = i18n.t(TextKey::ActionCut).to_owned(),
+        TopMenuAction::Copy => audio.status = i18n.t(TextKey::ActionCopy).to_owned(),
+        TopMenuAction::Paste => audio.status = i18n.t(TextKey::ActionPaste).to_owned(),
         TopMenuAction::SetLanguage(language) => {
             i18n.set_language(language.clone());
             editor.set_i18n(i18n.clone());
-            app_settings.set_language_from(&language);
-            app_settings.save();
+            modify_settings(|s| s.set_language_from(&language));
             audio.status = i18n.t(TextKey::ActionLanguageSwitched)
                 .replace("{lang}", i18n.language_display_name(&language));
         }
         TopMenuAction::SetMasterVolume(vol) => {
             audio.set_master_volume(vol, i18n);
-            app_settings.master_volume = vol;
-            app_settings.save();
+            modify_settings(|s| s.master_volume = vol);
             audio.status.clear();
         }
         TopMenuAction::SetMusicVolume(vol) => {
             audio.set_music_volume(vol, i18n);
-            app_settings.music_volume = vol;
-            app_settings.save();
+            modify_settings(|s| s.music_volume = vol);
             audio.status.clear();
         }
         TopMenuAction::SetAutoPlay(enabled) => {
             editor.set_autoplay_enabled(enabled);
-            app_settings.autoplay = enabled;
-            app_settings.save();
+            modify_settings(|s| s.autoplay = enabled);
         }
         TopMenuAction::SetShowSpectrum(enabled) => {
             editor.set_show_spectrum(enabled);
-            app_settings.show_spectrum = enabled;
-            app_settings.save();
+            modify_settings(|s| s.show_spectrum = enabled);
         }
         TopMenuAction::SetDebugHitbox(enabled) => {
             editor.set_debug_show_hitboxes(enabled);
-            app_settings.debug_hitbox = enabled;
-            app_settings.save();
+            modify_settings(|s| s.debug_hitbox = enabled);
             audio.status = if enabled {
                 i18n.t(TextKey::ActionDebugHitboxOn).to_owned()
             } else {
@@ -145,8 +117,7 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetMinimapVisible(enabled) => {
             editor.set_show_minimap(enabled);
-            app_settings.show_minimap = enabled;
-            app_settings.save();
+            modify_settings(|s| s.show_minimap = enabled);
             audio.status = if enabled {
                 i18n.t(TextKey::ActionMinimapOn).to_owned()
             } else {
@@ -158,68 +129,79 @@ fn handle_top_menu_action(
         }
         TopMenuAction::SetScrollSpeed(speed) => {
             editor.set_scroll_speed(speed);
-            // Slider dragging — no toast
+            modify_settings_nosave(|s| s.scroll_speed = speed);
             audio.status.clear();
         }
         TopMenuAction::SetScrollSpeedFinal(speed) => {
             editor.set_scroll_speed(speed);
-            app_settings.scroll_speed = speed;
-            app_settings.save();
+            modify_settings(|s| s.scroll_speed = speed);
             audio.status = format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), speed);
         }
         TopMenuAction::SetSnapDivision(division) => {
             editor.set_snap_division(division);
-            // Dragging — no toast
+            modify_settings_nosave(|s| s.snap_division = division);
             audio.status.clear();
         }
         TopMenuAction::SetSnapDivisionFinal(division) => {
             editor.set_snap_division(division);
-            app_settings.snap_division = division;
-            app_settings.save();
+            modify_settings(|s| s.snap_division = division);
             audio.status = format!("{}: {}x", i18n.t(TextKey::SettingsBarlineSnap), division);
         }
         TopMenuAction::SetXSplit(value) => {
             editor.set_x_split(value);
-            app_settings.x_split = value;
-            app_settings.save();
+            modify_settings(|s| s.x_split = value);
             audio.status = format!("{}: {}", i18n.t(TextKey::SettingsXSplit), value);
         }
         TopMenuAction::SetXSplitEditable(enabled) => {
             editor.set_xsplit_editable(enabled);
-            app_settings.xsplit_editable = enabled;
-            app_settings.save();
+            modify_settings(|s| s.xsplit_editable = enabled);
         }
         TopMenuAction::SetHitsoundEnabled(enabled) => {
             audio.set_hitsound_enabled(enabled);
-            app_settings.hitsound_enabled = enabled;
-            app_settings.save();
+            modify_settings(|s| s.hitsound_enabled = enabled);
         }
         TopMenuAction::SetHitsoundTapVolume(vol) => {
             audio.set_hitsound_tap_volume(vol);
-            app_settings.hitsound_tap_volume = vol;
-            app_settings.save();
+            modify_settings(|s| s.hitsound_tap_volume = vol);
         }
         TopMenuAction::SetHitsoundArcVolume(vol) => {
             audio.set_hitsound_arc_volume(vol);
-            app_settings.hitsound_arc_volume = vol;
-            app_settings.save();
+            modify_settings(|s| s.hitsound_arc_volume = vol);
         }
         TopMenuAction::SetHitsoundDelay(ms) => {
             audio.set_hitsound_delay_ms(ms);
-            app_settings.hitsound_delay_ms = ms;
-            app_settings.save();
+            modify_settings(|s| s.hitsound_delay_ms = ms);
         }
         TopMenuAction::SetDebugAudio(enabled) => {
-            app_settings.debug_audio = enabled;
-            app_settings.save();
+            modify_settings(|s| s.debug_audio = enabled);
         }
     }
 }
 
+/// 将全局设置应用到 editor 和 audio
+fn apply_settings_to_editor(editor: &mut FallingGroundEditor, audio: &mut AudioController, i18n: &I18n) {
+    let s = settings();
+    editor.set_scroll_speed(s.scroll_speed);
+    editor.set_snap_division(s.snap_division);
+    editor.set_autoplay_enabled(s.autoplay);
+    editor.set_show_spectrum(s.show_spectrum);
+    editor.set_show_minimap(s.show_minimap);
+    editor.set_x_split(s.x_split);
+    editor.set_xsplit_editable(s.xsplit_editable);
+    editor.set_debug_show_hitboxes(s.debug_hitbox);
+    editor.set_i18n(i18n.clone());
+    audio.set_master_volume(s.master_volume, i18n);
+    audio.set_music_volume(s.music_volume, i18n);
+    audio.set_hitsound_enabled(s.hitsound_enabled);
+    audio.set_hitsound_tap_volume(s.hitsound_tap_volume);
+    audio.set_hitsound_arc_volume(s.hitsound_arc_volume);
+    audio.set_hitsound_max_voices(s.hitsound_max_voices);
+    audio.set_hitsound_delay_ms(s.hitsound_delay_ms);
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut app_settings = AppSettings::load();
-    let mut i18n = I18n::from_settings(&app_settings.language);
+    let mut i18n = I18n::from_settings(&settings().language);
     let mut egui_fonts_ready = false;
 
     // DEV_MODE: 自动加载指定谱面和音频；否则启动空编辑器
@@ -244,23 +226,7 @@ async fn main() {
     let mut project_loader = ProjectLoader::new();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
-    // Apply saved settings
-    editor.set_scroll_speed(app_settings.scroll_speed);
-    editor.set_snap_division(app_settings.snap_division);
-    editor.set_autoplay_enabled(app_settings.autoplay);
-    editor.set_show_spectrum(app_settings.show_spectrum);
-    editor.set_show_minimap(app_settings.show_minimap);
-    editor.set_x_split(app_settings.x_split);
-    editor.set_xsplit_editable(app_settings.xsplit_editable);
-    editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
-    editor.set_i18n(i18n.clone());
-    audio.set_master_volume(app_settings.master_volume, &i18n);
-    audio.set_music_volume(app_settings.music_volume, &i18n);
-    audio.set_hitsound_enabled(app_settings.hitsound_enabled);
-    audio.set_hitsound_tap_volume(app_settings.hitsound_tap_volume);
-    audio.set_hitsound_arc_volume(app_settings.hitsound_arc_volume);
-    audio.set_hitsound_max_voices(app_settings.hitsound_max_voices);
-    audio.set_hitsound_delay_ms(app_settings.hitsound_delay_ms);
+    apply_settings_to_editor(&mut editor, &mut audio, &i18n);
     if macroquad_font.is_none() {
         audio.status =
             "warning: macroquad cjk font not found; Chinese text may render as tofu".to_owned();
@@ -299,8 +265,6 @@ async fn main() {
                 egui_fonts_ready = true;
             }
             ctx.set_pixels_per_point(ui_scale);
-            let master_volume = audio.master_volume();
-            let music_volume = audio.music_volume();
             top_menu_result = draw_top_menu(
                 ctx,
                 &i18n,
@@ -314,25 +278,10 @@ async fn main() {
                     &i18n,
                     &mut settings_open,
                     &mut settings_category,
-                    master_volume,
-                    music_volume,
                     audio.has_player(),
-                    editor.debug_show_hitboxes(),
-                    editor.autoplay_enabled(),
-                    editor.show_spectrum(),
-                    editor.show_minimap(),
-                    editor.scroll_speed(),
                     editor.min_scroll_speed(),
                     editor.max_scroll_speed(),
                     editor.scroll_speed_step(),
-                    editor.snap_division(),
-                    editor.x_split(),
-                    editor.xsplit_editable(),
-                    audio.hitsound_enabled(),
-                    audio.hitsound_tap_volume(),
-                    audio.hitsound_arc_volume(),
-                    audio.hitsound_delay_ms(),
-                    app_settings.debug_audio,
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }
@@ -353,9 +302,15 @@ async fn main() {
             // Draw current project window (if open)
             current_project_action = draw_current_project_window(ctx, &i18n, &mut current_project_state);
             // Draw audio debug window (if enabled)
-            if app_settings.debug_audio {
-                let snapshot = audio.debug_snapshot();
-                draw_audio_debug_window(ctx, &mut app_settings.debug_audio, &snapshot);
+            {
+                let mut debug_audio = settings().debug_audio;
+                if debug_audio {
+                    let snapshot = audio.debug_snapshot();
+                    draw_audio_debug_window(ctx, &mut debug_audio, &snapshot);
+                    if !debug_audio {
+                        modify_settings(|s| s.debug_audio = false);
+                    }
+                }
             }
             // Check if pointer is over egui widgets/panels.
             let raw_egui_pointer = ctx.is_using_pointer()
@@ -430,7 +385,7 @@ async fn main() {
 
         if let Some(action) = top_menu_result.action {
             audio.status.clear();
-            handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n, &mut info_toasts, &mut app_settings);
+            handle_top_menu_action(action, &mut editor, &mut audio, &mut i18n, &mut info_toasts);
             if !audio.status.is_empty() {
                 info_toasts.push(audio.status.clone());
             }
@@ -496,16 +451,7 @@ async fn main() {
                     let font_backup = macroquad_font.clone();
                     editor = FallingGroundEditor::from_chart_path(&chart_path);
                     editor.set_text_font(font_backup);
-                    // 应用已保存的编辑器设置
-                    editor.set_scroll_speed(app_settings.scroll_speed);
-                    editor.set_snap_division(app_settings.snap_division);
-                    editor.set_autoplay_enabled(app_settings.autoplay);
-                    editor.set_show_spectrum(app_settings.show_spectrum);
-                    editor.set_show_minimap(app_settings.show_minimap);
-                    editor.set_x_split(app_settings.x_split);
-                    editor.set_xsplit_editable(app_settings.xsplit_editable);
-                    editor.set_debug_show_hitboxes(app_settings.debug_hitbox);
-                    editor.set_i18n(i18n.clone());
+                    apply_settings_to_editor(&mut editor, &mut audio, &i18n);
                     // 进入下一阶段：读取音频字节
                     project_loader.advance_after_chart_load(chart_path, audio_path);
                     info_toasts.pin(project_loader.status_text());
@@ -571,9 +517,9 @@ async fn main() {
             let step = editor.scroll_speed_step();
             let delta = if free_wheel_y > 0.0 { step } else { -step };
             editor.nudge_scroll_speed(delta);
-            app_settings.scroll_speed = editor.scroll_speed();
-            app_settings.save();
-            info_toasts.push(format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), editor.scroll_speed()));
+            let new_speed = editor.scroll_speed();
+            modify_settings(|s| s.scroll_speed = new_speed);
+            info_toasts.push(format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), new_speed));
         } else if shift_down && free_wheel_y.abs() > f32::EPSILON && !audio.is_playing() && audio.duration_sec() > 0.0 {
             let forward = free_wheel_y > 0.0;
             let current_ms = audio.current_sec() * 1000.0;
