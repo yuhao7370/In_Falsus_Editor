@@ -216,12 +216,26 @@ pub fn draw_top_progress_bar(
                 safe_mouse_button_down(MouseButton::Left)
             };
             if state.drag_active && drag_down {
-                state.seek_sec = mouse_seek_sec;
+                // When mouse is at the window edge, it likely left the window —
+                // extrapolate to the nearest boundary so fast drags reach 0 or end.
+                if mx <= 1.0 {
+                    state.seek_sec = 0.0;
+                } else if mx >= screen_width() - 1.0 {
+                    state.seek_sec = duration_sec;
+                } else {
+                    state.seek_sec = mouse_seek_sec;
+                }
             }
             if state.drag_active && !drag_down {
                 state.drag_active = false;
-                // Use current frame's mouse position so fast mouse-out drags land correctly
-                state.seek_sec = mouse_seek_sec;
+                // macroquad reports (0,0) when mouse is outside the window.
+                // Use that to extrapolate: if mouse left from the left side, seek to 0;
+                // if from the right side, seek to end.
+                if mx <= 1.0 {
+                    state.seek_sec = 0.0;
+                } else if mx >= screen_width() - 1.0 {
+                    state.seek_sec = duration_sec;
+                }
                 seek_to_sec = Some(state.seek_sec);
                 display_sec = state.seek_sec.clamp(0.0, duration_sec);
             } else if state.drag_active {
