@@ -3,7 +3,7 @@ use crate::editor::falling::FallingGroundEditor;
 use crate::i18n::{I18n, TextKey};
 use crate::settings::modify_settings;
 use crate::ui::info_toast::InfoToastManager;
-use crate::ui::input_state::{free_mouse_wheel, safe_mouse_wheel};
+use crate::ui::input_state::{free_mouse_wheel, safe_key_pressed, safe_mouse_wheel};
 use macroquad::prelude::*;
 
 use super::ui_orchestrator::UiOutput;
@@ -11,7 +11,7 @@ use super::ui_orchestrator::UiOutput;
 /// Ctrl+S / Ctrl+Z / Ctrl+Y 快捷键
 pub fn handle_shortcuts(
     editor: &mut FallingGroundEditor,
-    _audio: &mut AudioController,
+    audio: &mut AudioController,
     i18n: &I18n,
     info_toasts: &mut InfoToastManager,
 ) {
@@ -34,6 +34,16 @@ pub fn handle_shortcuts(
             info_toasts.push(i18n.t(TextKey::ActionRedo));
         } else {
             info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo));
+        }
+    }
+    if safe_key_pressed(KeyCode::H) {
+        let enabled = !audio.hitsound_enabled();
+        audio.set_hitsound_enabled(enabled);
+        modify_settings(|s| s.hitsound_enabled = enabled);
+        if enabled {
+            info_toasts.push(i18n.t(TextKey::ActionHitsoundOn));
+        } else {
+            info_toasts.push(i18n.t(TextKey::ActionHitsoundOff));
         }
     }
 }

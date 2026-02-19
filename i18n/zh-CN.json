@@ -47,6 +47,8 @@
   "action_debug_hitbox_off": "命中框调试已关闭",
   "action_minimap_on": "Minimap 已开启",
   "action_minimap_off": "Minimap 已关闭",
+  "action_hitsound_on": "打击音已开启",
+  "action_hitsound_off": "打击音已关闭",
   "action_nothing_to_undo": "没有可撤销的操作",
   "action_nothing_to_redo": "没有可重做的操作",
   "render_merge": "合并视图",
