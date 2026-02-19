@@ -174,6 +174,7 @@ pub struct HitSoundTrigger {
     prev_sec: f32,
     was_playing: bool,
     delay_ms: f32,
+    next_head_idx: usize,
 }
 
 impl HitSoundTrigger {
@@ -182,7 +183,12 @@ impl HitSoundTrigger {
             prev_sec: 0.0,
             was_playing: false,
             delay_ms: 0.0,
+            next_head_idx: 0,
         }
+    }
+
+    fn next_index_at_or_after(&self, note_heads: &[(f32, bool)], current_ms: f32) -> usize {
+        note_heads.partition_point(|(time_ms, _)| *time_ms + self.delay_ms <= current_ms)
     }
 
     /// Set the hitsound delay in milliseconds.
@@ -208,12 +214,14 @@ impl HitSoundTrigger {
             if self.was_playing {
                 self.prev_sec = current_sec;
             }
+            self.next_head_idx = self.next_index_at_or_after(note_heads, current_sec * 1000.0);
             self.was_playing = false;
             return;
         }
 
         if !self.was_playing {
             self.prev_sec = current_sec;
+            self.next_head_idx = self.next_index_at_or_after(note_heads, current_sec * 1000.0);
             self.was_playing = true;
             return;
         }
@@ -222,23 +230,32 @@ impl HitSoundTrigger {
         let delta = current_sec - self.prev_sec;
         if delta < -0.01 || delta > 0.5 {
             self.prev_sec = current_sec;
+            self.next_head_idx = self.next_index_at_or_after(note_heads, current_sec * 1000.0);
             return;
         }
 
         let prev_ms = self.prev_sec * 1000.0;
         let curr_ms = current_sec * 1000.0;
-
-        for &(time_ms, is_ground) in note_heads {
+        let mut idx = self.next_head_idx.min(note_heads.len());
+        while idx < note_heads.len() {
+            let (time_ms, is_ground) = note_heads[idx];
             // Apply delay: positive = trigger later, negative = trigger earlier
             let trigger_ms = time_ms + self.delay_ms;
-            if trigger_ms > prev_ms && trigger_ms <= curr_ms {
-                if is_ground {
-                    player.play_tap();
-                } else {
-                    player.play_arc();
-                }
+            if trigger_ms <= prev_ms {
+                idx += 1;
+                continue;
             }
+            if trigger_ms > curr_ms {
+                break;
+            }
+            if is_ground {
+                player.play_tap();
+            } else {
+                player.play_arc();
+            }
+            idx += 1;
         }
+        self.next_head_idx = idx;
 
         self.prev_sec = current_sec;
     }
@@ -246,5 +263,7 @@ impl HitSoundTrigger {
     /// Force reset (call on seek from outside).
     pub fn reset(&mut self, sec: f32) {
         self.prev_sec = sec;
+        self.was_playing = false;
+        self.next_head_idx = 0;
     }
 }
