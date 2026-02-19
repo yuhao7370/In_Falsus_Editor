@@ -1,4 +1,4 @@
-﻿impl Chart {
+impl Chart {
 /// 序列化为 `.spc` 文本格式。
 pub fn to_spc(&self) -> String {
     let mut lines = Vec::new();
@@ -10,7 +10,7 @@ pub fn to_spc(&self) -> String {
                 lines.push(format!("chart({:.2},{:.2})", bpm, beats));
             }
             ChartEvent::Tap { time, width, lane } => {
-                lines.push(format!("tap({},{},{})", fmt_num(*time), fmt_num(*width), lane));
+                lines.push(format!("tap({},{},{})", fmt_time(*time), fmt_num(*width), lane));
             }
             ChartEvent::Hold {
                 time,
@@ -20,10 +20,10 @@ pub fn to_spc(&self) -> String {
             } => {
                 lines.push(format!(
                     "hold({},{},{},{})",
-                    fmt_num(*time),
+                    fmt_time(*time),
                     lane,
                     fmt_num(*width),
-                    fmt_num(*duration)
+                    fmt_time(*duration)
                 ));
             }
             ChartEvent::Flick {
@@ -35,7 +35,7 @@ pub fn to_spc(&self) -> String {
             } => {
                 lines.push(format!(
                     "flick({},{},{},{},{})",
-                    fmt_num(*time),
+                    fmt_time(*time),
                     fmt_num(*x),
                     fmt_num(*x_split),
                     fmt_num(*width),
@@ -57,7 +57,7 @@ pub fn to_spc(&self) -> String {
             } => {
                 lines.push(format!(
                     "skyarea({},{},{},{},{},{},{},{},{},{},{})",
-                    fmt_num(*time),
+                    fmt_time(*time),
                     fmt_num(*start_x),
                     fmt_num(*start_x_split),
                     fmt_num(*start_width),
@@ -66,7 +66,7 @@ pub fn to_spc(&self) -> String {
                     fmt_num(*end_width),
                     left_ease.to_value(),
                     right_ease.to_value(),
-                    fmt_num(*duration),
+                    fmt_time(*duration),
                     group_id
                 ));
             }
@@ -78,19 +78,19 @@ pub fn to_spc(&self) -> String {
             } => {
                 lines.push(format!(
                     "bpm({},{:.2},{:.2},{:.2})",
-                    fmt_num(*time),
+                    fmt_time(*time),
                     bpm,
                     beats,
                     unknown
                 ));
             }
             ChartEvent::Track { time, speed } => {
-                lines.push(format!("track({},{:.2})", fmt_num(*time), speed));
+                lines.push(format!("track({},{:.2})", fmt_time(*time), speed));
             }
             ChartEvent::Lane { time, lane, enable } => {
                 lines.push(format!(
                     "lane({},{},{})",
-                    fmt_num(*time),
+                    fmt_time(*time),
                     lane,
                     if *enable { 1 } else { 0 }
                 ));
