@@ -11,23 +11,23 @@ struct ExtractedChartData {
 
 fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
     // One-pass extraction keeps loading accurate while avoiding repeated scans.
-    let mut notes = Vec::new();
+    let mut notes: Vec<GroundNote> = Vec::new();
     notes.reserve(chart.events.len().saturating_div(2));
-    let mut timeline_events = Vec::new();
+    let mut timeline_events: Vec<TimelineEvent> = Vec::new();
     timeline_events.reserve(chart.events.len().saturating_div(4));
 
-    let mut bpm_source = BpmSourceData::default();
+    let mut bpm_source: BpmSourceData = BpmSourceData::default();
     bpm_source
         .bpm_events
         .reserve(chart.events.len().saturating_div(8));
-    let mut track_source = TrackSourceData::default();
+    let mut track_source: TrackSourceData = TrackSourceData::default();
     track_source
         .track_events
         .reserve(chart.events.len().saturating_div(8));
-    let mut has_chart_base = false;
+    let mut has_chart_base: bool = false;
 
-    let mut next_id = 1_u64;
-    let mut next_event_id = 1_u64;
+    let mut next_id: u64 = 1_u64;
+    let mut next_event_id: u64 = 1_u64;
 
     for (ev_index, event) in chart.events.iter().enumerate() {
         match event {
