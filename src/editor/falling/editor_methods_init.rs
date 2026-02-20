@@ -409,7 +409,10 @@ impl FallingGroundEditor {
         self.selection.hover_overlap_hint = None;
         self.status = match note_type {
             Some(kind) => format!("place mode: {}", kind.label()),
-            None => "place mode cleared".to_owned(),
+            None => self
+                .i18n
+                .t(crate::i18n::TextKey::EditorPlaceModeCleared)
+                .to_owned(),
         };
     }
 
@@ -422,7 +425,10 @@ impl FallingGroundEditor {
         self.selection.hover_overlap_hint = None;
         self.status = match event_type {
             Some(kind) => format!("place mode: {}", kind.label()),
-            None => "place mode cleared".to_owned(),
+            None => self
+                .i18n
+                .t(crate::i18n::TextKey::EditorPlaceModeCleared)
+                .to_owned(),
         };
     }
 

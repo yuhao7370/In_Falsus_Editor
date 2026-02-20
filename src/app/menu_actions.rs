@@ -34,8 +34,16 @@ fn handle_file_action(
         }
         FileAction::SaveChart => {
             match editor.save_chart() {
-                Ok(()) => audio.status = format!("谱面已保存: {}", editor.chart_path()),
-                Err(e) => audio.status = format!("保存失败: {e}"),
+                Ok(()) => {
+                    audio.status = format!(
+                        "{}: {}",
+                        i18n.t(TextKey::ActionSaveChartSuccess),
+                        editor.chart_path()
+                    )
+                }
+                Err(e) => {
+                    audio.status = format!("{}: {e}", i18n.t(TextKey::ActionSaveChartFailed))
+                }
             }
         }
         FileAction::HotReloadChart => {

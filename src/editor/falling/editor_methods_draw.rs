@@ -238,10 +238,16 @@ impl FallingGroundEditor {
             // 在粘贴模式中也允许切换粘贴类型
             if safe_key_pressed(KeyCode::V) {
                 self.clipboard.set_paste_mode(PasteMode::Normal);
-                self.status = "paste mode: click to place".to_owned();
+                self.status = self
+                    .i18n
+                    .t(crate::i18n::TextKey::EditorPasteModeNormal)
+                    .to_owned();
             } else if safe_key_pressed(KeyCode::B) {
                 self.clipboard.set_paste_mode(PasteMode::Mirrored);
-                self.status = "mirror paste mode: click to place".to_owned();
+                self.status = self
+                    .i18n
+                    .t(crate::i18n::TextKey::EditorPasteModeMirrored)
+                    .to_owned();
             }
         }
 
@@ -267,7 +273,10 @@ impl FallingGroundEditor {
                 self.selection.clear_event_selection();
                 self.selection.event_overlap_cycle = None;
                 self.selection.event_hover_hint = None;
-                self.status = "place mode cleared".to_owned();
+                self.status = self
+                    .i18n
+                    .t(crate::i18n::TextKey::EditorPlaceModeCleared)
+                    .to_owned();
             }
 
             if self.selection.place_note_type.is_none() && self.selection.place_event_type.is_none()

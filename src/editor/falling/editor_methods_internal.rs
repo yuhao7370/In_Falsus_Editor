@@ -639,18 +639,21 @@ impl FallingGroundEditor {
         self.clipboard.set_paste_mode(mode);
         self.view.paste_preview_cache = None;
         self.selection.prepare_for_paste_mode();
-        let label = match mode {
-            PasteMode::Normal => "paste",
-            PasteMode::Mirrored => "mirror paste",
+        let key = match mode {
+            PasteMode::Normal => crate::i18n::TextKey::EditorPasteModeNormal,
+            PasteMode::Mirrored => crate::i18n::TextKey::EditorPasteModeMirrored,
         };
-        self.status = format!("{} mode: click to place", label);
+        self.status = self.i18n.t(key).to_owned();
     }
 
     /// 退出粘贴模式
     fn exit_paste_mode(&mut self) {
         self.clipboard.clear_paste_mode();
         self.view.paste_preview_cache = None;
-        self.status = "paste cancelled".to_owned();
+        self.status = self
+            .i18n
+            .t(crate::i18n::TextKey::EditorPasteCancelled)
+            .to_owned();
     }
 
     /// 推送一条 info toast（由 main.rs drain）

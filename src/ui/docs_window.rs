@@ -5,17 +5,22 @@ use egui_macroquad::egui;
 
 const CATEGORY_ITEM_HEIGHT: f32 = 32.0;
 const SHORTCUT_ROW_HEIGHT: f32 = 28.0;
+const RIGHT_PANEL_HEIGHT: f32 = 460.0;
+const SHORTCUT_KEY_X_OFFSET: f32 = 8.0;
+const SHORTCUT_DESC_X_OFFSET: f32 = 200.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DocsCategory {
+    Operations,
     Shortcuts,
 }
 
 impl DocsCategory {
-    pub const ALL: &'static [DocsCategory] = &[DocsCategory::Shortcuts];
+    pub const ALL: &'static [DocsCategory] = &[DocsCategory::Operations, DocsCategory::Shortcuts];
 
     pub fn label<'a>(&self, i18n: &'a I18n) -> &'a str {
         match self {
+            DocsCategory::Operations => i18n.t(TextKey::DocsCategoryOperations),
             DocsCategory::Shortcuts => i18n.t(TextKey::DocsCategoryShortcuts),
         }
     }
@@ -66,14 +71,14 @@ fn draw_shortcut_item(ui: &mut egui::Ui, key: &str, description: &str) {
     );
 
     ui.painter().text(
-        rect.left_center() + egui::vec2(8.0, 0.0),
+        rect.left_center() + egui::vec2(SHORTCUT_KEY_X_OFFSET, 0.0),
         egui::Align2::LEFT_CENTER,
         key,
         egui::TextStyle::Monospace.resolve(ui.style()),
         egui::Color32::from_rgb(160, 200, 255),
     );
     ui.painter().text(
-        rect.left_center() + egui::vec2(120.0, 0.0),
+        rect.left_center() + egui::vec2(SHORTCUT_DESC_X_OFFSET, 0.0),
         egui::Align2::LEFT_CENTER,
         description,
         egui::TextStyle::Body.resolve(ui.style()),
@@ -81,7 +86,7 @@ fn draw_shortcut_item(ui: &mut egui::Ui, key: &str, description: &str) {
     );
 }
 
-fn draw_shortcut_section_title(ui: &mut egui::Ui, text: &str) {
+fn draw_section_title(ui: &mut egui::Ui, text: &str) {
     ui.add_space(2.0);
     ui.colored_label(
         egui::Color32::from_rgb(180, 200, 255),
@@ -119,7 +124,7 @@ pub fn draw_docs_window(
             ui.set_min_size(egui::vec2(680.0, 470.0));
             ui.horizontal(|ui| {
                 ui.allocate_ui_with_layout(
-                    egui::vec2(160.0, 460.0),
+                    egui::vec2(160.0, RIGHT_PANEL_HEIGHT),
                     egui::Layout::top_down(egui::Align::LEFT),
                     |ui| {
                         ui.add_space(8.0);
@@ -135,76 +140,127 @@ pub fn draw_docs_window(
 
                 ui.separator();
 
-                ui.vertical(|ui| {
-                    ui.add_space(8.0);
-                    ui.spacing_mut().item_spacing.y = 4.0;
-                    ui.set_min_width(420.0);
+                let right_width = ui.available_width().max(1.0);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(right_width, RIGHT_PANEL_HEIGHT),
+                    egui::Layout::top_down(egui::Align::LEFT),
+                    |ui| {
+                        ui.add_space(8.0);
+                        ui.spacing_mut().item_spacing.y = 4.0;
+                        ui.set_min_width(420.0);
 
-                    ui.colored_label(
-                        egui::Color32::from_rgb(180, 200, 255),
-                        egui::RichText::new(selected_category.label(i18n)).size(15.0),
-                    );
-                    ui.separator();
+                        ui.colored_label(
+                            egui::Color32::from_rgb(180, 200, 255),
+                            egui::RichText::new(selected_category.label(i18n)).size(15.0),
+                        );
+                        ui.separator();
 
-                    match *selected_category {
-                        DocsCategory::Shortcuts => {
-                            draw_shortcut_section_title(ui, i18n.t(TextKey::DocsSectionGlobal));
-                            draw_shortcut_item(
-                                ui,
-                                &shortcuts.chord_for(ShortcutAction::SaveChart).display(),
-                                i18n.t(TextKey::DocsShortcutSaveChart),
-                            );
-                            draw_shortcut_item(
-                                ui,
-                                &shortcuts.chord_for(ShortcutAction::Undo).display(),
-                                i18n.t(TextKey::DocsShortcutUndo),
-                            );
-                            draw_shortcut_item(
-                                ui,
-                                &shortcuts.chord_for(ShortcutAction::Redo).display(),
-                                i18n.t(TextKey::DocsShortcutRedo),
-                            );
-                            draw_shortcut_item(
-                                ui,
-                                &shortcuts.chord_for(ShortcutAction::ToggleHitsound).display(),
-                                i18n.t(TextKey::DocsShortcutToggleHitsound),
-                            );
-                            draw_shortcut_item(ui, "Space", i18n.t(TextKey::DocsShortcutPlayPause));
+                        let scroll_h = ui.available_height().max(1.0);
+                        egui::ScrollArea::vertical()
+                            .auto_shrink([false, false])
+                            .max_height(scroll_h)
+                            .show(ui, |ui| match *selected_category {
+                                DocsCategory::Operations => {
+                                    draw_section_title(ui, i18n.t(TextKey::DocsSectionOperations));
+                                    draw_shortcut_item(
+                                        ui,
+                                        "Alt+Left Mouse Drag",
+                                        i18n.t(TextKey::DocsShortcutBoxSelect),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        "Shift+Left Click",
+                                        i18n.t(TextKey::DocsShortcutMultiSelect),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        "Right Click",
+                                        i18n.t(TextKey::DocsShortcutRightCancel),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        "Ctrl+Wheel",
+                                        i18n.t(TextKey::DocsShortcutWheelSpeed),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        "Shift+Wheel",
+                                        i18n.t(TextKey::DocsShortcutWheelSnapSeek),
+                                    );
+                                    draw_shortcut_item(ui, "Wheel", i18n.t(TextKey::DocsShortcutWheelSeek));
+                                    draw_shortcut_item(
+                                        ui,
+                                        "Alt+Wheel",
+                                        i18n.t(TextKey::DocsShortcutWheelSeekAlt),
+                                    );
+                                }
+                                DocsCategory::Shortcuts => {
+                                    draw_section_title(ui, i18n.t(TextKey::DocsSectionFixedShortcuts));
+                                    draw_shortcut_item(
+                                        ui,
+                                        &shortcuts.chord_for(ShortcutAction::SaveChart).display(),
+                                        i18n.t(TextKey::DocsShortcutSaveChart),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        &shortcuts.chord_for(ShortcutAction::Undo).display(),
+                                        i18n.t(TextKey::DocsShortcutUndo),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        &shortcuts.chord_for(ShortcutAction::Redo).display(),
+                                        i18n.t(TextKey::DocsShortcutRedo),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        &shortcuts.chord_for(ShortcutAction::Copy).display(),
+                                        i18n.t(TextKey::DocsShortcutCopy),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        &shortcuts.chord_for(ShortcutAction::Cut).display(),
+                                        i18n.t(TextKey::DocsShortcutCut),
+                                    );
+                                    draw_shortcut_item(
+                                        ui,
+                                        &shortcuts.chord_for(ShortcutAction::Paste).display(),
+                                        i18n.t(TextKey::DocsShortcutPasteMode),
+                                    );
+                                    draw_shortcut_item(ui, "Ctrl+B", i18n.t(TextKey::DocsShortcutMirror));
+                                    draw_shortcut_item(ui, "Ctrl+M", i18n.t(TextKey::DocsShortcutMirrorCopy));
+                                    draw_shortcut_item(ui, "Ctrl+V / Ctrl+B", i18n.t(TextKey::DocsShortcutPasteModeSwitch));
+                                    draw_shortcut_item(ui, "Space", i18n.t(TextKey::DocsShortcutPlayPause));
+                                    draw_shortcut_item(ui, "Delete", i18n.t(TextKey::DocsShortcutDelete));
 
-                            ui.add_space(8.0);
-                            draw_shortcut_section_title(ui, i18n.t(TextKey::DocsSectionEditor));
-                            draw_shortcut_item(ui, "Delete", i18n.t(TextKey::DocsShortcutDelete));
-                            draw_shortcut_item(
-                                ui,
-                                &shortcuts.chord_for(ShortcutAction::Copy).display(),
-                                i18n.t(TextKey::DocsShortcutCopy),
-                            );
-                            draw_shortcut_item(
-                                ui,
-                                &shortcuts.chord_for(ShortcutAction::Cut).display(),
-                                i18n.t(TextKey::DocsShortcutCut),
-                            );
-                            draw_shortcut_item(
-                                ui,
-                                &shortcuts.chord_for(ShortcutAction::Paste).display(),
-                                i18n.t(TextKey::DocsShortcutPasteMode),
-                            );
-                            draw_shortcut_item(ui, "Ctrl+B", i18n.t(TextKey::DocsShortcutMirror));
-                            draw_shortcut_item(ui, "Ctrl+M", i18n.t(TextKey::DocsShortcutMirrorCopy));
-                            draw_shortcut_item(ui, "Ctrl+V / Ctrl+B", i18n.t(TextKey::DocsShortcutPasteModeSwitch));
-
-                            ui.add_space(8.0);
-                            draw_shortcut_section_title(ui, i18n.t(TextKey::DocsSectionWheel));
-                            draw_shortcut_item(ui, "Ctrl+Wheel", i18n.t(TextKey::DocsShortcutWheelSpeed));
-                            draw_shortcut_item(ui, "Shift+Wheel", i18n.t(TextKey::DocsShortcutWheelSnapSeek));
-                            draw_shortcut_item(ui, "Wheel", i18n.t(TextKey::DocsShortcutWheelSeek));
-                            draw_shortcut_item(ui, "Alt+Wheel", i18n.t(TextKey::DocsShortcutWheelSeekAlt));
-                        }
-                    }
-                });
+                                    ui.add_space(8.0);
+                                    draw_section_title(ui, i18n.t(TextKey::DocsSectionCustomShortcuts));
+                                    for action in ShortcutAction::ALL {
+                                        if !action.is_editable() {
+                                            continue;
+                                        }
+                                        let label = match action {
+                                            ShortcutAction::ToggleHitsound => {
+                                                i18n.t(TextKey::DocsShortcutToggleHitsound)
+                                            }
+                                            ShortcutAction::SaveChart
+                                            | ShortcutAction::Undo
+                                            | ShortcutAction::Redo
+                                            | ShortcutAction::Cut
+                                            | ShortcutAction::Copy
+                                            | ShortcutAction::Paste => continue,
+                                        };
+                                        draw_shortcut_item(
+                                            ui,
+                                            &shortcuts.chord_for(action).display(),
+                                            label,
+                                        );
+                                    }
+                                }
+                            });
+                    },
+                );
             });
         });
 
     *open = is_open;
 }
-

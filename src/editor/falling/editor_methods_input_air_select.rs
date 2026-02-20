@@ -278,7 +278,10 @@ impl FallingGroundEditor {
             self.selection.drag_state = None;
             self.selection.overlap_cycle = None;
             self.selection.hover_overlap_hint = None;
-            self.status = "selection cleared".to_owned();
+            self.status = self
+                .i18n
+                .t(crate::i18n::TextKey::EditorSelectionCleared)
+                .to_owned();
             return;
         }
 

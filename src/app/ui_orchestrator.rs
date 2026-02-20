@@ -56,7 +56,7 @@ impl UiOrchestrator {
             settings_category: SettingsCategory::Display,
             settings_recording_shortcut: None,
             docs_open: false,
-            docs_category: DocsCategory::Shortcuts,
+            docs_category: DocsCategory::Operations,
             create_project_state: CreateProjectState::new(),
             current_project_state: CurrentProjectState::new(),
             prop_edit_state: PropertyEditState::default(),

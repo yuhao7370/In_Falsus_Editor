@@ -23,8 +23,12 @@ pub fn handle_shortcuts(
 
     if shortcut_bindings.is_pressed(ShortcutAction::SaveChart, safe_key_pressed, safe_key_down) {
         match editor.save_chart() {
-            Ok(()) => info_toasts.push(format!("谱面已保存: {}", editor.chart_path())),
-            Err(e) => info_toasts.push(format!("保存失败: {e}")),
+            Ok(()) => info_toasts.push(format!(
+                "{}: {}",
+                i18n.t(TextKey::ActionSaveChartSuccess),
+                editor.chart_path()
+            )),
+            Err(e) => info_toasts.push(format!("{}: {e}", i18n.t(TextKey::ActionSaveChartFailed))),
         }
     }
 
@@ -97,4 +101,3 @@ pub fn handle_wheel(
         audio.handle_wheel_seek(mq_wheel_y, egui_wheel_y, space_consumed, i18n);
     }
 }
-
