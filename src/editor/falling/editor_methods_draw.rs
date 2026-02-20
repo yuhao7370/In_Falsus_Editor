@@ -132,8 +132,12 @@ impl FallingGroundEditor {
         // Delete key: remove selected note or event
         // (keyboard is already blocked when egui text input has focus or popup is open)
         if safe_key_pressed(KeyCode::Delete) {
+            let is_chart_header_event = |event: &TimelineEvent| {
+                event.kind == TimelineEventKind::Bpm && event.label.starts_with("chart ")
+            };
+
             if !self.selection.selected_note_ids.is_empty() {
-                self.selection.editing_note_backup = None; // discard backup — note(s) being deleted
+                self.selection.editing_note_backup = None;
                 self.snapshot_for_undo();
                 let ids = self.selection.selected_note_ids.clone();
                 let count = ids.len();
@@ -152,30 +156,59 @@ impl FallingGroundEditor {
                 self.selection.hover_overlap_hint = None;
                 self.status = format!("note {} deleted", note_id);
             } else if !self.selection.selected_event_ids.is_empty() {
-                self.selection.editing_event_backup = None;
-                self.snapshot_for_undo();
                 let ids = self.selection.selected_event_ids.clone();
-                let count = ids.len();
-                self.editor_state
+                let has_chart_header = self
+                    .editor_state
                     .timeline_events
-                    .retain(|e| !ids.contains(&e.id));
-                self.rebuild_bpm_timeline_from_events();
-                self.rebuild_track_source_from_events();
-                self.selection.clear_event_selection();
-                self.selection.event_overlap_cycle = None;
-                self.selection.event_hover_hint = None;
-                self.status = format!("{} event(s) deleted", count);
-            } else if let Some(event_id) = self.selection.selected_event_id.take() {
-                self.selection.editing_event_backup = None; // discard backup — event is being deleted
-                self.snapshot_for_undo();
-                self.editor_state
+                    .iter()
+                    .any(|event| ids.contains(&event.id) && is_chart_header_event(event));
+                let deletable_count = self
+                    .editor_state
                     .timeline_events
-                    .retain(|e| e.id != event_id);
-                self.rebuild_bpm_timeline_from_events();
-                self.rebuild_track_source_from_events();
-                self.selection.event_overlap_cycle = None;
-                self.selection.event_hover_hint = None;
-                self.status = format!("event {} deleted", event_id);
+                    .iter()
+                    .filter(|event| ids.contains(&event.id) && !is_chart_header_event(event))
+                    .count();
+
+                if deletable_count > 0 {
+                    self.selection.editing_event_backup = None;
+                    self.snapshot_for_undo();
+                    self.editor_state
+                        .timeline_events
+                        .retain(|event| !ids.contains(&event.id) || is_chart_header_event(event));
+                    self.rebuild_bpm_timeline_from_events();
+                    self.rebuild_track_source_from_events();
+                    self.selection.clear_event_selection();
+                    self.selection.event_overlap_cycle = None;
+                    self.selection.event_hover_hint = None;
+                    self.status = if has_chart_header {
+                        format!("{} event(s) deleted (chart header kept)", deletable_count)
+                    } else {
+                        format!("{} event(s) deleted", deletable_count)
+                    };
+                } else if has_chart_header {
+                    self.status = "chart header cannot be deleted".to_owned();
+                }
+            } else if let Some(event_id) = self.selection.selected_event_id {
+                if self
+                    .editor_state
+                    .timeline_events
+                    .iter()
+                    .any(|event| event.id == event_id && is_chart_header_event(event))
+                {
+                    self.status = "chart header cannot be deleted".to_owned();
+                } else {
+                    self.selection.selected_event_id = None;
+                    self.selection.editing_event_backup = None;
+                    self.snapshot_for_undo();
+                    self.editor_state
+                        .timeline_events
+                        .retain(|event| event.id != event_id);
+                    self.rebuild_bpm_timeline_from_events();
+                    self.rebuild_track_source_from_events();
+                    self.selection.event_overlap_cycle = None;
+                    self.selection.event_hover_hint = None;
+                    self.status = format!("event {} deleted", event_id);
+                }
             }
         }
 

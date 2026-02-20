@@ -820,6 +820,7 @@ fn draw_event_property_editor(
     let mut time_edited = false;
     let mut beat_edited = false;
     let beat_step = 1.0 / editor.snap_division().max(1) as f32;
+    let is_chart_header = data.kind == "Bpm" && data.is_chart_header;
 
     let title_color = match data.kind.as_str() {
         "Bpm" => egui::Color32::from_rgb(124, 226, 255),
@@ -831,27 +832,44 @@ fn draw_event_property_editor(
         .size(TITLE_SIZE).color(title_color));
     ui.add_space(6.0);
 
-    // Time (ms)
-    prop_label(ui, "Time (ms)");
-    ui.horizontal(|ui| {
-        if pm_btn(ui, "-") { data.time_ms = (data.time_ms - 1.0).max(0.0).round(); time_edited = true; changed = true; }
-        if num_input_f32(ui, "evt_time_ms", &mut data.time_ms, 0.0, 600000.0, 0) { data.time_ms = data.time_ms.round(); time_edited = true; changed = true; }
-        if pm_btn(ui, "+") { data.time_ms = (data.time_ms + 1.0).min(600000.0).round(); time_edited = true; changed = true; }
-    });
-    // Beat
-    prop_label(ui, "Beat");
-    ui.horizontal(|ui| {
-        if pm_btn(ui, "-") { data.beat = (data.beat - beat_step).max(0.0); beat_edited = true; changed = true; }
-        if num_input_f32(ui, "evt_beat", &mut data.beat, 0.0, f32::MAX, 3) { beat_edited = true; changed = true; }
-        if pm_btn(ui, "+") { data.beat += beat_step; beat_edited = true; changed = true; }
-    });
+    if is_chart_header {
+        prop_label(ui, "Time (ms)");
+        ui.label(
+            egui::RichText::new("0 (chart header fixed)")
+                .size(INPUT_FONT_SIZE)
+                .color(egui::Color32::from_rgb(140, 140, 150)),
+        );
+        prop_label(ui, "Beat");
+        ui.label(
+            egui::RichText::new("0 (derived from time)")
+                .size(INPUT_FONT_SIZE)
+                .color(egui::Color32::from_rgb(140, 140, 150)),
+        );
+        data.time_ms = 0.0;
+        data.beat = 0.0;
+    } else {
+        // Time (ms)
+        prop_label(ui, "Time (ms)");
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.time_ms = (data.time_ms - 1.0).max(0.0).round(); time_edited = true; changed = true; }
+            if num_input_f32(ui, "evt_time_ms", &mut data.time_ms, 0.0, 600000.0, 0) { data.time_ms = data.time_ms.round(); time_edited = true; changed = true; }
+            if pm_btn(ui, "+") { data.time_ms = (data.time_ms + 1.0).min(600000.0).round(); time_edited = true; changed = true; }
+        });
+        // Beat
+        prop_label(ui, "Beat");
+        ui.horizontal(|ui| {
+            if pm_btn(ui, "-") { data.beat = (data.beat - beat_step).max(0.0); beat_edited = true; changed = true; }
+            if num_input_f32(ui, "evt_beat", &mut data.beat, 0.0, f32::MAX, 3) { beat_edited = true; changed = true; }
+            if pm_btn(ui, "+") { data.beat += beat_step; beat_edited = true; changed = true; }
+        });
 
-    if time_edited {
-        data.beat = editor.time_to_beat(data.time_ms);
-        prop_state.last_time_edit = LastTimeEdit::Time;
-    } else if beat_edited {
-        data.time_ms = editor.beat_to_time(data.beat);
-        prop_state.last_time_edit = LastTimeEdit::Beat;
+        if time_edited {
+            data.beat = editor.time_to_beat(data.time_ms);
+            prop_state.last_time_edit = LastTimeEdit::Time;
+        } else if beat_edited {
+            data.time_ms = editor.beat_to_time(data.beat);
+            prop_state.last_time_edit = LastTimeEdit::Beat;
+        }
     }
 
     ui.add_space(6.0);

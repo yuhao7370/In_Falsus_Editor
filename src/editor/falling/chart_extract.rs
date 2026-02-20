@@ -65,7 +65,7 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 next_event_id += 1;
                 bpm_source
                     .bpm_events
-                    .push((*time as f32, *bpm as f32, (*beats as f32).max(1.0)));
+                    .push((*time as f32, *bpm as f32, *beats as f32));
             }
             ChartEvent::Track { time, speed } => {
                 let color = if *speed >= 0.0 {

@@ -86,7 +86,7 @@ pub enum ChartEvent {
         time: f64,
         bpm: f64,
         beats: f64,
-        unknown: f64,
+        unknown: i32,
     },
     Track { time: f64, speed: f64 },
     Lane { time: f64, lane: i32, enable: bool },

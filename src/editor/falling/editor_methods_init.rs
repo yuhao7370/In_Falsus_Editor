@@ -174,7 +174,7 @@ impl FallingGroundEditor {
                 time: point.time_ms as f64,
                 bpm: point.bpm as f64,
                 beats: point.beats_per_measure as f64,
-                unknown: 0.0,
+                unknown: -1,
             });
         }
 
@@ -811,6 +811,8 @@ impl FallingGroundEditor {
             .timeline_events
             .iter()
             .find(|e| e.id == id)?;
+        let is_chart_header =
+            event.kind == TimelineEventKind::Bpm && event.label.starts_with("chart ");
         let kind_str = match event.kind {
             TimelineEventKind::Bpm => "Bpm",
             TimelineEventKind::Track => "Track",
@@ -824,9 +826,44 @@ impl FallingGroundEditor {
         let mut enable = true;
         match event.kind {
             TimelineEventKind::Bpm => {
-                let pt = self.editor_state.timeline.point_at_time(event.time_ms);
-                bpm = pt.bpm;
-                beats_per_measure = pt.beats_per_measure;
+                if is_chart_header {
+                    let parsed = event
+                        .label
+                        .strip_prefix("chart ")
+                        .and_then(|vals| {
+                            let nums: Vec<&str> = vals.split('/').collect();
+                            if nums.len() >= 2 {
+                                Some((
+                                    nums[0].trim().parse::<f32>().ok()?,
+                                    nums[1].trim().parse::<f32>().ok()?,
+                                ))
+                            } else {
+                                None
+                            }
+                        });
+                    if let Some((parsed_bpm, parsed_beats)) = parsed {
+                        bpm = parsed_bpm;
+                        beats_per_measure = parsed_beats;
+                    } else {
+                        let pt = self.editor_state.timeline.points[0];
+                        bpm = pt.bpm;
+                        beats_per_measure = pt.beats_per_measure;
+                    }
+                } else {
+                    let parts: Vec<&str> = event.label.split_whitespace().collect();
+                    let parsed_bpm = parts.get(1).and_then(|s| s.parse::<f32>().ok());
+                    let parsed_beats = parts
+                        .get(3)
+                        .and_then(|s| s.trim_end_matches(')').parse::<f32>().ok());
+                    if let (Some(parsed_bpm), Some(parsed_beats)) = (parsed_bpm, parsed_beats) {
+                        bpm = parsed_bpm;
+                        beats_per_measure = parsed_beats;
+                    } else {
+                        let pt = self.editor_state.timeline.point_at_time(event.time_ms);
+                        bpm = pt.bpm;
+                        beats_per_measure = pt.beats_per_measure;
+                    }
+                }
             }
             TimelineEventKind::Track => {
                 let idx = self
@@ -847,8 +884,13 @@ impl FallingGroundEditor {
         Some(EventPropertyData {
             id: event.id,
             kind: kind_str.to_owned(),
-            time_ms: event.time_ms,
-            beat: self.editor_state.timeline.time_to_beat(event.time_ms),
+            is_chart_header,
+            time_ms: if is_chart_header { 0.0 } else { event.time_ms },
+            beat: if is_chart_header {
+                0.0
+            } else {
+                self.editor_state.timeline.time_to_beat(event.time_ms)
+            },
             label: event.label.clone(),
             bpm,
             beats_per_measure,
@@ -878,15 +920,23 @@ impl FallingGroundEditor {
             .iter_mut()
             .find(|e| e.id == data.id)
         {
-            event.time_ms = data.time_ms.max(0.0);
             let kind = event.kind;
+            let is_chart_header = kind == TimelineEventKind::Bpm
+                && (data.is_chart_header || event.label.starts_with("chart "));
             // Auto-generate label from params
             match kind {
                 TimelineEventKind::Bpm => {
-                    event.label =
-                        format!("bpm {:.2} (beats {:.2})", data.bpm, data.beats_per_measure);
+                    if is_chart_header {
+                        event.time_ms = 0.0;
+                        event.label = format!("chart {:.2}/{:.2}", data.bpm, data.beats_per_measure);
+                    } else {
+                        event.time_ms = data.time_ms.max(0.0);
+                        event.label =
+                            format!("bpm {:.2} (beats {:.2})", data.bpm, data.beats_per_measure);
+                    }
                 }
                 TimelineEventKind::Track => {
+                    event.time_ms = data.time_ms.max(0.0);
                     event.label = format!("track x{:.2}", data.speed);
                     event.color = if data.speed >= 0.0 {
                         Color::from_rgba(150, 240, 170, 255)
@@ -895,6 +945,7 @@ impl FallingGroundEditor {
                     };
                 }
                 TimelineEventKind::Lane => {
+                    event.time_ms = data.time_ms.max(0.0);
                     let on_off = if data.enable { "on" } else { "off" };
                     event.label = format!("lane {} {}", data.lane, on_off);
                 }

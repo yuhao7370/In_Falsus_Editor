@@ -14,6 +14,12 @@ pub fn parse(content: &str) -> Result<Self, String> {
         }
         events.push(Self::parse_line(line));
     }
+    if !events
+        .iter()
+        .any(|event| matches!(event, ChartEvent::Chart { .. }))
+    {
+        return Err("missing chart header".to_string());
+    }
     Ok(Chart { events })
 }
 
@@ -184,15 +190,17 @@ fn parse_skyarea(args: &[&str], raw: &str) -> ChartEvent {
 fn parse_bpm(args: &[&str], raw: &str) -> ChartEvent {
     if args.len() >= 2 {
         if let (Some(time), Some(bpm)) = (Self::parse_f64(args[0]), Self::parse_f64(args[1])) {
-            let beats = if args.len() >= 3 {
-                Self::parse_f64(args[2]).unwrap_or(DEFAULT_BPM_BEATS)
-            } else {
-                DEFAULT_BPM_BEATS
+            let beats = match args.get(2).map(|s| s.trim()) {
+                None | Some("") => DEFAULT_BPM_BEATS,
+                Some(value) => match Self::parse_f64(value) {
+                    Some(v) if v > 0.0 => v,
+                    Some(v) if bpm == 0.0 && v == 0.0 => v,
+                    _ => DEFAULT_BPM_BEATS,
+                },
             };
-            let unknown = if args.len() >= 4 {
-                Self::parse_f64(args[3]).unwrap_or(DEFAULT_BPM_UNKNOWN)
-            } else {
-                DEFAULT_BPM_UNKNOWN
+            let unknown = match args.get(3).map(|s| s.trim()) {
+                None | Some("") => DEFAULT_BPM_UNKNOWN,
+                Some(value) => Self::parse_i32(value).unwrap_or(DEFAULT_BPM_UNKNOWN),
             };
             return ChartEvent::Bpm {
                 time,

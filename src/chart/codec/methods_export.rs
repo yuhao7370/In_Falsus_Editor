@@ -3,6 +3,14 @@ impl Chart {
 pub fn to_spc(&self) -> String {
     let mut lines = Vec::new();
     let mut unknowns = Vec::new();
+    let chart_beats = self
+        .events
+        .iter()
+        .find_map(|event| match event {
+            ChartEvent::Chart { beats, .. } => Some(*beats),
+            _ => None,
+        })
+        .unwrap_or(4.0);
 
     for event in &self.events {
         match event {
@@ -76,13 +84,30 @@ pub fn to_spc(&self) -> String {
                 beats,
                 unknown,
             } => {
-                lines.push(format!(
-                    "bpm({},{:.2},{:.2},{:.2})",
-                    fmt_time(*time),
-                    bpm,
-                    beats,
-                    unknown
-                ));
+                let beats_missing = *beats == DEFAULT_BPM_BEATS;
+                let unknown_missing = *unknown == DEFAULT_BPM_UNKNOWN;
+
+                if beats_missing && unknown_missing {
+                    lines.push(format!("bpm({},{:.2})", fmt_time(*time), bpm));
+                } else if !beats_missing && unknown_missing {
+                    lines.push(format!("bpm({},{:.2},{:.2})", fmt_time(*time), bpm, beats));
+                } else if beats_missing && !unknown_missing {
+                    lines.push(format!(
+                        "bpm({},{:.2},{:.2},{})",
+                        fmt_time(*time),
+                        bpm,
+                        chart_beats,
+                        unknown
+                    ));
+                } else {
+                    lines.push(format!(
+                        "bpm({},{:.2},{:.2},{})",
+                        fmt_time(*time),
+                        bpm,
+                        beats,
+                        unknown
+                    ));
+                }
             }
             ChartEvent::Track { time, speed } => {
                 lines.push(format!("track({},{:.2})", fmt_time(*time), speed));

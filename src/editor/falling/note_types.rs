@@ -115,6 +115,7 @@ pub struct NotePropertyData {
 pub struct EventPropertyData {
     pub id: u64,
     pub kind: String,
+    pub is_chart_header: bool,
     pub time_ms: f32,
     pub beat: f32,
     pub label: String,
@@ -170,4 +171,3 @@ struct SkyAreaShape {
     /// SkyArea group id (V2); V1 defaults to 0.
     group_id: i32,
 }
-
