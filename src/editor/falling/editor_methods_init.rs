@@ -735,6 +735,7 @@ impl FallingGroundEditor {
                     shape.group_id = data.group_id.max(-1);
                 }
             }
+            self.editor_state.cached_note_heads_dirty = true;
         }
     }
 
@@ -773,6 +774,7 @@ impl FallingGroundEditor {
                 .find(|n| n.id == backup.id)
             {
                 *note = backup;
+                self.editor_state.cached_note_heads_dirty = true;
             }
         }
     }
@@ -1165,12 +1167,14 @@ impl FallingGroundEditor {
     /// Uses a cached Vec that is only rebuilt when notes change.
     pub fn note_head_times(&mut self) -> &[(f32, bool)] {
         if self.editor_state.cached_note_heads_dirty {
-            self.editor_state.cached_note_heads = self
+            let mut note_heads: Vec<(f32, bool)> = self
                 .editor_state
                 .notes
                 .iter()
                 .map(|n| (n.time_ms, is_ground_kind(n.kind)))
                 .collect();
+            note_heads.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+            self.editor_state.cached_note_heads = note_heads;
             self.editor_state.cached_note_heads_dirty = false;
         }
         &self.editor_state.cached_note_heads

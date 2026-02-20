@@ -128,6 +128,7 @@ impl FallingGroundEditor {
                     };
                     note.lane = lane;
                     note.time_ms = snapped_time;
+                    self.editor_state.cached_note_heads_dirty = true;
                     self.status = format!("dragging lane={} time={:.0}ms", lane, note.time_ms);
                 }
             } else {

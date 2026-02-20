@@ -142,6 +142,7 @@ impl FallingGroundEditor {
                 let ids = self.selection.selected_note_ids.clone();
                 let count = ids.len();
                 self.editor_state.notes.retain(|n| !ids.contains(&n.id));
+                self.editor_state.cached_note_heads_dirty = true;
                 self.selection.clear_note_selection();
                 self.selection.drag_state = None;
                 self.selection.overlap_cycle = None;
@@ -151,6 +152,7 @@ impl FallingGroundEditor {
                 self.selection.editing_note_backup = None;
                 self.snapshot_for_undo();
                 self.editor_state.notes.retain(|n| n.id != note_id);
+                self.editor_state.cached_note_heads_dirty = true;
                 self.selection.drag_state = None;
                 self.selection.overlap_cycle = None;
                 self.selection.hover_overlap_hint = None;

@@ -172,7 +172,6 @@ pub struct HitSoundTrigger {
     prev_sec: f32,
     was_playing: bool,
     delay_ms: f32,
-    next_head_idx: usize,
 }
 
 impl HitSoundTrigger {
@@ -181,7 +180,6 @@ impl HitSoundTrigger {
             prev_sec: 0.0,
             was_playing: false,
             delay_ms: 0.0,
-            next_head_idx: 0,
         }
     }
 
@@ -213,14 +211,12 @@ impl HitSoundTrigger {
             if self.was_playing {
                 self.prev_sec = current_sec;
             }
-            self.next_head_idx = self.next_index_at_or_after(note_heads, current_sec * 1000.0);
             self.was_playing = false;
             return;
         }
 
         if !self.was_playing {
             self.prev_sec = current_sec;
-            self.next_head_idx = self.next_index_at_or_after(note_heads, current_sec * 1000.0);
             self.was_playing = true;
             return;
         }
@@ -229,13 +225,14 @@ impl HitSoundTrigger {
         let delta = current_sec - self.prev_sec;
         if delta < -0.01 || delta > 0.5 {
             self.prev_sec = current_sec;
-            self.next_head_idx = self.next_index_at_or_after(note_heads, current_sec * 1000.0);
             return;
         }
 
         let prev_ms = self.prev_sec * 1000.0;
         let curr_ms = current_sec * 1000.0;
-        let mut idx = self.next_head_idx.min(note_heads.len());
+        // Re-locate from previous playback time each frame so live note edits
+        // immediately affect hitsound scheduling.
+        let mut idx = self.next_index_at_or_after(note_heads, prev_ms);
         while idx < note_heads.len() {
             let (time_ms, is_ground) = note_heads[idx];
             // Apply delay: positive = trigger later, negative = trigger earlier
@@ -254,7 +251,6 @@ impl HitSoundTrigger {
             }
             idx += 1;
         }
-        self.next_head_idx = idx;
 
         self.prev_sec = current_sec;
     }
@@ -263,6 +259,5 @@ impl HitSoundTrigger {
     pub fn reset(&mut self, sec: f32) {
         self.prev_sec = sec;
         self.was_playing = false;
-        self.next_head_idx = 0;
     }
 }

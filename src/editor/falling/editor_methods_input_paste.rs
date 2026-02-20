@@ -313,6 +313,7 @@ impl FallingGroundEditor {
                 self.editor_state.notes.push(note);
             }
             self.sort_notes();
+            self.editor_state.cached_note_heads_dirty = true;
             self.selection.clear_note_selection();
             let key = if mirrored {
                 crate::i18n::TextKey::EditorMirrorPastedNotes
