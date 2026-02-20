@@ -229,6 +229,18 @@ fn flick_width_max_for_center(x: f64, x_split: f64) -> f64 {
     (left_room.min(right_room) * 2.0).max(0.0)
 }
 
+/// Clampable center range when width is fixed in raw-coordinate space.
+/// Constraint: x - width/2 >= 0 and x + width/2 <= x_split.
+fn center_bounds_for_width(x_split: f64, width: f64) -> (f64, f64) {
+    if x_split <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let half = (width.abs() * 0.5).clamp(0.0, x_split * 0.5);
+    let min_x = half;
+    let max_x = (x_split - half).max(min_x);
+    (min_x, max_x)
+}
+
 const EASE_COMBO_FONT: f32 = 16.0;
 const EASE_COMBO_WIDTH: f32 = 120.0;
 const EASE_SWITCH_SIZE: egui::Vec2 = egui::vec2(28.0, 28.0);
@@ -602,6 +614,19 @@ fn draw_note_property_editor(
 
     // Flick
     if data.kind == "Flick" {
+        let clamped_x = data.x.clamp(0.0, data.x_split.max(0.0));
+        if (clamped_x - data.x).abs() > f64::EPSILON {
+            data.x = clamped_x;
+            changed = true;
+        }
+        let max_w_now = flick_width_max_for_center(data.x, data.x_split);
+        let clamped_w_now = (data.width as f64).clamp(0.0, max_w_now);
+        if (clamped_w_now - data.width as f64).abs() > f64::EPSILON {
+            data.width = clamped_w_now as f32;
+            changed = true;
+        }
+
+        let (flick_x_min, flick_x_max) = center_bounds_for_width(data.x_split, data.width as f64);
         let xsplit_editable = editor.xsplit_editable();
         if !xsplit_editable {
             // Locked mode: show XSplit as read-only
@@ -611,9 +636,9 @@ fn draw_note_property_editor(
         }
         prop_label(ui, "X");
         ui.horizontal(|ui| {
-            if pm_btn(ui, "-") { data.x = (data.x - 1.0).max(0.0); changed = true; }
-            if num_input_f64(ui, "flick_x", &mut data.x, 0.0, data.x_split, 0) { changed = true; }
-            if pm_btn(ui, "+") { data.x = (data.x + 1.0).min(data.x_split); changed = true; }
+            if pm_btn(ui, "-") { data.x = (data.x - 1.0).max(flick_x_min); changed = true; }
+            if num_input_f64(ui, "flick_x", &mut data.x, flick_x_min, flick_x_max, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.x = (data.x + 1.0).min(flick_x_max); changed = true; }
         });
         prop_label(ui, "Width");
         ui.horizontal(|ui| {
@@ -659,6 +684,12 @@ fn draw_note_property_editor(
                 }
             });
         }
+        let max_w_after = flick_width_max_for_center(data.x, data.x_split);
+        let clamped_w_after = (data.width as f64).clamp(0.0, max_w_after);
+        if (clamped_w_after - data.width as f64).abs() > f64::EPSILON {
+            data.width = clamped_w_after as f32;
+            changed = true;
+        }
         prop_label(ui, "Direction");
         ui.horizontal(|ui| {
             let label = if data.flick_right { "Right \u{2192}" } else { "Left \u{2190}" };
@@ -677,6 +708,31 @@ fn draw_note_property_editor(
 
     // SkyArea
     if data.kind == "SkyArea" {
+        let start_x_clamped = data.start_x.clamp(0.0, data.start_x_split.max(0.0));
+        if (start_x_clamped - data.start_x).abs() > f64::EPSILON {
+            data.start_x = start_x_clamped;
+            changed = true;
+        }
+        let end_x_clamped = data.end_x.clamp(0.0, data.end_x_split.max(0.0));
+        if (end_x_clamped - data.end_x).abs() > f64::EPSILON {
+            data.end_x = end_x_clamped;
+            changed = true;
+        }
+        let start_w_max_now = flick_width_max_for_center(data.start_x, data.start_x_split);
+        let start_w_clamped_now = data.start_width.clamp(0.0, start_w_max_now);
+        if (start_w_clamped_now - data.start_width).abs() > f64::EPSILON {
+            data.start_width = start_w_clamped_now;
+            changed = true;
+        }
+        let end_w_max_now = flick_width_max_for_center(data.end_x, data.end_x_split);
+        let end_w_clamped_now = data.end_width.clamp(0.0, end_w_max_now);
+        if (end_w_clamped_now - data.end_width).abs() > f64::EPSILON {
+            data.end_width = end_w_clamped_now;
+            changed = true;
+        }
+
+        let (start_x_min, start_x_max) = center_bounds_for_width(data.start_x_split, data.start_width);
+        let (end_x_min, end_x_max) = center_bounds_for_width(data.end_x_split, data.end_width);
         let xsplit_editable = editor.xsplit_editable();
         if !xsplit_editable {
             // Locked mode: show XSplit as read-only (shared for start/end)
@@ -688,15 +744,16 @@ fn draw_note_property_editor(
         ui.label(egui::RichText::new("Start").size(SUB_TITLE_SIZE).color(egui::Color32::from_rgb(200, 200, 220)));
         prop_label(ui, "X");
         ui.horizontal(|ui| {
-            if pm_btn(ui, "-") { data.start_x = (data.start_x - 1.0).max(0.0); changed = true; }
-            if num_input_f64(ui, "sky_sx", &mut data.start_x, 0.0, data.start_x_split, 0) { changed = true; }
-            if pm_btn(ui, "+") { data.start_x = (data.start_x + 1.0).min(data.start_x_split); changed = true; }
+            if pm_btn(ui, "-") { data.start_x = (data.start_x - 1.0).max(start_x_min); changed = true; }
+            if num_input_f64(ui, "sky_sx", &mut data.start_x, start_x_min, start_x_max, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.start_x = (data.start_x + 1.0).min(start_x_max); changed = true; }
         });
         prop_label(ui, "Width");
         ui.horizontal(|ui| {
+            let max_w = flick_width_max_for_center(data.start_x, data.start_x_split);
             if pm_btn(ui, "-") { data.start_width = (data.start_width - 1.0).max(0.0); changed = true; }
-            if num_input_f64(ui, "sky_sw", &mut data.start_width, 0.0, data.start_x_split, 0) { changed = true; }
-            if pm_btn(ui, "+") { data.start_width = (data.start_width + 1.0).min(data.start_x_split); changed = true; }
+            if num_input_f64(ui, "sky_sw", &mut data.start_width, 0.0, max_w, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.start_width = (data.start_width + 1.0).min(max_w); changed = true; }
         });
         if xsplit_editable {
             prop_label(ui, "XSplit");
@@ -730,15 +787,16 @@ fn draw_note_property_editor(
         ui.label(egui::RichText::new("End").size(SUB_TITLE_SIZE).color(egui::Color32::from_rgb(200, 200, 220)));
         prop_label(ui, "X");
         ui.horizontal(|ui| {
-            if pm_btn(ui, "-") { data.end_x = (data.end_x - 1.0).max(0.0); changed = true; }
-            if num_input_f64(ui, "sky_ex", &mut data.end_x, 0.0, data.end_x_split, 0) { changed = true; }
-            if pm_btn(ui, "+") { data.end_x = (data.end_x + 1.0).min(data.end_x_split); changed = true; }
+            if pm_btn(ui, "-") { data.end_x = (data.end_x - 1.0).max(end_x_min); changed = true; }
+            if num_input_f64(ui, "sky_ex", &mut data.end_x, end_x_min, end_x_max, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.end_x = (data.end_x + 1.0).min(end_x_max); changed = true; }
         });
         prop_label(ui, "Width");
         ui.horizontal(|ui| {
+            let max_w = flick_width_max_for_center(data.end_x, data.end_x_split);
             if pm_btn(ui, "-") { data.end_width = (data.end_width - 1.0).max(0.0); changed = true; }
-            if num_input_f64(ui, "sky_ew", &mut data.end_width, 0.0, data.end_x_split, 0) { changed = true; }
-            if pm_btn(ui, "+") { data.end_width = (data.end_width + 1.0).min(data.end_x_split); changed = true; }
+            if num_input_f64(ui, "sky_ew", &mut data.end_width, 0.0, max_w, 0) { changed = true; }
+            if pm_btn(ui, "+") { data.end_width = (data.end_width + 1.0).min(max_w); changed = true; }
         });
         if xsplit_editable {
             prop_label(ui, "XSplit");
@@ -767,6 +825,18 @@ fn draw_note_property_editor(
                     changed = true;
                 }
             });
+        }
+        let start_w_max_after = flick_width_max_for_center(data.start_x, data.start_x_split);
+        let start_w_clamped_after = data.start_width.clamp(0.0, start_w_max_after);
+        if (start_w_clamped_after - data.start_width).abs() > f64::EPSILON {
+            data.start_width = start_w_clamped_after;
+            changed = true;
+        }
+        let end_w_max_after = flick_width_max_for_center(data.end_x, data.end_x_split);
+        let end_w_clamped_after = data.end_width.clamp(0.0, end_w_max_after);
+        if (end_w_clamped_after - data.end_width).abs() > f64::EPSILON {
+            data.end_width = end_w_clamped_after;
+            changed = true;
         }
         ui.add_space(4.0);
         prop_label(ui, "L Ease");

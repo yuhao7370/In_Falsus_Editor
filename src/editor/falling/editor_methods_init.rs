@@ -699,23 +699,30 @@ impl FallingGroundEditor {
                 let xs = data.x_split.max(1.0);
                 let raw_w = data.width as f64;
                 let norm_x = (data.x / xs) as f32; // x is already center
-                note.lane = lane_from_normalized_x(norm_x);
+                let width_norm = normalized_width_to_air_ratio((raw_w / xs) as f32);
+                let half_w = width_norm * 0.5;
+                let clamped_x = norm_x.clamp(half_w, 1.0 - half_w);
+                note.x_split = xs;
+                note.center_x_norm = clamped_x;
+                note.lane = lane_from_normalized_x(clamped_x);
                 // Flick width: raw width / x_split → normalized width ratio
-                note.width = normalized_width_to_air_ratio((raw_w / xs) as f32);
+                note.width = width_norm;
             }
             // SkyArea: convert raw x/width back to normalized left/right
             if note.kind == GroundNoteKind::SkyArea {
                 if let Some(shape) = note.skyarea_shape.as_mut() {
                     let sxs = data.start_x_split.max(1.0);
                     let exs = data.end_x_split.max(1.0);
+                    let sh = (((data.start_width / sxs) as f32).abs() * 0.5).clamp(0.0, 0.5);
+                    let eh = (((data.end_width / exs) as f32).abs() * 0.5).clamp(0.0, 0.5);
                     let sc = (data.start_x / sxs) as f32;
-                    let sh = ((data.start_width / sxs) as f32).abs() * 0.5;
                     let ec = (data.end_x / exs) as f32;
-                    let eh = ((data.end_width / exs) as f32).abs() * 0.5;
-                    shape.start_left_norm = (sc - sh).clamp(0.0, 1.0);
-                    shape.start_right_norm = (sc + sh).clamp(0.0, 1.0);
-                    shape.end_left_norm = (ec - eh).clamp(0.0, 1.0);
-                    shape.end_right_norm = (ec + eh).clamp(0.0, 1.0);
+                    let sc_clamped = sc.clamp(sh, 1.0 - sh);
+                    let ec_clamped = ec.clamp(eh, 1.0 - eh);
+                    shape.start_left_norm = (sc_clamped - sh).clamp(0.0, 1.0);
+                    shape.start_right_norm = (sc_clamped + sh).clamp(0.0, 1.0);
+                    shape.end_left_norm = (ec_clamped - eh).clamp(0.0, 1.0);
+                    shape.end_right_norm = (ec_clamped + eh).clamp(0.0, 1.0);
                     shape.left_ease = Ease::from_value(data.left_ease);
                     shape.right_ease = Ease::from_value(data.right_ease);
                     shape.group_id = data.group_id.max(-1);
