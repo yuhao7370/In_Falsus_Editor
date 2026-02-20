@@ -1,42 +1,54 @@
 use crate::audio::controller::AudioController;
 use crate::editor::falling::FallingGroundEditor;
 use crate::i18n::{I18n, TextKey};
-use crate::settings::modify_settings;
+use crate::settings::{modify_settings, settings};
+use crate::shortcuts::ShortcutAction;
 use crate::ui::info_toast::InfoToastManager;
-use crate::ui::input_state::{free_mouse_wheel, safe_key_pressed, safe_mouse_wheel};
+use crate::ui::input_state::{free_mouse_wheel, safe_key_down, safe_key_pressed, safe_mouse_wheel};
 use macroquad::prelude::*;
 
 use super::ui_orchestrator::UiOutput;
 
-/// Ctrl+S / Ctrl+Z / Ctrl+Y 快捷键
+/// Global keyboard shortcuts.
 pub fn handle_shortcuts(
     editor: &mut FallingGroundEditor,
     audio: &mut AudioController,
     i18n: &I18n,
     info_toasts: &mut InfoToastManager,
 ) {
-    let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
-    if ctrl && is_key_pressed(KeyCode::S) {
+    let shortcut_bindings = {
+        let s = settings();
+        s.shortcuts.clone()
+    };
+
+    if shortcut_bindings.is_pressed(ShortcutAction::SaveChart, safe_key_pressed, safe_key_down) {
         match editor.save_chart() {
             Ok(()) => info_toasts.push(format!("谱面已保存: {}", editor.chart_path())),
             Err(e) => info_toasts.push(format!("保存失败: {e}")),
         }
     }
-    if ctrl && is_key_pressed(KeyCode::Z) {
+
+    if shortcut_bindings.is_pressed(ShortcutAction::Undo, safe_key_pressed, safe_key_down) {
         if editor.undo() {
             info_toasts.push(i18n.t(TextKey::ActionUndo));
         } else {
             info_toasts.push_warn(i18n.t(TextKey::ActionNothingToUndo));
         }
     }
-    if ctrl && is_key_pressed(KeyCode::Y) {
+
+    if shortcut_bindings.is_pressed(ShortcutAction::Redo, safe_key_pressed, safe_key_down) {
         if editor.redo() {
             info_toasts.push(i18n.t(TextKey::ActionRedo));
         } else {
             info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo));
         }
     }
-    if safe_key_pressed(KeyCode::H) {
+
+    if shortcut_bindings.is_pressed(
+        ShortcutAction::ToggleHitsound,
+        safe_key_pressed,
+        safe_key_down,
+    ) {
         let enabled = !audio.hitsound_enabled();
         audio.set_hitsound_enabled(enabled);
         modify_settings(|s| s.hitsound_enabled = enabled);
@@ -48,7 +60,8 @@ pub fn handle_shortcuts(
     }
 }
 
-/// 滚轮处理：Ctrl+wheel 调速、Shift+wheel snap seek、普通 wheel seek
+/// Mouse wheel input handling:
+/// Ctrl+Wheel adjusts speed, Shift+Wheel snap-seeks, otherwise free seek.
 pub fn handle_wheel(
     editor: &mut FallingGroundEditor,
     audio: &mut AudioController,
@@ -84,3 +97,4 @@ pub fn handle_wheel(
         audio.handle_wheel_seek(mq_wheel_y, egui_wheel_y, space_consumed, i18n);
     }
 }
+

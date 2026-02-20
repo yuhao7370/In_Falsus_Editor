@@ -3,6 +3,7 @@ mod audio;
 mod chart;
 mod editor;
 mod i18n;
+mod shortcuts;
 mod settings;
 mod ui;
 

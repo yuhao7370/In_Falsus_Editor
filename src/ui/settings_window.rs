@@ -1,8 +1,11 @@
 use crate::i18n::{I18n, TextKey};
 use crate::settings::settings;
+use crate::shortcuts::{ShortcutAction, detect_key_chord};
+use crate::ui::input_state::{free_key_down, free_key_pressed};
 use crate::ui::snap_slider::draw_snap_slider;
 use crate::ui::top_menu::{SettingsAction, TopMenuAction};
 use egui_macroquad::egui;
+use macroquad::prelude::KeyCode;
 
 const CATEGORY_ITEM_HEIGHT: f32 = 32.0;
 const SETTING_ROW_HEIGHT: f32 = 30.0;
@@ -12,6 +15,7 @@ pub enum SettingsCategory {
     Display,
     Audio,
     Language,
+    Shortcuts,
     Debug,
 }
 
@@ -20,6 +24,7 @@ impl SettingsCategory {
         SettingsCategory::Display,
         SettingsCategory::Audio,
         SettingsCategory::Language,
+        SettingsCategory::Shortcuts,
         SettingsCategory::Debug,
     ];
 
@@ -28,8 +33,21 @@ impl SettingsCategory {
             SettingsCategory::Display => i18n.t(TextKey::SettingsCategoryDisplay),
             SettingsCategory::Audio => i18n.t(TextKey::SettingsCategoryAudio),
             SettingsCategory::Language => i18n.t(TextKey::SettingsCategoryLanguage),
+            SettingsCategory::Shortcuts => i18n.t(TextKey::SettingsCategoryShortcuts),
             SettingsCategory::Debug => i18n.t(TextKey::SettingsCategoryDebug),
         }
+    }
+}
+
+fn shortcut_action_text_key(action: ShortcutAction) -> TextKey {
+    match action {
+        ShortcutAction::SaveChart => TextKey::ShortcutActionSaveChart,
+        ShortcutAction::Undo => TextKey::ShortcutActionUndo,
+        ShortcutAction::Redo => TextKey::ShortcutActionRedo,
+        ShortcutAction::Cut => TextKey::ShortcutActionCut,
+        ShortcutAction::Copy => TextKey::ShortcutActionCopy,
+        ShortcutAction::Paste => TextKey::ShortcutActionPaste,
+        ShortcutAction::ToggleHitsound => TextKey::ShortcutActionToggleHitsound,
     }
 }
 
@@ -110,6 +128,7 @@ pub fn draw_settings_window(
     i18n: &I18n,
     open: &mut bool,
     selected_category: &mut SettingsCategory,
+    recording_shortcut: &mut Option<ShortcutAction>,
     volume_enabled: bool,
     min_scroll_speed: f32,
     max_scroll_speed: f32,
@@ -134,6 +153,7 @@ pub fn draw_settings_window(
     let current_hitsound_arc_volume = s.hitsound_arc_volume;
     let current_hitsound_delay_ms = s.hitsound_delay_ms;
     let current_debug_audio = s.debug_audio;
+    let current_shortcuts = s.shortcuts.clone();
     drop(s);
 
     let mut is_open = *open;
@@ -186,6 +206,9 @@ pub fn draw_settings_window(
                     );
                     ui.separator();
                     ui.add_space(4.0);
+                    if *selected_category != SettingsCategory::Shortcuts {
+                        *recording_shortcut = None;
+                    }
 
                     match *selected_category {
                         SettingsCategory::Language => {
@@ -365,6 +388,78 @@ pub fn draw_settings_window(
                                 action = Some(TopMenuAction::Settings(SettingsAction::SetXSplitEditable(!current_xsplit_editable)));
                             }
                         }
+                        SettingsCategory::Shortcuts => {
+                            if let Some(capturing_action) = *recording_shortcut {
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(255, 220, 120),
+                                    i18n.t(TextKey::SettingsShortcutPressAnyKey),
+                                );
+                                if free_key_pressed(KeyCode::Escape) {
+                                    *recording_shortcut = None;
+                                } else if let Some(chord) = detect_key_chord(free_key_pressed, free_key_down) {
+                                    action = Some(TopMenuAction::Settings(SettingsAction::SetShortcut(
+                                        capturing_action,
+                                        chord,
+                                    )));
+                                    *recording_shortcut = None;
+                                }
+                                ui.add_space(4.0);
+                            }
+
+                            ui.label(
+                                egui::RichText::new(i18n.t(TextKey::SettingsShortcutEditable))
+                                    .color(egui::Color32::from_rgb(210, 210, 210)),
+                            );
+                            ui.add_space(2.0);
+                            for shortcut_action in ShortcutAction::ALL {
+                                if !shortcut_action.is_editable() {
+                                    continue;
+                                }
+                                let is_recording = *recording_shortcut == Some(shortcut_action);
+                                let chord_text = if is_recording {
+                                    i18n.t(TextKey::SettingsShortcutPressAnyKey).to_owned()
+                                } else {
+                                    current_shortcuts.chord_for(shortcut_action).display()
+                                };
+                                let is_default =
+                                    current_shortcuts.chord_for(shortcut_action)
+                                        == shortcut_action.default_chord();
+
+                                ui.horizontal(|ui| {
+                                    ui.label(i18n.t(shortcut_action_text_key(shortcut_action)));
+                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                        let btn_label = if is_recording {
+                                            i18n.t(TextKey::SettingsShortcutCancel)
+                                        } else {
+                                            i18n.t(TextKey::SettingsShortcutChange)
+                                        };
+                                        if ui.button(btn_label).clicked() {
+                                            if is_recording {
+                                                *recording_shortcut = None;
+                                            } else {
+                                                *recording_shortcut = Some(shortcut_action);
+                                            }
+                                        }
+                                        if ui
+                                            .add_enabled(
+                                                !is_default,
+                                                egui::Button::new(i18n.t(TextKey::SettingsShortcutReset)),
+                                            )
+                                            .clicked()
+                                        {
+                                            action = Some(TopMenuAction::Settings(
+                                                SettingsAction::ResetShortcut(shortcut_action),
+                                            ));
+                                        }
+                                        ui.label(
+                                            egui::RichText::new(chord_text)
+                                                .monospace()
+                                                .color(egui::Color32::from_rgb(160, 200, 255)),
+                                        );
+                                    });
+                                });
+                            }
+                        }
                         SettingsCategory::Debug => {
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugHitbox), current_debug_hitbox).clicked() {
                                 action = Some(TopMenuAction::Settings(SettingsAction::SetDebugHitbox(!current_debug_hitbox)));
@@ -380,6 +475,9 @@ pub fn draw_settings_window(
             });
         });
     *open = is_open;
+    if !is_open {
+        *recording_shortcut = None;
+    }
 
     action
 }

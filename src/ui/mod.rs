@@ -6,6 +6,7 @@ pub mod input_state;
 pub mod loading_status;
 pub mod note_panel;
 pub mod current_project_window;
+pub mod docs_window;
 pub mod progress_bar;
 pub mod scale;
 pub mod settings_window;

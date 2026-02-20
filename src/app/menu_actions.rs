@@ -171,5 +171,15 @@ fn handle_settings_action(
         SettingsAction::SetDebugAudio(enabled) => {
             modify_settings(|s| s.debug_audio = enabled);
         }
+        SettingsAction::SetShortcut(action, chord) => {
+            modify_settings(|s| {
+                let _ = s.shortcuts.set_chord(action, chord);
+            });
+        }
+        SettingsAction::ResetShortcut(action) => {
+            modify_settings(|s| {
+                let _ = s.shortcuts.reset_chord(action);
+            });
+        }
     }
 }

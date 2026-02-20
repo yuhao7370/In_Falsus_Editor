@@ -2,9 +2,11 @@ use crate::audio::controller::AudioController;
 use crate::editor::falling::FallingGroundEditor;
 use crate::i18n::I18n;
 use crate::settings::{modify_settings, settings};
+use crate::shortcuts::ShortcutAction;
 use crate::ui::audio_debug_window::draw_audio_debug_window;
 use crate::ui::create_project_window::{CreateProjectParams, CreateProjectState, draw_create_project_window};
 use crate::ui::current_project_window::{CurrentProjectAction, CurrentProjectState, copy_file_to_project, draw_current_project_window};
+use crate::ui::docs_window::{DocsCategory, draw_docs_window};
 use crate::ui::fonts::init_egui_fonts;
 use crate::ui::info_toast::InfoToastManager;
 use crate::ui::input_state::{set_keyboard_blocked, set_pointer_blocked};
@@ -38,6 +40,9 @@ pub struct UiOutput {
 pub struct UiOrchestrator {
     pub settings_open: bool,
     pub settings_category: SettingsCategory,
+    pub settings_recording_shortcut: Option<ShortcutAction>,
+    pub docs_open: bool,
+    pub docs_category: DocsCategory,
     pub create_project_state: CreateProjectState,
     pub current_project_state: CurrentProjectState,
     pub prop_edit_state: PropertyEditState,
@@ -49,6 +54,9 @@ impl UiOrchestrator {
         Self {
             settings_open: false,
             settings_category: SettingsCategory::Display,
+            settings_recording_shortcut: None,
+            docs_open: false,
+            docs_category: DocsCategory::Shortcuts,
             create_project_state: CreateProjectState::new(),
             current_project_state: CurrentProjectState::new(),
             prop_edit_state: PropertyEditState::default(),
@@ -80,6 +88,9 @@ impl UiOrchestrator {
 
         let settings_open = &mut self.settings_open;
         let settings_category = &mut self.settings_category;
+        let settings_recording_shortcut = &mut self.settings_recording_shortcut;
+        let docs_open = &mut self.docs_open;
+        let docs_category = &mut self.docs_category;
         let create_project_state = &mut self.create_project_state;
         let current_project_state = &mut self.current_project_state;
         let prop_edit_state = &mut self.prop_edit_state;
@@ -96,6 +107,7 @@ impl UiOrchestrator {
                 i18n,
                 editor.render_scope(),
                 settings_open,
+                docs_open,
             );
             if *settings_open {
                 if let Some(settings_action) = draw_settings_window(
@@ -103,6 +115,7 @@ impl UiOrchestrator {
                     i18n,
                     settings_open,
                     settings_category,
+                    settings_recording_shortcut,
                     audio.has_player(),
                     editor.min_scroll_speed(),
                     editor.max_scroll_speed(),
@@ -110,6 +123,9 @@ impl UiOrchestrator {
                 ) {
                     top_menu_result.action = Some(settings_action);
                 }
+            }
+            if *docs_open {
+                draw_docs_window(ctx, i18n, docs_open, docs_category);
             }
             note_panel_width_px = draw_note_selector_panel(ctx, i18n, editor, prop_edit_state, info_toasts);
             let snap_panel_px = draw_snap_slider_panel(

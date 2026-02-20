@@ -1,4 +1,5 @@
 use crate::i18n::{I18n, Language};
+use crate::shortcuts::ShortcutBindings;
 use serde::{Deserialize, Serialize};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
@@ -62,6 +63,8 @@ pub struct AppSettings {
     pub hitsound_max_voices: usize,
     #[serde(default)]
     pub hitsound_delay_ms: i32,
+    #[serde(default)]
+    pub shortcuts: ShortcutBindings,
 }
 
 fn default_language() -> String {
@@ -106,6 +109,7 @@ impl Default for AppSettings {
             hitsound_arc_volume: default_volume(),
             hitsound_max_voices: default_hitsound_max_voices(),
             hitsound_delay_ms: 0,
+            shortcuts: ShortcutBindings::default(),
         }
     }
 }

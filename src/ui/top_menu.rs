@@ -1,5 +1,6 @@
 use crate::editor::falling::RenderScope;
 use crate::i18n::{I18n, Language, TextKey};
+use crate::shortcuts::{KeyChord, ShortcutAction};
 use egui_macroquad::egui;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +42,8 @@ pub enum SettingsAction {
     SetHitsoundArcVolume(f32),
     SetHitsoundDelay(i32),
     SetDebugAudio(bool),
+    SetShortcut(ShortcutAction, KeyChord),
+    ResetShortcut(ShortcutAction),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -177,6 +180,7 @@ pub fn draw_top_menu(
     i18n: &I18n,
     current_render_scope: RenderScope,
     settings_open: &mut bool,
+    docs_open: &mut bool,
 ) -> TopMenuResult {
     let mut action = None;
     let mut any_popup_open = false;
@@ -281,6 +285,12 @@ pub fn draw_top_menu(
                     let btn_response = draw_top_menu_button(ui, i18n.t(TextKey::MenuSettings), *settings_open);
                     if btn_response.clicked() {
                         *settings_open = !*settings_open;
+                    }
+                }
+                {
+                    let btn_response = draw_top_menu_button(ui, i18n.t(TextKey::MenuDocs), *docs_open);
+                    if btn_response.clicked() {
+                        *docs_open = !*docs_open;
                     }
                 }
 
@@ -403,7 +413,7 @@ pub fn draw_top_menu(
             });
         });
 
-    if *settings_open {
+    if *settings_open || *docs_open {
         any_popup_open = true;
     }
 
