@@ -312,9 +312,43 @@ impl FallingGroundEditor {
             .selection
             .selected_note_id
             .and_then(|selected_id| candidates.iter().position(|c| c.note_id == selected_id));
+        let mut has_flick_overlap = false;
+        let mut has_skyarea_overlap = false;
+        let mut first_flick_index = None;
+        for (index, candidate) in candidates.iter().enumerate() {
+            let Some(note) = self
+                .editor_state
+                .notes
+                .iter()
+                .find(|note| note.id == candidate.note_id)
+            else {
+                continue;
+            };
+            match note.kind {
+                GroundNoteKind::Flick => {
+                    has_flick_overlap = true;
+                    if first_flick_index.is_none() {
+                        first_flick_index = Some(index);
+                    }
+                }
+                GroundNoteKind::SkyArea => {
+                    has_skyarea_overlap = true;
+                }
+                _ => {}
+            }
+            if has_flick_overlap && has_skyarea_overlap {
+                break;
+            }
+        }
+        let force_flick_priority = has_flick_overlap && has_skyarea_overlap;
+        let preferred_index = if force_flick_priority {
+            first_flick_index.unwrap_or(0)
+        } else {
+            selected_note_index.unwrap_or(0)
+        };
 
         let selected_index = if candidates.len() > 1 {
-            let mut index = selected_note_index.unwrap_or(0);
+            let mut index = preferred_index;
             let mut double_click_armed = selected_note_index.is_some();
             if let Some(prev) = &self.selection.overlap_cycle {
                 if prev.scope == scope
@@ -335,11 +369,19 @@ impl FallingGroundEditor {
                             did_cycle = true;
                             double_click_armed = false;
                         } else {
-                            index = selected_note_index.unwrap_or(previous_in_current);
+                            index = if force_flick_priority {
+                                preferred_index
+                            } else {
+                                selected_note_index.unwrap_or(previous_in_current)
+                            };
                             double_click_armed = true;
                         }
                     } else {
-                        index = selected_note_index.unwrap_or(previous_in_current);
+                        index = if force_flick_priority {
+                            preferred_index
+                        } else {
+                            selected_note_index.unwrap_or(previous_in_current)
+                        };
                         double_click_armed = true;
                     }
                 }

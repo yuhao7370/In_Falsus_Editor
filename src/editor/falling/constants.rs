@@ -47,6 +47,8 @@ const OVERLAP_DOUBLE_CLICK_SEC: f64 = 0.20;
 const NOTE_HEAD_HIT_HALF_H: f32 = 9.0;
 /// 音符头部命中框水平扩展（像素）。
 const NOTE_HEAD_HIT_PAD_X: f32 = 2.0;
+/// Flick 命中框四周额外外扩（像素）。
+const FLICK_HITBOX_EXPAND_PX: f32 = 4.0;
 /// 音符主体命中框水平扩展（像素）。
 const NOTE_BODY_HIT_PAD_X: f32 = 2.0;
 /// 音符主体命中框上下边缘内缩（像素）。
