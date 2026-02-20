@@ -93,6 +93,7 @@ impl FallingGroundEditor {
             }
         } else if is_air_tool(place_type) {
             let split_rect = air_split_rect(rect);
+            let flick_side_h = self.flick_side_height_px(rect.h);
             if !point_in_rect(mx, my, split_rect) {
                 return;
             }
@@ -139,8 +140,7 @@ impl FallingGroundEditor {
                 skyarea_shape: None,
             };
             if place_type == PlaceNoteType::Flick {
-                let side_h = self.flick_side_height_px(preview.time_ms, rect.h);
-                draw_flick_curve_shape(&preview, note_x, note_w, preview_y, side_h);
+                draw_flick_curve_shape(&preview, note_x, note_w, preview_y, flick_side_h);
             } else {
                 if let Some(pending) = self.selection.pending_skyarea {
                     let half = DEFAULT_SKYAREA_WIDTH_NORM * 0.5;

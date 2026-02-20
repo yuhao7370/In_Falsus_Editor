@@ -61,6 +61,7 @@ impl FallingGroundEditor {
         }
 
         let judge_y = rect.y + rect.h * 0.82;
+        let flick_side_h = self.flick_side_height_px(rect.h);
         let (_ahead_ms, _behind_ms) =
             self.visible_ahead_behind_ms(rect.y, rect.h, current_ms, judge_y);
         let top_label_baseline = self.title_top_baseline_px();
@@ -178,10 +179,10 @@ impl FallingGroundEditor {
                 // AutoPlay: head 已判定则不画 head
                 if !judged && head_y >= rect.y - 24.0 && head_y <= rect.y + rect.h + 24.0 {
                     if note.kind == GroundNoteKind::Flick {
-                        let side_h = self.flick_side_height_px(note.time_ms, rect.h);
-                        draw_flick_curve_shape(note, note_x, note_w, head_y, side_h);
+                        draw_flick_curve_shape(note, note_x, note_w, head_y, flick_side_h);
                         if selected {
-                            let bounds = flick_shape_bounds(note, note_x, note_w, head_y, side_h);
+                            let bounds =
+                                flick_shape_bounds(note, note_x, note_w, head_y, flick_side_h);
                             draw_selected_note_darken_rect(bounds.x, bounds.y, bounds.w, bounds.h);
                             draw_selected_note_outline(bounds.x, bounds.y, bounds.w, bounds.h);
                         }

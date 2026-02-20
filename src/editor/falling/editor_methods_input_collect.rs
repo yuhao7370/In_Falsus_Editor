@@ -55,6 +55,7 @@ impl FallingGroundEditor {
     ) -> Vec<HitCandidate> {
         let lane_w = rect.w / LANE_COUNT as f32;
         let judge_y = rect.y + rect.h * 0.82;
+        let side_h = self.flick_side_height_px(rect.h);
         let mut candidates = Vec::new();
 
         for (z, note) in self.editor_state.notes.iter().enumerate() {
@@ -65,7 +66,6 @@ impl FallingGroundEditor {
             let note_x = ground_note_x(note, rect.x, lane_w);
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
             let z_order = ground_hit_z_order(z);
-            let side_h = self.flick_side_height_px(note.time_ms, rect.h);
 
             let head_rect = if note.kind == GroundNoteKind::Flick {
                 flick_rect_hitbox(note, note_x, note_w, head_y, side_h)
@@ -139,6 +139,7 @@ impl FallingGroundEditor {
     ) -> Vec<HitCandidate> {
         let judge_y = rect.y + rect.h * 0.82;
         let split_rect = air_split_rect(rect);
+        let side_h = self.flick_side_height_px(rect.h);
 
         let mut candidates = Vec::new();
         for (z, note) in self.editor_state.notes.iter().enumerate() {
@@ -150,7 +151,6 @@ impl FallingGroundEditor {
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-            let side_h = self.flick_side_height_px(note.time_ms, rect.h);
 
             if note.kind == GroundNoteKind::SkyArea {
                 if let Some(shape) = note.skyarea_shape {

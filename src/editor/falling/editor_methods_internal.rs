@@ -71,9 +71,25 @@ impl FallingGroundEditor {
         (ahead_ms.max(0.0), behind_ms.max(0.0))
     }
 
-    fn flick_side_height_px(&self, _note_time_ms: f32, lane_h: f32) -> f32 {
-        let base_bpm = self.editor_state.timeline.points[0].bpm.abs().max(0.001);
-        let beat_ms = 60_000.0 / base_bpm;
+    fn chart_header_bpm_for_flick(&self) -> f32 {
+        self.editor_state
+            .timeline_events
+            .iter()
+            .find(|event| event.kind == TimelineEventKind::Bpm && event.label.starts_with("chart "))
+            .and_then(|event| {
+                event
+                    .label
+                    .strip_prefix("chart ")
+                    .and_then(|value| value.split('/').next())
+                    .and_then(|bpm| bpm.trim().parse::<f32>().ok())
+            })
+            .unwrap_or(self.editor_state.timeline.points[0].bpm)
+    }
+
+    fn flick_side_height_px(&self, lane_h: f32) -> f32 {
+        // Use the unique chart header BPM as requested, falling back to timeline base if missing.
+        let chart_bpm = self.chart_header_bpm_for_flick().abs().max(0.001);
+        let beat_ms = 60_000.0 / chart_bpm;
         let subdivision_ms = beat_ms / 16.0;
         let pixels_per_sec = (self.view.scroll_speed * lane_h).max(1.0);
         subdivision_ms / 1000.0 * pixels_per_sec

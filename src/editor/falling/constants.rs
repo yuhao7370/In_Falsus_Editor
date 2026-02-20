@@ -34,6 +34,8 @@ const AIR_SKYAREA_TAIL_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.34);
 const DRAG_HOLD_TO_START_SEC: f64 = 0.22;
 /// SkyArea 垂直拖动触发阈值（像素）。
 const SKYAREA_VERTICAL_DRAG_THRESHOLD_PX: f32 = 4.0;
+/// Flick 侧边高度倍率（相对原始计算）。
+const FLICK_SIDE_HEIGHT_SCALE: f32 = 1.5;
 
 /// 竖屏分栏判定比例（宽/高 <= 10/16）。
 const PORTRAIT_SCREEN_RATIO: f32 = 10.0 / 16.0;

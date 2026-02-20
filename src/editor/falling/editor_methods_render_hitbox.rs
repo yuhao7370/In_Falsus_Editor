@@ -78,6 +78,7 @@ impl FallingGroundEditor {
         let split_rect = air_split_rect(rect);
         let clip_rect = rect;
         let judge_y = rect.y + rect.h * 0.82;
+        let flick_side_h = self.flick_side_height_px(rect.h);
         let head_color = Color::from_rgba(116, 234, 255, 232);
         let tail_color = Color::from_rgba(246, 186, 114, 228);
         let body_color = Color::from_rgba(176, 144, 255, 214);
@@ -107,9 +108,8 @@ impl FallingGroundEditor {
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
             let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
-            let side_h = self.flick_side_height_px(note.time_ms, rect.h);
             let mut label_rect = if note.kind == GroundNoteKind::Flick {
-                flick_rect_hitbox(note, note_x, note_w, head_y, side_h)
+                flick_rect_hitbox(note, note_x, note_w, head_y, flick_side_h)
             } else {
                 note_end_hit_rect(note_x, note_w, head_y)
             };
@@ -139,7 +139,7 @@ impl FallingGroundEditor {
                 }
             } else {
                 let head_rect = if note.kind == GroundNoteKind::Flick {
-                    flick_rect_hitbox(note, note_x, note_w, head_y, side_h)
+                    flick_rect_hitbox(note, note_x, note_w, head_y, flick_side_h)
                 } else {
                     note_end_hit_rect(note_x, note_w, head_y)
                 };

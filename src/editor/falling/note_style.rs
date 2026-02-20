@@ -127,7 +127,8 @@ struct FlickGeometry {
 fn flick_geometry(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side_h: f32) -> FlickGeometry {
     let ui = adaptive_ui_scale();
     let stroke = (note_w * 0.05).clamp(1.0 * ui, 2.8 * ui);
-    let side_h = side_h.max(0.0);
+    // Flick visual height is scaled here so draw + bounds share the same source of truth.
+    let side_h = (side_h * FLICK_SIDE_HEIGHT_SCALE).max(0.0);
     // Align flick baseline with note/barline Y exactly.
     let y_bottom = head_y;
     let y_top = y_bottom - side_h;
@@ -207,4 +208,3 @@ fn flick_shape_bounds(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, 
         (geom.y_bottom - geom.y_top).max(1.0),
     )
 }
-

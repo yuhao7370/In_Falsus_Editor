@@ -379,6 +379,7 @@ impl FallingGroundEditor {
         if let Some(rect) = air_rect {
             let split_rect = air_split_rect(rect);
             let judge_y = rect.y + rect.h * 0.82;
+            let flick_side_h = self.flick_side_height_px(rect.h);
             self.begin_view_clip_rect(rect);
             for note in preview.iter().filter(|n| is_air_kind(n.kind)) {
                 let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
@@ -393,8 +394,7 @@ impl FallingGroundEditor {
                     let center_x = split_rect.x + note.center_x_norm * split_rect.w;
                     let note_w = air_note_width(note, split_rect.w);
                     let note_x = center_x - note_w * 0.5;
-                    let side_h = self.flick_side_height_px(note.time_ms, rect.h);
-                    draw_flick_curve_shape(note, note_x, note_w, head_y, side_h);
+                    draw_flick_curve_shape(note, note_x, note_w, head_y, flick_side_h);
                 }
             }
             self.end_view_clip_rect();

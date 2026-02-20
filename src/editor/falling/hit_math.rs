@@ -131,12 +131,12 @@ fn note_body_hit_rect(x: f32, w: f32, y1: f32, y2: f32) -> Rect {
 fn flick_rect_hitbox(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side_h: f32) -> Rect {
     // Rectangle hitbox aligned to the flick footprint, then expanded for easier selection.
     let base = flick_shape_bounds(note, note_x, note_w, head_y, side_h);
-    let expand = scaled_px(FLICK_HITBOX_EXPAND_PX);
+    let expand_x = scaled_px(FLICK_HITBOX_EXPAND_PX);
     Rect::new(
-        base.x - expand,
-        base.y - expand,
-        (base.w + expand * 2.0).max(1.0),
-        (base.h + expand * 2.0).max(1.0),
+        base.x - expand_x,
+        base.y,
+        (base.w + expand_x * 2.0).max(1.0),
+        base.h.max(1.0),
     )
 }
 
@@ -252,4 +252,3 @@ fn air_target_rank(target: AirDragTarget) -> u8 {
         AirDragTarget::SkyTail => 2,
     }
 }
-
