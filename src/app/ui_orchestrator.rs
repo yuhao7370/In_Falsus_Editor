@@ -64,6 +64,13 @@ impl UiOrchestrator {
         }
     }
 
+    fn close_exclusive_windows(&mut self) {
+        self.settings_open = false;
+        self.docs_open = false;
+        self.create_project_state.open = false;
+        self.current_project_state.open = false;
+    }
+
     /// 每帧调用，绘制所有 egui UI 并返回输出
     pub fn draw(
         &mut self,
@@ -102,6 +109,8 @@ impl UiOrchestrator {
                 *egui_fonts_ready = true;
             }
             ctx.set_pixels_per_point(ui_scale);
+            let settings_was_open = *settings_open;
+            let docs_was_open = *docs_open;
             top_menu_result = draw_top_menu(
                 ctx,
                 i18n,
@@ -109,6 +118,17 @@ impl UiOrchestrator {
                 settings_open,
                 docs_open,
             );
+            // Keep Settings/Docs/CreateProject/CurrentProject mutually exclusive.
+            if !settings_was_open && *settings_open {
+                *docs_open = false;
+                create_project_state.open = false;
+                current_project_state.open = false;
+            }
+            if !docs_was_open && *docs_open {
+                *settings_open = false;
+                create_project_state.open = false;
+                current_project_state.open = false;
+            }
             if *settings_open {
                 if let Some(settings_action) = draw_settings_window(
                     ctx,
@@ -166,6 +186,7 @@ impl UiOrchestrator {
 
         // Handle CreateProject action
         if top_menu_result.action == Some(TopMenuAction::File(FileAction::CreateProject)) {
+            self.close_exclusive_windows();
             self.create_project_state.reset();
             self.create_project_state.open = true;
             top_menu_result.action = None;
@@ -173,6 +194,7 @@ impl UiOrchestrator {
 
         // Handle CurrentProject action
         if top_menu_result.action == Some(TopMenuAction::File(FileAction::CurrentProject)) {
+            self.close_exclusive_windows();
             let cp = editor.chart_path().to_string();
             self.current_project_state.chart_path = cp.clone();
             self.current_project_state.audio_path = audio.track_path().unwrap_or("").to_string();
