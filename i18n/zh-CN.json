@@ -102,7 +102,7 @@
   "docs_shortcut_paste_mode": "进入普通粘贴模式",
   "docs_shortcut_mirror": "镜像选中音符；无选中时进入镜像粘贴模式",
   "docs_shortcut_mirror_copy": "复制并原地镜像选中音符",
-  "docs_shortcut_paste_mode_switch": "在粘贴模式中切换粘贴类型",
+  "docs_shortcut_paste_mode_switch": "粘贴/镜像粘贴剪贴板内容",
   "docs_shortcut_box_select": "框选音符/事件",
   "docs_shortcut_multi_select": "切换多选",
   "docs_shortcut_right_cancel": "取消放置/粘贴模式或清空选择",

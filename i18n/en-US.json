@@ -102,7 +102,7 @@
   "docs_shortcut_paste_mode": "Enter normal paste mode",
   "docs_shortcut_mirror": "Mirror selected notes; if nothing selected, enter mirrored paste mode",
   "docs_shortcut_mirror_copy": "Copy and mirror selected notes in place",
-  "docs_shortcut_paste_mode_switch": "Switch paste mode while in paste mode",
+  "docs_shortcut_paste_mode_switch": "Paste / mirror-paste clipboard content",
   "docs_shortcut_box_select": "Box select notes/events",
   "docs_shortcut_multi_select": "Toggle multi-select",
   "docs_shortcut_right_cancel": "Cancel place/paste mode or clear selection",
