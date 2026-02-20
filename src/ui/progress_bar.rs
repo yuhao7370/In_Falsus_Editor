@@ -86,6 +86,7 @@ impl TopProgressBarState {
 pub struct TopProgressBarOutput {
     pub display_sec: f32,
     pub seek_to_sec: Option<f32>,
+    pub blocks_editor_pointer: bool,
 }
 
 fn format_time(seconds: f32) -> String {
@@ -148,6 +149,8 @@ pub fn draw_top_progress_bar(
         && mx <= progress_rect.x + progress_rect.w
         && my >= progress_rect.y
         && my <= progress_rect.y + progress_rect.h;
+    let left_pressed_on_progress = safe_mouse_button_pressed(MouseButton::Left) && inside_progress;
+    let left_down_on_progress = safe_mouse_button_down(MouseButton::Left) && inside_progress;
     let frame_border = if inside_progress || state.drag_active {
         Color::from_rgba(108, 122, 154, 255)
     } else {
@@ -201,12 +204,12 @@ pub fn draw_top_progress_bar(
 
         if is_playing {
             state.drag_active = false;
-            if safe_mouse_button_pressed(MouseButton::Left) && inside_progress {
+            if left_pressed_on_progress {
                 seek_to_sec = Some(mouse_seek_sec);
                 display_sec = mouse_seek_sec;
             }
         } else {
-            if safe_mouse_button_pressed(MouseButton::Left) && inside_progress {
+            if left_pressed_on_progress {
                 state.drag_active = true;
                 state.seek_sec = mouse_seek_sec;
             }
@@ -354,5 +357,6 @@ pub fn draw_top_progress_bar(
     TopProgressBarOutput {
         display_sec,
         seek_to_sec,
+        blocks_editor_pointer: left_pressed_on_progress || left_down_on_progress || state.drag_active,
     }
 }

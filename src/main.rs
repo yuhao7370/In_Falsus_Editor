@@ -20,6 +20,7 @@ use macroquad::prelude::*;
 use settings::settings;
 use ui::fonts::load_macroquad_cjk_font;
 use ui::info_toast::InfoToastManager;
+use ui::input_state::set_pointer_blocked;
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::refresh_ui_scale;
 
@@ -114,6 +115,7 @@ async fn main() {
             audio.handle_editor_seek(seek_sec, &i18n);
             frame_ctx.current_sec = audio.current_sec();
         }
+        set_pointer_blocked(ui_output.egui_wants_pointer || progress_output.blocks_editor_pointer);
 
         // 8. 编辑器绘制
         let editor_y = menu_height + top_bar_height + 8.0 * ui_scale;
