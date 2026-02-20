@@ -3,14 +3,15 @@ mod audio;
 mod chart;
 mod editor;
 mod i18n;
-mod shortcuts;
 mod settings;
+mod shortcuts;
 mod ui;
 
 use app::constants::*;
 use app::input_handler;
 use app::menu_actions::handle_top_menu_action;
 use app::project_manager::ProjectManager;
+use app::render_mode::RenderModePresenter;
 use app::setup::{apply_settings_to_editor, window_conf};
 use app::ui_orchestrator::UiOrchestrator;
 use audio::controller::AudioController;
@@ -20,7 +21,9 @@ use macroquad::prelude::*;
 use settings::settings;
 use ui::fonts::load_macroquad_cjk_font;
 use ui::info_toast::InfoToastManager;
-use ui::input_state::set_pointer_blocked;
+use ui::input_state::{
+    free_key_pressed, safe_key_pressed, set_keyboard_blocked, set_pointer_blocked,
+};
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::refresh_ui_scale;
 
@@ -28,7 +31,6 @@ use ui::scale::refresh_ui_scale;
 async fn main() {
     let mut i18n = I18n::from_settings(&settings().language);
 
-    // DEV_MODE: 自动加载指定谱面和音频；否则启动空编辑器
     let (mut editor, mut audio) = if DEV_MODE {
         (
             FallingGroundEditor::new(DEV_CHART_PATH),
@@ -45,6 +47,7 @@ async fn main() {
     let mut top_progress_state = TopProgressBarState::new();
     let mut ui = UiOrchestrator::new();
     let mut project_mgr = ProjectManager::new();
+    let mut render_mode = RenderModePresenter::new();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
     apply_settings_to_editor(&mut editor, &mut audio, &i18n);
@@ -54,42 +57,117 @@ async fn main() {
     }
 
     loop {
-        clear_background(Color::from_rgba(7, 7, 10, 255));
         refresh_ui_scale();
+        render_mode.begin_frame_capture();
+        clear_background(Color::from_rgba(7, 7, 10, 255));
 
         // 1. Tick audio
         audio.tick(&i18n);
 
-        // 2. UI 绘制（egui）
+        if render_mode.is_render_3d() {
+            let back_to_2d_requested = free_key_pressed(KeyCode::P);
+            // 3D mode is render-only: no egui pipeline or editor input.
+            set_pointer_blocked(true);
+            set_keyboard_blocked(true);
+
+            let _ = audio.handle_keyboard(&i18n);
+            project_mgr.tick_and_apply(
+                &mut editor,
+                &mut audio,
+                &i18n,
+                &mut info_toasts,
+                &macroquad_font,
+            );
+
+            let frame_ctx = audio.frame_snapshot();
+            let ui_scale = ui::scale::ui_scale_factor();
+            let edge_pad = 18.0 * ui_scale;
+            let editor_rect = Rect::new(
+                edge_pad,
+                edge_pad,
+                (screen_width() - edge_pad * 2.0).max(360.0),
+                (screen_height() - edge_pad * 2.0).max(140.0),
+            );
+            for action in editor.draw(editor_rect, &frame_ctx) {
+                match action {
+                    FallingEditorAction::MinimapSeekTo(sec) => {
+                        audio.handle_editor_seek(sec, &i18n);
+                    }
+                }
+            }
+            for (msg, is_warn) in editor.drain_toasts() {
+                if is_warn {
+                    info_toasts.push_warn(&msg);
+                } else {
+                    info_toasts.push(&msg);
+                }
+            }
+
+            {
+                let note_heads = editor.note_head_times();
+                audio.trigger_hitsounds(&note_heads);
+            }
+            info_toasts.draw(ui_scale, 0.0, macroquad_font.as_ref());
+
+            render_mode.present();
+            if back_to_2d_requested {
+                let mode = render_mode.toggle_mode();
+                info_toasts.push(format!("view mode: {}", mode.label()));
+            }
+            next_frame().await;
+            continue;
+        }
+
+        // 2. UI draw (egui)
         let ui_output = ui.draw(&mut editor, &mut audio, &i18n, &mut info_toasts);
         let keyboard_shortcut_blocked =
             ui_output.egui_wants_keyboard || ui_output.shortcut_capture_active;
+        let switch_to_3d_requested = !keyboard_shortcut_blocked && safe_key_pressed(KeyCode::P);
         let space_consumed = if keyboard_shortcut_blocked {
             false
         } else {
             audio.handle_keyboard(&i18n)
         };
 
-        // 3. 菜单动作
+        // 3. Menu actions
         if let Some(ref action) = ui_output.menu_action {
             audio.status.clear();
-            handle_top_menu_action(action.clone(), &mut editor, &mut audio, &mut i18n, &mut info_toasts);
+            handle_top_menu_action(
+                action.clone(),
+                &mut editor,
+                &mut audio,
+                &mut i18n,
+                &mut info_toasts,
+            );
             if !audio.status.is_empty() {
                 info_toasts.push(audio.status.clone());
             }
         }
 
-        // 4. 项目加载
+        // 4. Project loading
         project_mgr.handle_ui_actions(&ui_output, &mut info_toasts);
-        project_mgr.tick_and_apply(&mut editor, &mut audio, &i18n, &mut info_toasts, &macroquad_font);
+        project_mgr.tick_and_apply(
+            &mut editor,
+            &mut audio,
+            &i18n,
+            &mut info_toasts,
+            &macroquad_font,
+        );
 
-        // 5. 快捷键 & 滚轮
+        // 5. Shortcuts & wheel
         if !keyboard_shortcut_blocked {
             input_handler::handle_shortcuts(&mut editor, &mut audio, &i18n, &mut info_toasts);
         }
-        input_handler::handle_wheel(&mut editor, &mut audio, &i18n, &mut info_toasts, space_consumed, &ui_output);
+        input_handler::handle_wheel(
+            &mut editor,
+            &mut audio,
+            &i18n,
+            &mut info_toasts,
+            space_consumed,
+            &ui_output,
+        );
 
-        // 6. 读取音频快照，计算布局
+        // 6. Read audio frame context and compute layout
         let mut frame_ctx = audio.frame_snapshot();
         let ui_scale = ui_output.ui_scale;
         let menu_height = ui_output.menu_height;
@@ -98,9 +176,10 @@ async fn main() {
         let editor_gap = 12.0 * ui_scale;
         let editor_bottom_pad = 8.0 * ui_scale;
         let editor_width =
-            (screen_width() - panel_pad * 2.0 - ui_output.total_right_panels_px - editor_gap).max(360.0);
+            (screen_width() - panel_pad * 2.0 - ui_output.total_right_panels_px - editor_gap)
+                .max(360.0);
 
-        // 7. 顶部进度条
+        // 7. Top progress bar
         let progress_output = draw_top_progress_bar(
             ui_scale,
             menu_height,
@@ -117,7 +196,7 @@ async fn main() {
         }
         set_pointer_blocked(ui_output.egui_wants_pointer || progress_output.blocks_editor_pointer);
 
-        // 8. 编辑器绘制
+        // 8. Editor draw
         let editor_y = menu_height + top_bar_height + 8.0 * ui_scale;
         let editor_rect = Rect::new(
             panel_pad,
@@ -133,7 +212,11 @@ async fn main() {
             }
         }
         for (msg, is_warn) in editor.drain_toasts() {
-            if is_warn { info_toasts.push_warn(&msg); } else { info_toasts.push(&msg); }
+            if is_warn {
+                info_toasts.push_warn(&msg);
+            } else {
+                info_toasts.push(&msg);
+            }
         }
 
         // 9. Hitsound
@@ -142,10 +225,19 @@ async fn main() {
             audio.trigger_hitsounds(&note_heads);
         }
 
-        // 10. Toast 通知
-        info_toasts.draw(ui_scale, menu_height + top_bar_height, macroquad_font.as_ref());
+        // 10. Toast
+        info_toasts.draw(
+            ui_scale,
+            menu_height + top_bar_height,
+            macroquad_font.as_ref(),
+        );
 
+        render_mode.present();
         egui_macroquad::draw();
+        if switch_to_3d_requested {
+            let mode = render_mode.toggle_mode();
+            info_toasts.push(format!("view mode: {}", mode.label()));
+        }
         next_frame().await;
     }
 }
