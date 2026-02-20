@@ -218,38 +218,30 @@ impl FallingGroundEditor {
         let ctrl_held = safe_key_down(KeyCode::LeftControl) || safe_key_down(KeyCode::RightControl);
         if ctrl_held && self.clipboard.paste_mode().is_none() {
             if safe_key_pressed(KeyCode::C) {
-                self.copy_selected_to_clipboard();
+                self.copy_selection();
             } else if safe_key_pressed(KeyCode::X) {
-                self.cut_selected_to_clipboard();
+                self.cut_selection();
             } else if safe_key_pressed(KeyCode::V) {
-                self.enter_paste_mode(PasteMode::Normal);
+                self.enter_normal_paste_mode();
             } else if safe_key_pressed(KeyCode::B) {
                 // Ctrl+B：有选中 → 原地镜像（不复制），无选中 → 镜像粘贴
                 if !self.selection.selected_note_ids.is_empty()
                     || self.selection.selected_note_id.is_some()
                 {
-                    self.mirror_selected_notes();
+                    self.mirror_selection();
                 } else {
-                    self.enter_paste_mode(PasteMode::Mirrored);
+                    self.enter_mirrored_paste_mode();
                 }
             } else if safe_key_pressed(KeyCode::M) {
                 // Ctrl+M：复制并镜像
-                self.mirror_selected_in_place();
+                self.copy_and_mirror_selection();
             }
         } else if ctrl_held && self.clipboard.paste_mode().is_some() {
             // 在粘贴模式中也允许切换粘贴类型
             if safe_key_pressed(KeyCode::V) {
-                self.clipboard.set_paste_mode(PasteMode::Normal);
-                self.status = self
-                    .i18n
-                    .t(crate::i18n::TextKey::EditorPasteModeNormal)
-                    .to_owned();
+                self.enter_normal_paste_mode();
             } else if safe_key_pressed(KeyCode::B) {
-                self.clipboard.set_paste_mode(PasteMode::Mirrored);
-                self.status = self
-                    .i18n
-                    .t(crate::i18n::TextKey::EditorPasteModeMirrored)
-                    .to_owned();
+                self.enter_mirrored_paste_mode();
             }
         }
 

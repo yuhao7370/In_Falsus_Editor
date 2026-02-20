@@ -19,6 +19,9 @@ pub enum EditAction {
     Cut,
     Copy,
     Paste,
+    MirrorPaste,
+    MirrorSelected,
+    CopyMirrorSelected,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +59,8 @@ pub enum TopMenuAction {
 const TOP_MENU_BUTTON_WIDTH: f32 = 83.0;
 const TOP_MENU_BUTTON_HEIGHT: f32 = 28.0;
 const POPUP_ITEM_HEIGHT: f32 = 30.0;
+const POPUP_MIN_WIDTH: f32 = 150.0;
+const POPUP_TEXT_SIDE_PADDING: f32 = 20.0;
 
 fn draw_popup_row(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
     let row_width = ui.available_width().max(1.0);
@@ -128,6 +133,20 @@ fn draw_popup_item(
     }
 }
 
+fn auto_size_popup_width(ui: &mut egui::Ui, labels: &[&str]) {
+    let font = egui::TextStyle::Button.resolve(ui.style());
+    let mut max_text_width = 0.0_f32;
+    for &label in labels {
+        let galley = ui
+            .painter()
+            .layout_no_wrap(label.to_owned(), font.clone(), egui::Color32::WHITE);
+        max_text_width = max_text_width.max(galley.size().x);
+    }
+    let width = (max_text_width + POPUP_TEXT_SIDE_PADDING * 2.0).max(POPUP_MIN_WIDTH);
+    ui.set_min_width(width);
+    ui.set_width(width);
+}
+
 fn draw_top_button_with_popup<R>(
     ui: &mut egui::Ui,
     id_source: &'static str,
@@ -156,7 +175,7 @@ fn draw_top_button_with_popup<R>(
             egui::popup::PopupCloseBehavior::CloseOnClickOutside,
             |popup_ui| {
                 popup_ui.spacing_mut().item_spacing.y = 2.0;
-                popup_ui.set_min_width(150.0);
+                popup_ui.set_min_width(POPUP_MIN_WIDTH);
                 add_contents(popup_ui);
             },
         );
@@ -206,70 +225,125 @@ pub fn draw_top_menu(
                 }
 
                 draw_top_button_with_popup(ui, "top_menu_file", i18n.t(TextKey::MenuFile), |ui| {
+                    let file_create_project = i18n.t(TextKey::FileCreateProject);
+                    let file_open_project = i18n.t(TextKey::FileOpenProject);
+                    let file_current_project = i18n.t(TextKey::FileCurrentProject);
+                    let file_save_chart = i18n.t(TextKey::FileSaveChart);
+                    let file_hot_reload_chart = i18n.t(TextKey::FileHotReloadChart);
+                    auto_size_popup_width(
+                        ui,
+                        &[
+                            file_create_project,
+                            file_open_project,
+                            file_current_project,
+                            file_save_chart,
+                            file_hot_reload_chart,
+                        ],
+                    );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::File(FileAction::CreateProject),
-                        i18n.t(TextKey::FileCreateProject),
+                        file_create_project,
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::File(FileAction::OpenProject),
-                        i18n.t(TextKey::FileOpenProject),
+                        file_open_project,
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::File(FileAction::CurrentProject),
-                        i18n.t(TextKey::FileCurrentProject),
+                        file_current_project,
                     );
                     ui.separator();
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::File(FileAction::SaveChart),
-                        i18n.t(TextKey::FileSaveChart),
+                        file_save_chart,
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::File(FileAction::HotReloadChart),
-                        i18n.t(TextKey::FileHotReloadChart),
+                        file_hot_reload_chart,
                     );
                 });
 
                 draw_top_button_with_popup(ui, "top_menu_edit", i18n.t(TextKey::MenuEdit), |ui| {
+                    let edit_undo = i18n.t(TextKey::EditUndo);
+                    let edit_redo = i18n.t(TextKey::EditRedo);
+                    let edit_cut = i18n.t(TextKey::EditCut);
+                    let edit_copy = i18n.t(TextKey::EditCopy);
+                    let edit_paste = i18n.t(TextKey::EditPaste);
+                    let edit_mirror_paste = i18n.t(TextKey::EditMirrorPaste);
+                    let edit_mirror_selected = i18n.t(TextKey::EditMirrorSelected);
+                    let edit_copy_mirror_selected = i18n.t(TextKey::EditCopyMirrorSelected);
+                    auto_size_popup_width(
+                        ui,
+                        &[
+                            edit_undo,
+                            edit_redo,
+                            edit_cut,
+                            edit_copy,
+                            edit_paste,
+                            edit_mirror_paste,
+                            edit_mirror_selected,
+                            edit_copy_mirror_selected,
+                        ],
+                    );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::Edit(EditAction::Undo),
-                        i18n.t(TextKey::EditUndo),
+                        edit_undo,
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::Edit(EditAction::Redo),
-                        i18n.t(TextKey::EditRedo),
+                        edit_redo,
                     );
                     ui.separator();
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::Edit(EditAction::Cut),
-                        i18n.t(TextKey::EditCut),
+                        edit_cut,
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::Edit(EditAction::Copy),
-                        i18n.t(TextKey::EditCopy),
+                        edit_copy,
                     );
                     draw_popup_item(
                         ui,
                         &mut action,
                         TopMenuAction::Edit(EditAction::Paste),
-                        i18n.t(TextKey::EditPaste),
+                        edit_paste,
+                    );
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::Edit(EditAction::MirrorPaste),
+                        edit_mirror_paste,
+                    );
+                    ui.separator();
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::Edit(EditAction::MirrorSelected),
+                        edit_mirror_selected,
+                    );
+                    draw_popup_item(
+                        ui,
+                        &mut action,
+                        TopMenuAction::Edit(EditAction::CopyMirrorSelected),
+                        edit_copy_mirror_selected,
                     );
                 });
 

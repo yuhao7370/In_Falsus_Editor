@@ -204,6 +204,46 @@ impl FallingGroundEditor {
         }
     }
 
+    pub fn copy_selection(&mut self) {
+        self.copy_selected_to_clipboard();
+    }
+
+    pub fn cut_selection(&mut self) {
+        self.cut_selected_to_clipboard();
+    }
+
+    pub fn enter_normal_paste_mode(&mut self) {
+        if self.clipboard.paste_mode().is_some() {
+            self.clipboard.set_paste_mode(PasteMode::Normal);
+            self.status = self
+                .i18n
+                .t(crate::i18n::TextKey::EditorPasteModeNormal)
+                .to_owned();
+        } else {
+            self.enter_paste_mode(PasteMode::Normal);
+        }
+    }
+
+    pub fn enter_mirrored_paste_mode(&mut self) {
+        if self.clipboard.paste_mode().is_some() {
+            self.clipboard.set_paste_mode(PasteMode::Mirrored);
+            self.status = self
+                .i18n
+                .t(crate::i18n::TextKey::EditorPasteModeMirrored)
+                .to_owned();
+        } else {
+            self.enter_paste_mode(PasteMode::Mirrored);
+        }
+    }
+
+    pub fn mirror_selection(&mut self) {
+        self.mirror_selected_notes();
+    }
+
+    pub fn copy_and_mirror_selection(&mut self) {
+        self.mirror_selected_in_place();
+    }
+
     fn push_note(&mut self, note: GroundNote) {
         self.editor_state.next_note_id = self.editor_state.next_note_id.saturating_add(1);
         self.editor_state.notes.push(note);

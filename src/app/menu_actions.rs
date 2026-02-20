@@ -72,9 +72,30 @@ fn handle_edit_action(
             if !editor.redo() { info_toasts.push_warn(i18n.t(TextKey::ActionNothingToRedo)); }
             audio.status = i18n.t(TextKey::ActionRedo).to_owned();
         }
-        EditAction::Cut => audio.status = i18n.t(TextKey::ActionCut).to_owned(),
-        EditAction::Copy => audio.status = i18n.t(TextKey::ActionCopy).to_owned(),
-        EditAction::Paste => audio.status = i18n.t(TextKey::ActionPaste).to_owned(),
+        EditAction::Cut => {
+            editor.cut_selection();
+            audio.status.clear();
+        }
+        EditAction::Copy => {
+            editor.copy_selection();
+            audio.status.clear();
+        }
+        EditAction::Paste => {
+            editor.enter_normal_paste_mode();
+            audio.status.clear();
+        }
+        EditAction::MirrorPaste => {
+            editor.enter_mirrored_paste_mode();
+            audio.status.clear();
+        }
+        EditAction::MirrorSelected => {
+            editor.mirror_selection();
+            audio.status.clear();
+        }
+        EditAction::CopyMirrorSelected => {
+            editor.copy_and_mirror_selection();
+            audio.status.clear();
+        }
     }
 }
 
