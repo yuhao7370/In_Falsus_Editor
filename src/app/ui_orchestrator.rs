@@ -128,11 +128,17 @@ impl UiOrchestrator {
                 draw_docs_window(ctx, i18n, docs_open, docs_category);
             }
             note_panel_width_px = draw_note_selector_panel(ctx, i18n, editor, prop_edit_state, info_toasts);
+            let snap_slider_interactive = !*settings_open
+                && !*docs_open
+                && !create_project_state.open
+                && !current_project_state.open
+                && !top_menu_result.any_popup_open;
             let snap_panel_px = draw_snap_slider_panel(
                 ctx,
                 editor,
                 note_panel_width_px,
                 menu_height + top_bar_height + 4.0 * ui_scale,
+                snap_slider_interactive,
             );
             total_right_panels_px = note_panel_width_px + snap_panel_px;
             egui_wheel_y = ctx.input(|i| i.raw_scroll_delta.y);

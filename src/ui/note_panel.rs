@@ -937,6 +937,7 @@ pub fn draw_snap_slider_panel(
     editor: &mut FallingGroundEditor,
     note_panel_width_px: f32,
     top_offset_px: f32,
+    interactive: bool,
 ) -> f32 {
     use crate::ui::snap_slider::draw_snap_slider_vertical;
 
@@ -951,11 +952,14 @@ pub fn draw_snap_slider_panel(
     let panel_h = (screen_rect.bottom() - panel_y - 4.0).max(100.0);
 
     egui::Area::new(egui::Id::new("snap_slider_panel_area"))
+        .order(egui::Order::Background)
         .fixed_pos(egui::pos2(panel_x, panel_y))
         .show(ctx, |ui| {
             ui.set_min_width(panel_w);
             ui.set_max_width(panel_w);
-            if let Some(new_div) = draw_snap_slider_vertical(ui, editor.snap_division(), panel_h) {
+            if let Some(new_div) =
+                draw_snap_slider_vertical(ui, editor.snap_division(), panel_h, interactive)
+            {
                 editor.set_snap_division(new_div);
             }
         });

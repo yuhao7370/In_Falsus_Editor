@@ -133,7 +133,12 @@ pub fn draw_snap_slider(ui: &mut egui::Ui, current: u32, width: f32) -> (Option<
 /// Vertical snap slider: rail runs top-to-bottom, values increase downward (1 at top, 64 at bottom).
 /// Every division value is labeled. Returns `Some(new_division)` on change.
 /// All sizes are in egui logical points — scaling is handled by `ctx.set_pixels_per_point()`.
-pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -> Option<u32> {
+pub fn draw_snap_slider_vertical(
+    ui: &mut egui::Ui,
+    current: u32,
+    height: f32,
+    interactive: bool,
+) -> Option<u32> {
     let options = &SNAP_DIVISION_OPTIONS;
     let count = options.len();
     let current_idx = options.iter().position(|&v| v == current).unwrap_or(0);
@@ -143,7 +148,12 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
     let gap: f32 = 0.0;
     let widget_w = label_w + rail_w + gap;
     let desired = egui::vec2(widget_w, height.max(100.0));
-    let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::click_and_drag());
+    let sense = if interactive {
+        egui::Sense::click_and_drag()
+    } else {
+        egui::Sense::hover()
+    };
+    let (rect, response) = ui.allocate_exact_size(desired, sense);
 
     let painter = ui.painter_at(rect);
 
@@ -165,7 +175,7 @@ pub fn draw_snap_slider_vertical(ui: &mut egui::Ui, current: u32, height: f32) -
     };
 
     let mut new_idx = current_idx;
-    if response.dragged() || response.clicked() {
+    if interactive && (response.dragged() || response.clicked()) {
         if let Some(pos) = response.interact_pointer_pos() {
             let t = ((pos.y - y_min) / y_range).clamp(0.0, 1.0);
             let float_idx = t * (count - 1) as f32;
