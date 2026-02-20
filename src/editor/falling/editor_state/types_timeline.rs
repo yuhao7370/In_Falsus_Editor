@@ -9,7 +9,6 @@ enum TimelineEventKind {
 struct TimelineEvent {
     id: u64,
     kind: TimelineEventKind,
-    source_index: usize,
     time_ms: f32,
     label: String,
     color: Color,

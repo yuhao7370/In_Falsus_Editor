@@ -59,6 +59,7 @@ struct ViewState {
     minimap_drag_offset_ms: f32,
     minimap_last_emit_sec: Option<f32>,
     minimap_drag_target_sec: Option<f32>,
+    #[allow(dead_code)]
     minimap_page: Option<MinimapPageConfig>,
     paste_preview_cache: Option<PastePreviewCache>,
     text_font: Option<Font>,

@@ -50,11 +50,6 @@ enum LoadPhase {
         chart_path: String,
         audio_path: String,
     },
-    /// 阶段2: 后台读取音频字节 + 解码为 AudioClip
-    OpenDecodeAudioBg {
-        task: BgTask<Result<(AudioClip, String), String>>,
-        chart_path: String,
-    },
 }
 
 /// tick() 返回的动作，告诉 main 该做什么
@@ -176,25 +171,6 @@ impl ProjectLoader {
                 LoadAction::LoadChart { chart_path, audio_path }
             }
 
-            LoadPhase::OpenDecodeAudioBg { task, chart_path } => {
-                if let Some(result) = task.try_recv() {
-                    match result {
-                        Ok((clip, audio_path)) => {
-                            self.status_text.clear();
-                            self.phase = LoadPhase::Idle;
-                            LoadAction::InstallAudio { clip, chart_path, audio_path }
-                        }
-                        Err(e) => {
-                            self.status_text.clear();
-                            self.phase = LoadPhase::Idle;
-                            LoadAction::Error(e)
-                        }
-                    }
-                } else {
-                    self.phase = LoadPhase::OpenDecodeAudioBg { task, chart_path };
-                    LoadAction::None
-                }
-            }
         }
     }
 

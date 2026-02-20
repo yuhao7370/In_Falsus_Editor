@@ -26,7 +26,6 @@ struct InfoToastItem {
 struct PinnedToast {
     text: String,
     created_at: f64,
-    level: ToastLevel,
     /// dismiss 被调用的时刻；None 表示仍在显示
     dismiss_at: Option<f64>,
 }
@@ -83,13 +82,13 @@ impl InfoToastManager {
             self.pinned = Some(PinnedToast {
                 text,
                 created_at: get_time(),
-                level: ToastLevel::Info,
                 dismiss_at: None,
             });
         }
     }
 
     /// 更新 pinned toast 的文本（如果存在）。
+    #[allow(dead_code)]
     pub fn update_pinned(&mut self, text: impl Into<String>) {
         if let Some(ref mut p) = self.pinned {
             p.text = text.into();
@@ -106,6 +105,7 @@ impl InfoToastManager {
     }
 
     /// pinned toast 是否正在显示（包括退出动画中）。
+    #[allow(dead_code)]
     pub fn has_pinned(&self) -> bool {
         self.pinned.is_some()
     }

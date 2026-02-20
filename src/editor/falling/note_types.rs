@@ -77,7 +77,6 @@ fn is_air_tool(tool: PlaceNoteType) -> bool {
 
 #[derive(Debug, Clone, Copy)]
 pub enum FallingEditorAction {
-    SeekTo(f32),
     MinimapSeekTo(f32),
 }
 
@@ -118,7 +117,6 @@ pub struct EventPropertyData {
     pub is_chart_header: bool,
     pub time_ms: f32,
     pub beat: f32,
-    pub label: String,
     // BPM event params
     pub bpm: f32,
     pub beats_per_measure: f32,

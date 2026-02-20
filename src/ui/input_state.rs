@@ -45,6 +45,7 @@ pub fn safe_mouse_button_down(btn: MouseButton) -> bool {
 }
 
 /// 安全版 is_mouse_button_released
+#[allow(dead_code)]
 pub fn safe_mouse_button_released(btn: MouseButton) -> bool {
     !is_pointer_blocked() && is_mouse_button_released(btn)
 }

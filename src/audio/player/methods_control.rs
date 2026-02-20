@@ -16,10 +16,12 @@ impl SongPlayer {
         })
     }
 
+    #[allow(dead_code)]
     pub fn state(&self) -> PlaybackState {
         self.state
     }
 
+    #[allow(dead_code)]
     pub fn duration_sec(&self) -> f32 {
         self.duration_sec
     }
@@ -59,7 +61,7 @@ impl SongPlayer {
         // by the audio thread yet, sending Resume could cause the renderer
         // to run one cycle at the OLD index (possibly past the clip end)
         // and immediately re-pause. By always issuing SeekTo right before
-        // Resume, we guarantee the FIFO order: SeekTo 鈫?Resume.
+        // Resume, we guarantee the FIFO order: SeekTo -> Resume.
         let target = if self.state == PlaybackState::Stopped {
             0.0
         } else {
@@ -91,6 +93,7 @@ impl SongPlayer {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn toggle_play_pause(&mut self) -> Result<(), PlayerError> {
         if self.state == PlaybackState::Playing {
             self.pause()
@@ -99,6 +102,7 @@ impl SongPlayer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn stop(&mut self) -> Result<(), PlayerError> {
         let music = self.music.as_mut().ok_or(PlayerError::NoTrackLoaded)?;
         music
@@ -130,28 +134,6 @@ impl SongPlayer {
         if matches!(self.state, PlaybackState::Ready | PlaybackState::Stopped) {
             self.state = PlaybackState::Paused;
         }
-        Ok(())
-    }
-
-    /// 从已读取的字节加载音频（跳过文件读取步骤）。
-    pub fn load_from_bytes(&mut self, bytes: Vec<u8>, path: &str) -> Result<(), PlayerError> {
-        let path_string = path.to_string();
-
-        let clip = AudioClip::new(bytes).map_err(|err| PlayerError::Decode(err.to_string()))?;
-        let duration_sec = clip.length();
-        let mut music = self.create_music_renderer(clip)?;
-
-        let _ = music.pause();
-        self.state = PlaybackState::Ready;
-        self.position_cache = 0.0;
-        self.pending_event = Some(PlayerEvent::Loaded {
-            path: path_string.clone(),
-            duration_sec,
-        });
-
-        self.music = Some(music);
-        self.track_path = Some(path_string);
-        self.duration_sec = duration_sec;
         Ok(())
     }
 

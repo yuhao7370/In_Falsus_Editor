@@ -4,7 +4,6 @@ struct DragState {
     time_offset_ms: f32,
     start_time_sec: f64,
     start_mouse_x: f32,
-    start_mouse_y: f32,
     /// (mouse_lane - note.lane) at drag start.
     lane_offset: i32,
     sky_start_center_norm: f32,
@@ -35,7 +34,6 @@ struct MultiDragNoteSnapshot {
     original_lane: usize,
     original_width: f32,
     original_center_x_norm: f32,
-    original_duration_ms: f32,
     sky_start_left: f32,
     sky_start_right: f32,
     sky_end_left: f32,
@@ -55,10 +53,7 @@ struct MultiDragState {
     lane_offset: i32,
     start_time_sec: f64,
     start_mouse_x: f32,
-    start_mouse_y: f32,
     mode: MultiDragMode,
-    common_x_split: f64,
-    scope: HitScope,
     bindings: Vec<MultiDragBinding>,
 }
 

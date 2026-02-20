@@ -105,7 +105,6 @@ impl FallingGroundEditor {
             time_offset_ms: quantized_offset,
             start_time_sec: get_time(),
             start_mouse_x: mx,
-            start_mouse_y: my,
             lane_offset,
             sky_start_center_norm,
             sky_end_center_norm,
@@ -165,7 +164,6 @@ impl FallingGroundEditor {
                     original_lane: note.lane,
                     original_width: note.width,
                     original_center_x_norm: note.center_x_norm,
-                    original_duration_ms: note.duration_ms,
                     sky_start_left: sl,
                     sky_start_right: sr,
                     sky_end_left: el,
@@ -202,11 +200,6 @@ impl FallingGroundEditor {
             }
             HitScope::Mixed => MultiDragMode::TimeOnly,
         };
-
-        let common_x_split = x_splits
-            .first()
-            .copied()
-            .unwrap_or(self.editor_state.x_split);
 
         // Compute time offset from anchor note.
         let anchor_snapshot = bindings
@@ -268,10 +261,7 @@ impl FallingGroundEditor {
             lane_offset,
             start_time_sec: get_time(),
             start_mouse_x: mx,
-            start_mouse_y: my,
             mode,
-            common_x_split,
-            scope,
             bindings,
         });
     }

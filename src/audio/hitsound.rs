@@ -118,6 +118,7 @@ impl HitSoundPlayer {
         self.tap_volume = volume.clamp(0.0, 2.0);
     }
 
+    #[allow(dead_code)]
     pub fn tap_volume(&self) -> f32 {
         self.tap_volume
     }
@@ -126,15 +127,9 @@ impl HitSoundPlayer {
         self.arc_volume = volume.clamp(0.0, 2.0);
     }
 
+    #[allow(dead_code)]
     pub fn arc_volume(&self) -> f32 {
         self.arc_volume
-    }
-
-    /// Set both tap and arc volume at once.
-    pub fn set_volume(&mut self, volume: f32) {
-        let v = volume.clamp(0.0, 2.0);
-        self.tap_volume = v;
-        self.arc_volume = v;
     }
 
     // ── Master volume ──
@@ -149,6 +144,7 @@ impl HitSoundPlayer {
         self.max_voices = max.max(1);
     }
 
+    #[allow(dead_code)]
     pub fn max_voices(&self) -> usize {
         self.max_voices
     }
@@ -199,6 +195,7 @@ impl HitSoundTrigger {
         self.delay_ms = ms.clamp(-100, 100) as f32;
     }
 
+    #[allow(dead_code)]
     pub fn delay_ms(&self) -> i32 {
         self.delay_ms as i32
     }

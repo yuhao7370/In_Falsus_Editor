@@ -45,8 +45,7 @@ impl AudioController {
             estimated_speed: 0.0,
         }
     }
-
-    /// 创建一个不加载任何音频文件的空控制器（仅初始化音频后端）。
+    /// Create an audio controller without loading a track.
     pub fn new_empty(i18n: &I18n) -> Self {
         let (player, status) = match SongPlayer::new() {
             Ok(p) => (Some(p), String::new()),
@@ -118,11 +117,10 @@ impl AudioController {
             if self.playing {
                 let backend_pos = snap.position_sec;
                 if backend_pos.is_finite() && backend_pos >= 0.0 {
-                    // 计算每帧后端位置变化量（用于调试）
+                    // Delta of backend position per frame (debug metric).
                     self.pos_delta_per_frame = backend_pos - self.prev_backend_pos;
                     self.prev_backend_pos = backend_pos;
-
-                    // 累计位置和时间，每 0.5s 刷新一次平滑速度
+                    // Accumulate over a short window to smooth speed estimation.
                     let dt = get_frame_time() as f64;
                     self.speed_accum_pos += self.pos_delta_per_frame;
                     self.speed_accum_time += dt;
@@ -173,8 +171,7 @@ impl AudioController {
     pub fn is_playing(&self) -> bool {
         self.playing
     }
-
-    /// 生成当前帧的音频状态快照，供编辑器和 UI 组件使用。
+    /// Build a per-frame audio snapshot for editor/UI rendering.
     pub fn frame_snapshot(&self) -> FrameContext {
         FrameContext {
             current_sec: self.current_sec(),
@@ -184,15 +181,16 @@ impl AudioController {
         }
     }
 
+    #[allow(dead_code)]
     pub fn music_volume(&self) -> f32 {
         self.music_volume
     }
 
+    #[allow(dead_code)]
     pub fn master_volume(&self) -> f32 {
         self.master_volume
     }
-
-    /// Effective volume = music_volume × master_volume
+    /// Effective volume = music_volume * master_volume
     pub fn effective_volume(&self) -> f32 {
         self.music_volume * self.master_volume
     }
@@ -202,8 +200,7 @@ impl AudioController {
     }
 
     // Actions
-
-    /// 如果正在播放则暂停，返回 true 表示之前在播放（用于文件对话框前暂停）。
+    /// Pause only when currently playing; returns whether it was playing.
     pub fn pause_if_playing(&mut self, i18n: &I18n) -> bool {
         if self.playing {
             self.do_pause(i18n);
@@ -212,8 +209,7 @@ impl AudioController {
             false
         }
     }
-
-    /// 如果之前在播放则恢复播放（用于文件对话框后恢复）。
+    /// Resume only if playback was active before a temporary pause.
     pub fn resume_if_was_playing(&mut self, was_playing: bool, i18n: &I18n) {
         if was_playing {
             self.do_play(i18n);
@@ -315,50 +311,7 @@ impl AudioController {
         let target = (pos + delta).clamp(0.0, self.duration_sec);
         self.seek_to(target, i18n);
     }
-
-    pub fn load_audio_file(&mut self, path: &str, i18n: &I18n) {
-        if let Some(p) = self.player.as_mut() {
-            // Stop current playback first
-            let _ = p.pause();
-            if let Err(e) = p.load_file(path) {
-                self.status = format_error(&e, i18n);
-                return;
-            }
-            let snap = p.snapshot();
-            self.duration_sec = snap.duration_sec;
-            self.track_path = snap.track_path.map(std::sync::Arc::<str>::from);
-            self.music_volume = snap.volume;
-            self.anchor_pos = 0.0;
-            self.anchor_time = get_time();
-            self.playing = false;
-            self.status = format!("{}: {}", i18n.t(TextKey::StatusLoaded), path);
-        } else {
-            self.status = i18n.t(TextKey::StatusAudioUnavailable).to_owned();
-        }
-    }
-
-    /// 从已读取的字节加载音频（避免重复读文件，用于异步加载流程）。
-    pub fn load_audio_from_bytes(&mut self, bytes: Vec<u8>, path: &str, i18n: &I18n) {
-        if let Some(p) = self.player.as_mut() {
-            let _ = p.pause();
-            if let Err(e) = p.load_from_bytes(bytes, path) {
-                self.status = format_error(&e, i18n);
-                return;
-            }
-            let snap = p.snapshot();
-            self.duration_sec = snap.duration_sec;
-            self.track_path = snap.track_path.map(std::sync::Arc::<str>::from);
-            self.music_volume = snap.volume;
-            self.anchor_pos = 0.0;
-            self.anchor_time = get_time();
-            self.playing = false;
-            self.status = format!("{}: {}", i18n.t(TextKey::StatusLoaded), path);
-        } else {
-            self.status = i18n.t(TextKey::StatusAudioUnavailable).to_owned();
-        }
-    }
-
-    /// 安装已在后台线程解码完成的 AudioClip（不阻塞主线程）。
+    /// Install a decoded AudioClip produced by a background worker.
     pub fn install_decoded_audio(&mut self, clip: sasa::AudioClip, path: &str, i18n: &I18n) {
         if let Some(p) = self.player.as_mut() {
             let _ = p.pause();
@@ -386,7 +339,7 @@ impl AudioController {
 
     // Hitsound
 
-    /// Trigger hitsounds for note heads that were crossed this frame.
+    /// Trigger hitsounds for note heads crossed this frame.
     /// `note_heads`: slice of `(time_ms, is_ground)`.
     pub fn trigger_hitsounds(&mut self, note_heads: &[(f32, bool)]) {
         let current_sec = self.current_sec();
@@ -399,6 +352,7 @@ impl AudioController {
         );
     }
 
+    #[allow(dead_code)]
     pub fn hitsound_tap_volume(&self) -> f32 {
         self.hitsound_player.tap_volume()
     }
@@ -407,6 +361,7 @@ impl AudioController {
         self.hitsound_player.set_tap_volume(volume);
     }
 
+    #[allow(dead_code)]
     pub fn hitsound_arc_volume(&self) -> f32 {
         self.hitsound_player.arc_volume()
     }
@@ -427,6 +382,7 @@ impl AudioController {
         self.hitsound_player.set_max_voices(max);
     }
 
+    #[allow(dead_code)]
     pub fn hitsound_max_voices(&self) -> usize {
         self.hitsound_player.max_voices()
     }
@@ -435,22 +391,19 @@ impl AudioController {
         self.hitsound_trigger.set_delay_ms(ms);
     }
 
+    #[allow(dead_code)]
     pub fn hitsound_delay_ms(&self) -> i32 {
         self.hitsound_trigger.delay_ms()
     }
-
-    /// 生成音频调试快照，供调试窗口实时显示。
+    /// Build a lightweight audio debug snapshot for debug UI.
     pub fn debug_snapshot(&self) -> AudioDebugSnapshot {
         let dt = get_frame_time();
         let fps = if dt > 0.0 { 1.0 / dt } else { 0.0 };
 
-        let backend_position = self.player.as_ref()
-            .and_then(|_p| {
-                // 直接读 snapshot 中缓存的 position
-                // 注意：这里不能调 p.snapshot() 因为需要 &mut
-                // 用 prev_backend_pos 代替（tick 中已更新）
-                Some(self.prev_backend_pos)
-            })
+        let backend_position = self
+            .player
+            .as_ref()
+            .map(|_| self.prev_backend_pos)
             .unwrap_or(0.0);
 
         let state_str = if self.player.is_none() {

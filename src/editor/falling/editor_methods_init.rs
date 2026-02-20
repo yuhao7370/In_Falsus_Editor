@@ -45,7 +45,6 @@ impl FallingGroundEditor {
                     vec![TimelineEvent {
                         id: 1,
                         kind: TimelineEventKind::Bpm,
-                        source_index: 0,
                         time_ms: 0.0,
                         label: "chart 120.00/4.00".to_owned(),
                         color: Color::from_rgba(140, 214, 255, 255),
@@ -152,6 +151,7 @@ impl FallingGroundEditor {
         &self.chart_path
     }
 
+    #[allow(dead_code)]
     pub fn set_chart_path(&mut self, path: String) {
         self.chart_path = path;
     }
@@ -368,6 +368,7 @@ impl FallingGroundEditor {
         Ok(true)
     }
 
+    #[allow(dead_code)]
     pub fn is_dirty(&self) -> bool {
         self.editor_state.dirty
     }
@@ -512,6 +513,7 @@ impl FallingGroundEditor {
             .map(|pending| pending.start_time_ms)
     }
 
+    #[allow(dead_code)]
     pub fn debug_show_hitboxes(&self) -> bool {
         self.view.debug_show_hitboxes
     }
@@ -521,6 +523,7 @@ impl FallingGroundEditor {
         self.status = format!("debug hitbox {}", if enabled { "on" } else { "off" });
     }
 
+    #[allow(dead_code)]
     pub fn autoplay_enabled(&self) -> bool {
         self.view.autoplay_enabled
     }
@@ -530,6 +533,7 @@ impl FallingGroundEditor {
         self.status = format!("autoplay {}", if enabled { "on" } else { "off" });
     }
 
+    #[allow(dead_code)]
     pub fn show_spectrum(&self) -> bool {
         self.view.show_spectrum
     }
@@ -540,6 +544,7 @@ impl FallingGroundEditor {
         self.check_spectrum_loading_toast();
     }
 
+    #[allow(dead_code)]
     pub fn show_minimap(&self) -> bool {
         self.view.show_minimap
     }
@@ -554,6 +559,7 @@ impl FallingGroundEditor {
         }
     }
 
+    #[allow(dead_code)]
     pub fn x_split(&self) -> f64 {
         self.editor_state.x_split
     }
@@ -572,6 +578,7 @@ impl FallingGroundEditor {
         self.status = format!("xsplit editable: {}", if enabled { "on" } else { "off" });
     }
 
+    #[allow(dead_code)]
     pub fn place_flick_right(&self) -> bool {
         self.selection.place_flick_right
     }
@@ -811,6 +818,7 @@ impl FallingGroundEditor {
     }
 
     /// Returns true if the given note id is in the multi-selection set.
+    #[allow(dead_code)]
     pub fn is_note_selected(&self, id: u64) -> bool {
         self.selection.selected_note_ids.contains(&id)
     }
@@ -904,7 +912,6 @@ impl FallingGroundEditor {
             } else {
                 self.editor_state.timeline.time_to_beat(event.time_ms)
             },
-            label: event.label.clone(),
             bpm,
             beats_per_measure,
             speed,
@@ -1103,6 +1110,7 @@ impl FallingGroundEditor {
 
     /// Refresh the event backup to current state (call after drag or other
     /// external mutation so subsequent apply only records panel edits).
+    #[allow(dead_code)]
     pub fn refresh_event_edit_backup(&mut self) {
         if let Some(id) = self.selection.selected_event_id {
             if self.selection.editing_event_backup.is_some() {
@@ -1139,10 +1147,12 @@ impl FallingGroundEditor {
         self.selection.event_hover_hint = None;
     }
 
+    #[allow(dead_code)]
     pub fn is_editing_note(&self) -> bool {
         self.selection.editing_note_backup.is_some()
     }
 
+    #[allow(dead_code)]
     pub fn is_editing_event(&self) -> bool {
         self.selection.editing_event_backup.is_some()
     }

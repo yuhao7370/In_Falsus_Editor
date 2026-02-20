@@ -147,6 +147,7 @@ pub fn to_spc(&self) -> String {
     lines.join("\n") + "\n"
 }
 
+#[allow(dead_code)]
 pub fn chart_info(&self) -> Option<(f64, f64)> {
     self.events.iter().find_map(|e| match e {
         ChartEvent::Chart { bpm, beats } => Some((*bpm, *beats)),
@@ -154,6 +155,7 @@ pub fn chart_info(&self) -> Option<(f64, f64)> {
     })
 }
 
+#[allow(dead_code)]
 pub fn tap_count(&self) -> usize {
     self.events
         .iter()
@@ -161,6 +163,7 @@ pub fn tap_count(&self) -> usize {
         .count()
 }
 
+#[allow(dead_code)]
 pub fn hold_count(&self) -> usize {
     self.events
         .iter()
@@ -168,6 +171,7 @@ pub fn hold_count(&self) -> usize {
         .count()
 }
 
+#[allow(dead_code)]
 pub fn flick_count(&self) -> usize {
     self.events
         .iter()
@@ -175,6 +179,7 @@ pub fn flick_count(&self) -> usize {
         .count()
 }
 
+#[allow(dead_code)]
 pub fn skyarea_count(&self) -> usize {
     self.events
         .iter()
@@ -182,11 +187,13 @@ pub fn skyarea_count(&self) -> usize {
         .count()
 }
 
+#[allow(dead_code)]
 pub fn total_notes(&self) -> usize {
     self.tap_count() + self.hold_count() + self.flick_count()
 }
 
 /// 导出到 JSON 文件（pretty 格式）。
+#[allow(dead_code)]
 pub fn to_json_file<P: AsRef<Path>>(&self, path: P) -> Result<(), String> {
     let json =
         serde_json::to_string_pretty(self).map_err(|e| format!("JSON 序列化失败: {e}"))?;

@@ -255,7 +255,6 @@ impl FallingGroundEditor {
                 self.push_timeline_event(TimelineEvent {
                     id: self.editor_state.next_event_id,
                     kind: TimelineEventKind::Bpm,
-                    source_index: 0,
                     time_ms,
                     label: format!("bpm {:.2} (beats {:.2})", bpm, beats),
                     color: Color::from_rgba(124, 226, 255, 255),
@@ -288,7 +287,6 @@ impl FallingGroundEditor {
                 self.push_timeline_event(TimelineEvent {
                     id: self.editor_state.next_event_id,
                     kind: TimelineEventKind::Track,
-                    source_index: 0,
                     time_ms,
                     label: format!("track x{:.2}", speed),
                     color,
@@ -299,7 +297,6 @@ impl FallingGroundEditor {
                 self.push_timeline_event(TimelineEvent {
                     id: self.editor_state.next_event_id,
                     kind: TimelineEventKind::Lane,
-                    source_index: 0,
                     time_ms,
                     label: "lane 0 on".to_owned(),
                     color: Color::from_rgba(232, 198, 124, 255),

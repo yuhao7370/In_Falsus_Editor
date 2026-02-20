@@ -8,6 +8,7 @@ pub enum PlaybackState {
     Error,
 }
 
+#[allow(dead_code)]
 impl PlaybackState {
     /// Whether the player is in a state that can transition to Playing.
     pub fn can_play(self) -> bool {
@@ -21,6 +22,7 @@ impl PlaybackState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopReason {
+    #[allow(dead_code)]
     User,
     EndOfTrack,
 }
@@ -74,14 +76,17 @@ impl std::error::Error for PlayerError {}
 
 #[derive(Debug, Clone)]
 pub struct PlayerSnapshot {
+    #[allow(dead_code)]
     pub state: PlaybackState,
     pub track_path: Option<String>,
     pub duration_sec: f32,
     pub position_sec: f32,
+    #[allow(dead_code)]
     pub progress: f32,
     pub volume: f32,
 }
 
+#[allow(dead_code)]
 impl PlayerSnapshot {
     pub fn can_play(&self) -> bool {
         self.state.can_play()

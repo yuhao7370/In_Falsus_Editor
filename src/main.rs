@@ -125,10 +125,6 @@ async fn main() {
         );
         for action in editor.draw(editor_rect, &frame_ctx) {
             match action {
-                FallingEditorAction::SeekTo(sec) => {
-                    audio.handle_editor_seek(sec, &i18n);
-                    info_toasts.push(format!("seek {:.2}s", sec));
-                }
                 FallingEditorAction::MinimapSeekTo(sec) => {
                     audio.handle_editor_seek(sec, &i18n);
                 }

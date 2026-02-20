@@ -128,6 +128,7 @@ impl AppSettings {
         }
     }
 
+    #[allow(dead_code)]
     pub fn language_enum(&self, i18n: &I18n) -> Language {
         Language::from_settings(&self.language, &i18n.available_languages())
     }

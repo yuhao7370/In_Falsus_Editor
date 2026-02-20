@@ -29,13 +29,12 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
     let mut next_id: u64 = 1_u64;
     let mut next_event_id: u64 = 1_u64;
 
-    for (ev_index, event) in chart.events.iter().enumerate() {
+    for event in &chart.events {
         match event {
             ChartEvent::Chart { bpm, beats } => {
                 timeline_events.push(TimelineEvent {
                     id: next_event_id,
                     kind: TimelineEventKind::Bpm,
-                    source_index: ev_index,
                     time_ms: 0.0,
                     label: format!("chart {:.2}/{:.2}", bpm, beats),
                     color: Color::from_rgba(126, 210, 255, 255),
@@ -57,7 +56,6 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 timeline_events.push(TimelineEvent {
                     id: next_event_id,
                     kind: TimelineEventKind::Bpm,
-                    source_index: ev_index,
                     time_ms: *time as f32,
                     label: format!("bpm {:.2} (beats {:.2})", bpm, beats),
                     color: Color::from_rgba(124, 226, 255, 255),
@@ -76,7 +74,6 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 timeline_events.push(TimelineEvent {
                     id: next_event_id,
                     kind: TimelineEventKind::Track,
-                    source_index: ev_index,
                     time_ms: *time as f32,
                     label: format!("track x{:.2}", speed),
                     color,
@@ -90,7 +87,6 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
                 timeline_events.push(TimelineEvent {
                     id: next_event_id,
                     kind: TimelineEventKind::Lane,
-                    source_index: ev_index,
                     time_ms: *time as f32,
                     label: format!("lane {} {}", lane, if *enable { "on" } else { "off" }),
                     color: Color::from_rgba(232, 198, 124, 255),
@@ -249,11 +245,6 @@ fn lane_from_normalized_x(norm_x: f32) -> usize {
 
 fn normalized_width_to_air_ratio(width_norm: f32) -> f32 {
     width_norm.abs().clamp(0.05, 1.0)
-}
-
-fn lane_to_air_x_norm(lane: usize) -> f32 {
-    let lane4 = lane.clamp(1, 4);
-    ((lane4 as f32) - 0.5) / 4.0
 }
 
 fn air_x_to_lane(x_norm: f32) -> usize {

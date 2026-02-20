@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 struct MinimapPageConfig {
     measures_per_page: u32,
