@@ -10,6 +10,11 @@ thread_local! {
     static KEYBOARD_BLOCKED: Cell<bool> = Cell::new(false);
 }
 
+// Input routing policy:
+// - `safe_*` helpers are the default for gameplay/editor interactions.
+// - `free_*` helpers bypass egui capture and should only be used for explicit capture flows
+//   (for example shortcut recording UIs).
+
 /// 每帧由 main loop 调用，设置当前帧 egui 是否拦截了鼠标
 pub fn set_pointer_blocked(blocked: bool) {
     POINTER_BLOCKED.with(|c| c.set(blocked));

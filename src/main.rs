@@ -58,10 +58,16 @@ async fn main() {
 
         // 1. Tick audio
         audio.tick(&i18n);
-        let space_consumed = audio.handle_keyboard(&i18n);
 
         // 2. UI 绘制（egui）
         let ui_output = ui.draw(&mut editor, &mut audio, &i18n, &mut info_toasts);
+        let keyboard_shortcut_blocked =
+            ui_output.egui_wants_keyboard || ui_output.shortcut_capture_active;
+        let space_consumed = if keyboard_shortcut_blocked {
+            false
+        } else {
+            audio.handle_keyboard(&i18n)
+        };
 
         // 3. 菜单动作
         if let Some(ref action) = ui_output.menu_action {
@@ -77,7 +83,9 @@ async fn main() {
         project_mgr.tick_and_apply(&mut editor, &mut audio, &i18n, &mut info_toasts, &macroquad_font);
 
         // 5. 快捷键 & 滚轮
-        input_handler::handle_shortcuts(&mut editor, &mut audio, &i18n, &mut info_toasts);
+        if !keyboard_shortcut_blocked {
+            input_handler::handle_shortcuts(&mut editor, &mut audio, &i18n, &mut info_toasts);
+        }
         input_handler::handle_wheel(&mut editor, &mut audio, &i18n, &mut info_toasts, space_consumed, &ui_output);
 
         // 6. 读取音频快照，计算布局

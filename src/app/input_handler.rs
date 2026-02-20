@@ -74,6 +74,9 @@ pub fn handle_wheel(
     space_consumed: bool,
     ui: &UiOutput,
 ) {
+    // Policy:
+    // - Ctrl/Shift wheel branches use raw wheel deltas, but only when pointer is not captured by egui.
+    // - Otherwise fall back to `handle_wheel_seek`, which already respects safe wheel routing.
     let (_, free_wheel_y) = free_mouse_wheel();
     let (_, mq_wheel_y) = safe_mouse_wheel();
     let ctrl_down = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
@@ -84,14 +87,19 @@ pub fn handle_wheel(
         egui_wheel_y = 0.0;
     }
 
-    if ctrl_down && free_wheel_y.abs() > f32::EPSILON {
+    if !ui.egui_wants_pointer && ctrl_down && free_wheel_y.abs() > f32::EPSILON {
         let step = editor.scroll_speed_step();
         let delta = if free_wheel_y > 0.0 { step } else { -step };
         editor.nudge_scroll_speed(delta);
         let new_speed = editor.scroll_speed();
         modify_settings(|s| s.scroll_speed = new_speed);
         info_toasts.push(format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), new_speed));
-    } else if shift_down && free_wheel_y.abs() > f32::EPSILON && !audio.is_playing() && audio.duration_sec() > 0.0 {
+    } else if !ui.egui_wants_pointer
+        && shift_down
+        && free_wheel_y.abs() > f32::EPSILON
+        && !audio.is_playing()
+        && audio.duration_sec() > 0.0
+    {
         let forward = free_wheel_y > 0.0;
         let current_ms = audio.current_sec() * 1000.0;
         let target_ms = editor.snap_seek_ms(current_ms, forward);
