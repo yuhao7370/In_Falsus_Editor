@@ -175,7 +175,7 @@ impl FallingGroundEditor {
                         right_ease: Ease::Linear,
                         start_x_split: self.editor_state.x_split,
                         end_x_split: self.editor_state.x_split,
-                        group_id: 0,
+                        group_id: -1,
                     };
                     let sky_preview_center =
                         ((start_center_norm + end_center_norm) * 0.5).clamp(0.0, 1.0);

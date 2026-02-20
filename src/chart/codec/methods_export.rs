@@ -63,20 +63,37 @@ pub fn to_spc(&self) -> String {
                 duration,
                 group_id,
             } => {
-                lines.push(format!(
-                    "skyarea({},{},{},{},{},{},{},{},{},{},{})",
-                    fmt_time(*time),
-                    fmt_num(*start_x),
-                    fmt_num(*start_x_split),
-                    fmt_num(*start_width),
-                    fmt_num(*end_x),
-                    fmt_num(*end_x_split),
-                    fmt_num(*end_width),
-                    left_ease.to_value(),
-                    right_ease.to_value(),
-                    fmt_time(*duration),
-                    group_id
-                ));
+                let normalized_group_id = (*group_id).max(DEFAULT_SKYAREA_GROUP_ID);
+                if normalized_group_id == DEFAULT_SKYAREA_GROUP_ID {
+                    lines.push(format!(
+                        "skyarea({},{},{},{},{},{},{},{},{},{})",
+                        fmt_time(*time),
+                        fmt_num(*start_x),
+                        fmt_num(*start_x_split),
+                        fmt_num(*start_width),
+                        fmt_num(*end_x),
+                        fmt_num(*end_x_split),
+                        fmt_num(*end_width),
+                        left_ease.to_value(),
+                        right_ease.to_value(),
+                        fmt_time(*duration)
+                    ));
+                } else {
+                    lines.push(format!(
+                        "skyarea({},{},{},{},{},{},{},{},{},{},{})",
+                        fmt_time(*time),
+                        fmt_num(*start_x),
+                        fmt_num(*start_x_split),
+                        fmt_num(*start_width),
+                        fmt_num(*end_x),
+                        fmt_num(*end_x_split),
+                        fmt_num(*end_width),
+                        left_ease.to_value(),
+                        right_ease.to_value(),
+                        fmt_time(*duration),
+                        normalized_group_id
+                    ));
+                }
             }
             ChartEvent::Bpm {
                 time,

@@ -20,7 +20,7 @@ const DEFAULT_BPM_BEATS: f64 = -1.0;
 /// `bpm(...)` 第四个保留字段的缺省值。
 const DEFAULT_BPM_UNKNOWN: i32 = -1;
 /// `skyarea(...)` 缺省 `group_id`。
-const DEFAULT_SKYAREA_GROUP_ID: i32 = 0;
+const DEFAULT_SKYAREA_GROUP_ID: i32 = -1;
 
 include!("codec/types.rs");
 include!("codec/methods_parse.rs");

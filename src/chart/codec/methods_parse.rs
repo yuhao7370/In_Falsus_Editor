@@ -162,10 +162,13 @@ fn parse_skyarea(args: &[&str], raw: &str) -> ChartEvent {
             Self::parse_i32(args[8]),
             Self::parse_f64(args[9]),
         ) {
-            let group_id = if args.len() >= 11 {
-                Self::parse_i32(args[10]).unwrap_or(DEFAULT_SKYAREA_GROUP_ID)
-            } else {
-                DEFAULT_SKYAREA_GROUP_ID
+            let group_id = match args.get(10).map(|s| s.trim()) {
+                None | Some("") => DEFAULT_SKYAREA_GROUP_ID,
+                Some(value) => match Self::parse_i32(value) {
+                    Some(v) if v >= 0 => v,
+                    Some(v) if v == DEFAULT_SKYAREA_GROUP_ID => v,
+                    _ => DEFAULT_SKYAREA_GROUP_ID,
+                },
             };
             return ChartEvent::SkyArea {
                 time,

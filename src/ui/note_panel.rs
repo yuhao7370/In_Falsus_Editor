@@ -776,8 +776,8 @@ fn draw_note_property_editor(
         ui.add_space(4.0);
         prop_label(ui, "Group ID");
         ui.horizontal(|ui| {
-            if pm_btn(ui, "-") { data.group_id = (data.group_id - 1).max(0); changed = true; }
-            if num_input_i32(ui, "sky_group_id", &mut data.group_id, 0, i32::MAX) { changed = true; }
+            if pm_btn(ui, "-") { data.group_id = (data.group_id - 1).max(-1); changed = true; }
+            if num_input_i32(ui, "sky_group_id", &mut data.group_id, -1, i32::MAX) { changed = true; }
             if pm_btn(ui, "+") { data.group_id = data.group_id.saturating_add(1); changed = true; }
         });
     }

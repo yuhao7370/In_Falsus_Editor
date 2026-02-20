@@ -608,7 +608,7 @@ impl FallingGroundEditor {
             right_ease: Ease::Linear,
             start_x_split: self.editor_state.x_split,
             end_x_split: self.editor_state.x_split,
-            group_id: 0,
+            group_id: -1,
         };
         let shape = note.skyarea_shape.unwrap_or(default_shape);
         // Flick: use per-note x_split
@@ -712,7 +712,7 @@ impl FallingGroundEditor {
                     shape.end_right_norm = (ec + eh).clamp(0.0, 1.0);
                     shape.left_ease = Ease::from_value(data.left_ease);
                     shape.right_ease = Ease::from_value(data.right_ease);
-                    shape.group_id = data.group_id;
+                    shape.group_id = data.group_id.max(-1);
                 }
             }
         }
