@@ -99,6 +99,7 @@ impl FallingGroundEditor {
             render_current_sec = target_sec.clamp(0.0, duration_sec);
         }
         let mut current_ms = render_current_sec * 1000.0;
+        // Warm cache early so hover/select logic can reuse it in this frame.
         self.ensure_note_render_cache();
 
         let visible_window = self.compute_visible_window_ms(lanes_rect, current_ms);
@@ -302,6 +303,7 @@ impl FallingGroundEditor {
             }
         }
 
+        // Input handlers above may mutate notes and dirty caches.
         self.ensure_note_render_cache();
         let spectrum_ok = self.view.show_spectrum && !self.editor_state.track_speed_enabled;
         match self.view.render_scope {

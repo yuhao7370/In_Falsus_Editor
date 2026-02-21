@@ -38,11 +38,13 @@ impl FallingGroundEditor {
     }
 
     fn invalidate_note_caches(&mut self) {
+        // Any note edit may affect both hitsound heads and render/hit geometry.
         self.editor_state.cached_note_heads_dirty = true;
         self.editor_state.cached_note_render_dirty = true;
     }
 
     fn ensure_note_render_cache(&mut self) {
+        // Lazy rebuild: keep hot path read-only when no note/timeline mutations happened.
         if !self.editor_state.cached_note_render_dirty
             && self.editor_state.cached_note_render.len() == self.editor_state.notes.len()
         {
@@ -53,6 +55,7 @@ impl FallingGroundEditor {
         let mut cache = Vec::with_capacity(self.editor_state.notes.len());
 
         for note in &self.editor_state.notes {
+            // Cache head/tail in visual-beat space; Y transform then becomes a cheap affine op.
             let head_vb = track_timeline.visual_beat_at(note.time_ms);
             let has_tail = note.has_tail();
             let tail_vb = if has_tail {
@@ -73,6 +76,7 @@ impl FallingGroundEditor {
                     let mut vb_samples = [head_vb; SKYAREA_SEGMENT_COUNT + 1];
 
                     if has_tail {
+                        // Sample easing curve once; render/hit code reuses these points directly.
                         for i in 0..=SKYAREA_SEGMENT_COUNT {
                             let p = i as f32 / SKYAREA_SEGMENT_COUNT as f32;
                             left_norm_samples[i] = lerp(
@@ -117,6 +121,7 @@ impl FallingGroundEditor {
             });
         }
 
+        // Store contiguous cache vector aligned with notes by index.
         self.editor_state.cached_note_render = cache;
         self.editor_state.cached_note_render_dirty = false;
     }
@@ -222,6 +227,7 @@ impl FallingGroundEditor {
             self.view.snap_division,
         );
         self.editor_state.cached_barlines_subdivision = self.view.snap_division;
+        // Track timeline may have changed while rebuilding barline cache.
         self.editor_state.cached_note_render_dirty = true;
     }
 

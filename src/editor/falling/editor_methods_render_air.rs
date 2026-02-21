@@ -127,6 +127,7 @@ impl FallingGroundEditor {
                 if flick_pass != (note.kind == GroundNoteKind::Flick) {
                     continue;
                 }
+                // Cache is aligned with notes by index; fallback keeps behavior unchanged.
                 let note_cache = self.editor_state.cached_note_render.get(note_index);
 
                 // AutoPlay: 已被判定的音符不显示（或裁剪判定线以下部分）
@@ -157,6 +158,7 @@ impl FallingGroundEditor {
                 let note_x = center_x - note_w * 0.5;
 
                 if note.kind == GroundNoteKind::SkyArea {
+                    // Fast path: use pre-sampled SkyArea geometry and vb samples.
                     if let Some((cache, sky_cache)) =
                         note_cache.and_then(|cache| cache.skyarea.as_ref().map(|sky| (cache, sky)))
                     {

@@ -95,6 +95,7 @@ impl FallingGroundEditor {
                 dirty: false,
                 cached_note_heads: Vec::new(),
                 cached_note_heads_dirty: true,
+                // Rebuilt on demand from notes + track timeline.
                 cached_note_render: Vec::new(),
                 cached_note_render_dirty: true,
             },

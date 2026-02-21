@@ -163,6 +163,7 @@ impl FallingGroundEditor {
         shape: &SkyAreaRenderCache,
         selected: bool,
     ) {
+        // Cached variant of draw_skyarea_shape: no per-frame easing/time->vb recompute.
         let clip_top = split_rect.y;
         let mut clip_bottom = split_rect.y + split_rect.h;
         let has_tail = note.has_tail();
@@ -176,6 +177,7 @@ impl FallingGroundEditor {
 
         if has_tail {
             for i in 0..SKYAREA_SEGMENT_COUNT {
+                // Project cached vb samples to Y for this frame.
                 let y0_raw = judge_y - (shape.vb_samples[i] - current_vb) * pixels_per_ms;
                 let y1_raw = judge_y - (shape.vb_samples[i + 1] - current_vb) * pixels_per_ms;
                 if (y0_raw < clip_top && y1_raw < clip_top)

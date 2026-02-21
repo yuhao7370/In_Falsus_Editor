@@ -172,19 +172,25 @@ struct SkyAreaShape {
 
 #[derive(Debug, Clone)]
 struct SkyAreaRenderCache {
+    // Clamped endpoints in normalized split-rect space.
     start_left_norm: f32,
     start_right_norm: f32,
     end_left_norm: f32,
     end_right_norm: f32,
+    // Pre-sampled interpolation points so per-frame render/hit logic can avoid easing math.
     left_norm_samples: [f32; SKYAREA_SEGMENT_COUNT + 1],
     right_norm_samples: [f32; SKYAREA_SEGMENT_COUNT + 1],
+    // Visual-beat samples mapped from time samples for fast Y projection.
     vb_samples: [f32; SKYAREA_SEGMENT_COUNT + 1],
 }
 
 #[derive(Debug, Clone)]
 struct NoteRenderCache {
+    // Precomputed visual-beat position of head/tail for current timeline mapping.
     head_vb: f32,
     tail_vb: f32,
+    // Pre-clamped width ratio used in air-space transforms.
     air_width_norm: f32,
+    // Extra cache only for SkyArea notes.
     skyarea: Option<SkyAreaRenderCache>,
 }

@@ -14,6 +14,7 @@ pub const SNAP_DIVISION_OPTIONS: [u32; 12] = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 
 const AIR_SKYAREA_HEAD_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.84);
 const AIR_SKYAREA_BODY_COLOR: Color = Color::new(0.72, 0.60, 0.98, 0.42);
 const AIR_SKYAREA_TAIL_COLOR: Color = Color::new(0.78, 0.66, 1.0, 0.34);
+// SkyArea body tessellation count used by both draw and cache sampling.
 const SKYAREA_SEGMENT_COUNT: usize = 20;
 
 const DRAG_HOLD_TO_START_SEC: f64 = 0.22;

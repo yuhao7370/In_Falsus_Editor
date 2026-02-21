@@ -64,6 +64,7 @@ impl FallingGroundEditor {
             if !is_ground_kind(note.kind) {
                 continue;
             }
+            // Reuse cached vb projection when available; fallback preserves old behavior.
             let note_cache = self.editor_state.cached_note_render.get(z);
             let note_w = note_head_width(note, lane_w);
             let note_x = ground_note_x(note, rect.x, lane_w);
@@ -159,6 +160,7 @@ impl FallingGroundEditor {
             if !is_air_kind(note.kind) {
                 continue;
             }
+            // Reuse cached geometry/vb to reduce per-frame hit-test math.
             let note_cache = self.editor_state.cached_note_render.get(z);
             let z_order = air_hit_z_order(z, note.kind);
             let center_x = split_rect.x + note.center_x_norm * split_rect.w;
@@ -175,6 +177,7 @@ impl FallingGroundEditor {
             };
 
             if note.kind == GroundNoteKind::SkyArea {
+                // SkyArea cache path: fast head/tail/body bounds from precomputed samples.
                 if let Some((cache, shape_cache)) =
                     note_cache.and_then(|cache| cache.skyarea.as_ref().map(|sky| (cache, sky)))
                 {
