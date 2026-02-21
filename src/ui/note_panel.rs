@@ -380,7 +380,7 @@ pub fn draw_note_selector_panel(
                 if show_note_props {
                     draw_note_property_editor(ui, i18n, editor, prop_state, toasts);
                 } else if show_event_props {
-                    draw_event_property_editor(ui, editor, prop_state);
+                    draw_event_property_editor(ui, editor, prop_state, toasts);
                 } else {
                     draw_tool_selector(ui, i18n, editor);
                 }
@@ -884,6 +884,7 @@ fn draw_event_property_editor(
     ui: &mut egui::Ui,
     editor: &mut FallingGroundEditor,
     prop_state: &mut PropertyEditState,
+    toasts: &mut InfoToastManager,
 ) {
     let Some(data) = prop_state.event_data.as_mut() else { return };
     let mut changed = false;
@@ -948,10 +949,35 @@ fn draw_event_property_editor(
 
     match data.kind.as_str() {
         "Bpm" => {
+            let changed_before = changed;
+            let prev_bpl = data.beats_per_measure;
+            let mut bpm_changed = false;
+            let mut bpl_changed = false;
+
             prop_label(ui, "BPM");
-            ui.horizontal(|ui| { if num_input_f32(ui, "evt_bpm", &mut data.bpm, 0.001, 9999.0, 2) { changed = true; } });
+            ui.horizontal(|ui| {
+                if num_input_f32(ui, "evt_bpm", &mut data.bpm, 0.001, 9999.0, 2) {
+                    bpm_changed = true;
+                }
+            });
             prop_label(ui, "BPL");
-            ui.horizontal(|ui| { if num_input_f32(ui, "evt_bpl", &mut data.beats_per_measure, 0.0, f32::MAX, 2) { changed = true; } });
+            ui.horizontal(|ui| {
+                if num_input_f32(ui, "evt_bpl", &mut data.beats_per_measure, 0.0, f32::MAX, 2) {
+                    bpl_changed = true;
+                }
+            });
+
+            let mut bpl_reverted = false;
+            if bpl_changed
+                && data.beats_per_measure.abs() <= f32::EPSILON
+                && data.bpm.abs() > f32::EPSILON
+            {
+                data.beats_per_measure = prev_bpl;
+                bpl_reverted = true;
+                toasts.push_warn("BPL=0 is only allowed when BPM=0; value reverted.");
+            }
+
+            changed = changed_before || bpm_changed || (bpl_changed && !bpl_reverted);
         }
         "Track" => {
             prop_label(ui, "Speed");

@@ -269,7 +269,7 @@ impl FallingGroundEditor {
             PlaceEventType::Bpm => {
                 let point = self.editor_state.timeline.point_at_time(time_ms);
                 let bpm = point.bpm.abs().max(0.001);
-                let beats = point.beats_per_measure.max(1.0);
+                let beats = point.beats_per_measure;
                 let mut bpm_source = BpmSourceData {
                     base_bpm: self.editor_state.timeline.points[0].bpm,
                     base_beats_per_measure: self.editor_state.timeline.points[0].beats_per_measure,

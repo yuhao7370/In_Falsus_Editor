@@ -186,7 +186,7 @@ impl BpmTimeline {
             let bpm = point.bpm.abs().max(0.001);
             let beat_ms = 60_000.0 / bpm;
             let sub_ms = beat_ms / subdivision as f32;
-            let beats_per_measure = point.beats_per_measure.max(1.0);
+            let beats_per_measure = point.beats_per_measure;
 
             let n_start = ((visible_start - segment_start) / sub_ms).floor() as i32 - 2;
             let n_end = ((visible_end - segment_start) / sub_ms).ceil() as i32 + 2;
@@ -459,6 +459,5 @@ impl TrackTimeline {
         }
     }
 }
-
 
 

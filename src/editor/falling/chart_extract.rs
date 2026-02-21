@@ -43,7 +43,7 @@ fn extract_chart_data(chart: &Chart) -> ExtractedChartData {
 
                 if !has_chart_base {
                     bpm_source.base_bpm = *bpm as f32;
-                    bpm_source.base_beats_per_measure = (*beats as f32).max(1.0);
+                    bpm_source.base_beats_per_measure = *beats as f32;
                     has_chart_base = true;
                 }
             }
