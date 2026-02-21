@@ -69,6 +69,7 @@
   "settings_xsplit_editable": "允许编辑 XSplit",
   "toast_lane_width_reject": "Lane {lane} 无法容纳宽度 {width}（最大 {max}）",
   "toast_lane_width_max": "Lane {lane} 最大宽度为 {max}（当前 {current}）",
+  "toast_bpl_zero_requires_bpm_zero": "仅当 BPM=0 时允许 BPL=0，已回退到原值。",
   "settings_hitsound_enabled": "打击音",
   "settings_hitsound_tap_volume": "地面打击音量",
   "settings_hitsound_arc_volume": "天空打击音量",

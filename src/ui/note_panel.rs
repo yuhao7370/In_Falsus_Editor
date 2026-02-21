@@ -380,7 +380,7 @@ pub fn draw_note_selector_panel(
                 if show_note_props {
                     draw_note_property_editor(ui, i18n, editor, prop_state, toasts);
                 } else if show_event_props {
-                    draw_event_property_editor(ui, editor, prop_state, toasts);
+                    draw_event_property_editor(ui, i18n, editor, prop_state, toasts);
                 } else {
                     draw_tool_selector(ui, i18n, editor);
                 }
@@ -882,6 +882,7 @@ fn draw_note_property_editor(
 
 fn draw_event_property_editor(
     ui: &mut egui::Ui,
+    i18n: &I18n,
     editor: &mut FallingGroundEditor,
     prop_state: &mut PropertyEditState,
     toasts: &mut InfoToastManager,
@@ -974,7 +975,7 @@ fn draw_event_property_editor(
             {
                 data.beats_per_measure = prev_bpl;
                 bpl_reverted = true;
-                toasts.push_warn("BPL=0 is only allowed when BPM=0; value reverted.");
+                toasts.push_warn(i18n.t(TextKey::ToastBplZeroRequiresBpmZero));
             }
 
             changed = changed_before || bpm_changed || (bpl_changed && !bpl_reverted);

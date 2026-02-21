@@ -69,6 +69,7 @@
   "settings_xsplit_editable": "Editable XSplit",
   "toast_lane_width_reject": "Lane {lane} cannot hold width {width} (max {max})",
   "toast_lane_width_max": "Lane {lane} max width is {max} (current {current})",
+  "toast_bpl_zero_requires_bpm_zero": "BPL=0 is only allowed when BPM=0; value reverted.",
   "settings_hitsound_enabled": "Hitsound",
   "settings_hitsound_tap_volume": "Tap Hitsound Volume",
   "settings_hitsound_arc_volume": "Arc Hitsound Volume",
