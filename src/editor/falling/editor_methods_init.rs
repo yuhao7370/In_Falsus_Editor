@@ -95,6 +95,8 @@ impl FallingGroundEditor {
                 dirty: false,
                 cached_note_heads: Vec::new(),
                 cached_note_heads_dirty: true,
+                cached_note_render: Vec::new(),
+                cached_note_render_dirty: true,
             },
             selection: SelectionState {
                 selected_note_id: None,
@@ -366,7 +368,7 @@ impl FallingGroundEditor {
 
         self.rebuild_barline_cache();
         self.editor_state.dirty = true;
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
         self.status = format!("chart reloaded: {}", self.chart_path);
         Ok(true)
     }
@@ -765,7 +767,7 @@ impl FallingGroundEditor {
                     shape.group_id = data.group_id.max(-1);
                 }
             }
-            self.editor_state.cached_note_heads_dirty = true;
+            self.invalidate_note_caches();
         }
     }
 
@@ -804,7 +806,7 @@ impl FallingGroundEditor {
                 .find(|n| n.id == backup.id)
             {
                 *note = backup;
-                self.editor_state.cached_note_heads_dirty = true;
+                self.invalidate_note_caches();
             }
         }
     }

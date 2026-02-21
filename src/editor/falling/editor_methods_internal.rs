@@ -37,6 +37,90 @@ impl FallingGroundEditor {
         self.time_to_y_from_metrics(note_time_ms, current_vb, judge_y, pixels_per_ms)
     }
 
+    fn invalidate_note_caches(&mut self) {
+        self.editor_state.cached_note_heads_dirty = true;
+        self.editor_state.cached_note_render_dirty = true;
+    }
+
+    fn ensure_note_render_cache(&mut self) {
+        if !self.editor_state.cached_note_render_dirty
+            && self.editor_state.cached_note_render.len() == self.editor_state.notes.len()
+        {
+            return;
+        }
+
+        let track_timeline = &self.editor_state.track_timeline;
+        let mut cache = Vec::with_capacity(self.editor_state.notes.len());
+
+        for note in &self.editor_state.notes {
+            let head_vb = track_timeline.visual_beat_at(note.time_ms);
+            let has_tail = note.has_tail();
+            let tail_vb = if has_tail {
+                track_timeline.visual_beat_at(note.end_time_ms())
+            } else {
+                head_vb
+            };
+
+            let skyarea = if note.kind == GroundNoteKind::SkyArea {
+                note.skyarea_shape.map(|shape| {
+                    let start_left_norm = shape.start_left_norm.clamp(0.0, 1.0);
+                    let start_right_norm = shape.start_right_norm.clamp(0.0, 1.0);
+                    let end_left_norm = shape.end_left_norm.clamp(0.0, 1.0);
+                    let end_right_norm = shape.end_right_norm.clamp(0.0, 1.0);
+
+                    let mut left_norm_samples = [0.0; SKYAREA_SEGMENT_COUNT + 1];
+                    let mut right_norm_samples = [0.0; SKYAREA_SEGMENT_COUNT + 1];
+                    let mut vb_samples = [head_vb; SKYAREA_SEGMENT_COUNT + 1];
+
+                    if has_tail {
+                        for i in 0..=SKYAREA_SEGMENT_COUNT {
+                            let p = i as f32 / SKYAREA_SEGMENT_COUNT as f32;
+                            left_norm_samples[i] = lerp(
+                                start_left_norm,
+                                end_left_norm,
+                                ease_progress(shape.left_ease, p),
+                            )
+                            .clamp(0.0, 1.0);
+                            right_norm_samples[i] = lerp(
+                                start_right_norm,
+                                end_right_norm,
+                                ease_progress(shape.right_ease, p),
+                            )
+                            .clamp(0.0, 1.0);
+                            let t = note.time_ms + note.duration_ms * p;
+                            vb_samples[i] = track_timeline.visual_beat_at(t);
+                        }
+                    } else {
+                        left_norm_samples.fill(start_left_norm);
+                        right_norm_samples.fill(start_right_norm);
+                    }
+
+                    SkyAreaRenderCache {
+                        start_left_norm,
+                        start_right_norm,
+                        end_left_norm,
+                        end_right_norm,
+                        left_norm_samples,
+                        right_norm_samples,
+                        vb_samples,
+                    }
+                })
+            } else {
+                None
+            };
+
+            cache.push(NoteRenderCache {
+                head_vb,
+                tail_vb,
+                air_width_norm: note.width.clamp(0.05, 1.0),
+                skyarea,
+            });
+        }
+
+        self.editor_state.cached_note_render = cache;
+        self.editor_state.cached_note_render_dirty = false;
+    }
+
     /// 计算当前视口中可见的时间范围（考虑 track speed 变化）。
     /// 返回 (ahead_ms, behind_ms)，ahead 是判定线上方的时间跨度，behind 是下方的。
     /// 当 track speed 为负时，top/bottom 时间可能反转，取 min/max 保证覆盖完整范围。
@@ -138,6 +222,7 @@ impl FallingGroundEditor {
             self.view.snap_division,
         );
         self.editor_state.cached_barlines_subdivision = self.view.snap_division;
+        self.editor_state.cached_note_render_dirty = true;
     }
 
     /// 用二分查找从缓存中获取 visual_beat 在 [start_vb, end_vb] 范围内的小节线切片。
@@ -185,7 +270,7 @@ impl FallingGroundEditor {
         self.selection.clear_event_selection();
         self.selection.clear_interactions();
         self.editor_state.dirty = true;
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
     }
 
     /// Undo: restore previous state.
@@ -259,7 +344,7 @@ impl FallingGroundEditor {
         self.editor_state.next_note_id = self.editor_state.next_note_id.saturating_add(1);
         self.editor_state.notes.push(note);
         self.sort_notes();
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
     }
 
     fn push_timeline_event(&mut self, event: TimelineEvent) {
@@ -668,7 +753,7 @@ impl FallingGroundEditor {
         self.snapshot_for_undo();
         let ids = self.selection.selected_note_ids.clone();
         self.editor_state.notes.retain(|n| !ids.contains(&n.id));
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
         self.selection.clear_note_selection();
         self.selection.drag_state = None;
         self.selection.overlap_cycle = None;
@@ -712,7 +797,7 @@ impl FallingGroundEditor {
             }
         }
         self.sort_notes();
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
         let msg = self
             .i18n
             .t(crate::i18n::TextKey::EditorMirroredNotes)
@@ -748,7 +833,7 @@ impl FallingGroundEditor {
             self.editor_state.notes.push(n);
         }
         self.sort_notes();
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
         self.selection.clear_note_selection();
         let msg = self
             .i18n

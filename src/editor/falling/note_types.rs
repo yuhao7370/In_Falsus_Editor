@@ -169,3 +169,22 @@ struct SkyAreaShape {
     /// SkyArea group id (V2); default -1 means "not set / omit on export".
     group_id: i32,
 }
+
+#[derive(Debug, Clone)]
+struct SkyAreaRenderCache {
+    start_left_norm: f32,
+    start_right_norm: f32,
+    end_left_norm: f32,
+    end_right_norm: f32,
+    left_norm_samples: [f32; SKYAREA_SEGMENT_COUNT + 1],
+    right_norm_samples: [f32; SKYAREA_SEGMENT_COUNT + 1],
+    vb_samples: [f32; SKYAREA_SEGMENT_COUNT + 1],
+}
+
+#[derive(Debug, Clone)]
+struct NoteRenderCache {
+    head_vb: f32,
+    tail_vb: f32,
+    air_width_norm: f32,
+    skyarea: Option<SkyAreaRenderCache>,
+}

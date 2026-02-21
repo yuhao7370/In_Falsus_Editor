@@ -330,7 +330,7 @@ impl FallingGroundEditor {
                 }
             }
         }
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
     }
 
     /// Update all notes during multi-drag (air scope).
@@ -444,7 +444,7 @@ impl FallingGroundEditor {
                 }
             }
         }
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
     }
 
     /// Update all notes during multi-drag (time-only for mixed scope).
@@ -477,7 +477,7 @@ impl FallingGroundEditor {
                 note.time_ms = (snapshot.original_time_ms + time_delta).max(0.0);
             }
         }
-        self.editor_state.cached_note_heads_dirty = true;
+        self.invalidate_note_caches();
     }
 
     /// Finish multi-drag: clear state and sort.

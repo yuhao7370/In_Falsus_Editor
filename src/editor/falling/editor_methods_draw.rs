@@ -99,6 +99,7 @@ impl FallingGroundEditor {
             render_current_sec = target_sec.clamp(0.0, duration_sec);
         }
         let mut current_ms = render_current_sec * 1000.0;
+        self.ensure_note_render_cache();
 
         let visible_window = self.compute_visible_window_ms(lanes_rect, current_ms);
         if let Some(minimap_inner) = minimap_inner {
@@ -142,7 +143,7 @@ impl FallingGroundEditor {
                 let ids = self.selection.selected_note_ids.clone();
                 let count = ids.len();
                 self.editor_state.notes.retain(|n| !ids.contains(&n.id));
-                self.editor_state.cached_note_heads_dirty = true;
+                self.invalidate_note_caches();
                 self.selection.clear_note_selection();
                 self.selection.drag_state = None;
                 self.selection.overlap_cycle = None;
@@ -152,7 +153,7 @@ impl FallingGroundEditor {
                 self.selection.editing_note_backup = None;
                 self.snapshot_for_undo();
                 self.editor_state.notes.retain(|n| n.id != note_id);
-                self.editor_state.cached_note_heads_dirty = true;
+                self.invalidate_note_caches();
                 self.selection.drag_state = None;
                 self.selection.overlap_cycle = None;
                 self.selection.hover_overlap_hint = None;
@@ -301,6 +302,7 @@ impl FallingGroundEditor {
             }
         }
 
+        self.ensure_note_render_cache();
         let spectrum_ok = self.view.show_spectrum && !self.editor_state.track_speed_enabled;
         match self.view.render_scope {
             RenderScope::Both => {

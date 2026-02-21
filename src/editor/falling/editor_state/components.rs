@@ -15,6 +15,8 @@ struct EditorState {
     dirty: bool,
     cached_note_heads: Vec<(f32, bool)>,
     cached_note_heads_dirty: bool,
+    cached_note_render: Vec<NoteRenderCache>,
+    cached_note_render_dirty: bool,
 }
 
 #[derive(Debug)]
@@ -125,6 +127,7 @@ impl EditorState {
             TrackSourceData::default()
         };
         self.track_timeline = TrackTimeline::from_source(&self.timeline, track_src);
+        self.cached_note_render_dirty = true;
     }
 
     fn apply_snapshot(&mut self, snapshot: EditorSnapshot) {
@@ -135,6 +138,8 @@ impl EditorState {
         self.track_source = snapshot.track_source;
         self.timeline = BpmTimeline::from_source(snapshot.bpm_source);
         self.rebuild_track_timeline();
+        self.cached_note_render.clear();
+        self.cached_note_render_dirty = true;
     }
 }
 

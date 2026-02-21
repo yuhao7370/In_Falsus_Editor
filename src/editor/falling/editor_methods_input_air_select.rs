@@ -255,6 +255,7 @@ impl FallingGroundEditor {
                         note.time_ms = snapped_time;
                     }
                     self.editor_state.cached_note_heads_dirty = true;
+                    self.editor_state.cached_note_render_dirty = true;
                     self.status = format!("air drag lane={} time={:.0}ms", note.lane, note.time_ms);
                 }
             } else {

@@ -150,4 +150,124 @@ impl FallingGroundEditor {
             }
         }
     }
+
+    fn draw_skyarea_shape_cached(
+        &self,
+        split_rect: Rect,
+        current_ms: f32,
+        current_vb: f32,
+        judge_y: f32,
+        pixels_per_ms: f32,
+        note: &GroundNote,
+        note_cache: &NoteRenderCache,
+        shape: &SkyAreaRenderCache,
+        selected: bool,
+    ) {
+        let clip_top = split_rect.y;
+        let mut clip_bottom = split_rect.y + split_rect.h;
+        let has_tail = note.has_tail();
+
+        if self.view.autoplay_enabled && note.time_ms <= current_ms {
+            clip_bottom = clip_bottom.min(judge_y);
+            if !has_tail || note.end_time_ms() <= current_ms {
+                return;
+            }
+        }
+
+        if has_tail {
+            for i in 0..SKYAREA_SEGMENT_COUNT {
+                let y0_raw = judge_y - (shape.vb_samples[i] - current_vb) * pixels_per_ms;
+                let y1_raw = judge_y - (shape.vb_samples[i + 1] - current_vb) * pixels_per_ms;
+                if (y0_raw < clip_top && y1_raw < clip_top)
+                    || (y0_raw > clip_bottom && y1_raw > clip_bottom)
+                {
+                    continue;
+                }
+                let y0 = y0_raw.clamp(clip_top, clip_bottom);
+                let y1 = y1_raw.clamp(clip_top, clip_bottom);
+
+                let lx0 = split_rect.x + shape.left_norm_samples[i] * split_rect.w;
+                let rx0 = split_rect.x + shape.right_norm_samples[i] * split_rect.w;
+                let lx1 = split_rect.x + shape.left_norm_samples[i + 1] * split_rect.w;
+                let rx1 = split_rect.x + shape.right_norm_samples[i + 1] * split_rect.w;
+
+                draw_triangle(
+                    Vec2::new(lx0, y0),
+                    Vec2::new(rx0, y0),
+                    Vec2::new(rx1, y1),
+                    AIR_SKYAREA_BODY_COLOR,
+                );
+                draw_triangle(
+                    Vec2::new(lx0, y0),
+                    Vec2::new(rx1, y1),
+                    Vec2::new(lx1, y1),
+                    AIR_SKYAREA_BODY_COLOR,
+                );
+                if selected {
+                    let dark = Color::from_rgba(0, 0, 0, SELECTED_NOTE_DARKEN_ALPHA);
+                    draw_triangle(
+                        Vec2::new(lx0, y0),
+                        Vec2::new(rx0, y0),
+                        Vec2::new(rx1, y1),
+                        dark,
+                    );
+                    draw_triangle(
+                        Vec2::new(lx0, y0),
+                        Vec2::new(rx1, y1),
+                        Vec2::new(lx1, y1),
+                        dark,
+                    );
+                }
+            }
+        }
+
+        let head_left = split_rect.x + shape.start_left_norm * split_rect.w;
+        let head_right = split_rect.x + shape.start_right_norm * split_rect.w;
+        let head_y = judge_y - (note_cache.head_vb - current_vb) * pixels_per_ms;
+        let tail_left = split_rect.x + shape.end_left_norm * split_rect.w;
+        let tail_right = split_rect.x + shape.end_right_norm * split_rect.w;
+        let tail_y = judge_y - (note_cache.tail_vb - current_vb) * pixels_per_ms;
+
+        let head_w = (head_right - head_left).max(2.0);
+        let render_caps = !self.view.debug_skyarea_body_only;
+        let head_visible = if self.view.autoplay_enabled && note.time_ms <= current_ms {
+            false
+        } else {
+            head_y >= clip_top - 18.0 && head_y <= clip_bottom + 18.0
+        };
+        if render_caps && head_visible {
+            draw_rectangle(
+                head_left,
+                head_y - 8.0,
+                head_w,
+                16.0,
+                AIR_SKYAREA_HEAD_COLOR,
+            );
+            if selected {
+                draw_selected_note_darken_rect(head_left, head_y - 8.0, head_w, 16.0);
+                draw_selected_note_outline(head_left, head_y - 8.0, head_w, 16.0);
+            }
+        }
+
+        let tail_w = (tail_right - tail_left).max(2.0);
+        let tail_visible =
+            if self.view.autoplay_enabled && has_tail && note.end_time_ms() <= current_ms {
+                false
+            } else {
+                has_tail && tail_y >= clip_top - 18.0 && tail_y <= clip_bottom + 18.0
+            };
+        if render_caps && tail_visible {
+            draw_rectangle(
+                tail_left,
+                tail_y - 8.0,
+                tail_w,
+                16.0,
+                AIR_SKYAREA_TAIL_COLOR,
+            );
+            if selected {
+                draw_selected_note_darken_rect(tail_left, tail_y - 8.0, tail_w, 16.0);
+                draw_selected_note_outline(tail_left, tail_y - 8.0, tail_w, 16.0);
+            }
+        }
+    }
 }

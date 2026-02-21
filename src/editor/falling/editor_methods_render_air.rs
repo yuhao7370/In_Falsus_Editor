@@ -120,13 +120,14 @@ impl FallingGroundEditor {
 
         // 分两次绘制空中音符，保证 Flick 永远在 SkyArea 上层。
         for flick_pass in [false, true] {
-            for note in &self.editor_state.notes {
+            for (note_index, note) in self.editor_state.notes.iter().enumerate() {
                 if !is_air_kind(note.kind) {
                     continue;
                 }
                 if flick_pass != (note.kind == GroundNoteKind::Flick) {
                     continue;
                 }
+                let note_cache = self.editor_state.cached_note_render.get(note_index);
 
                 // AutoPlay: 已被判定的音符不显示（或裁剪判定线以下部分）
                 let judged = self.view.autoplay_enabled && note.time_ms <= current_ms;
@@ -139,16 +140,39 @@ impl FallingGroundEditor {
 
                 let x_norm = note.center_x_norm;
                 let center_x = split_rect.x + x_norm * split_rect.w;
-                let head_y =
-                    self.time_to_y_from_metrics(note.time_ms, current_vb, judge_y, pixels_per_ms);
+                let head_y = if let Some(cache) = note_cache {
+                    judge_y - (cache.head_vb - current_vb) * pixels_per_ms
+                } else {
+                    self.time_to_y_from_metrics(note.time_ms, current_vb, judge_y, pixels_per_ms)
+                };
                 let selected = self.selection.selected_note_ids.contains(&note.id);
                 let lane_for_palette = note.lane.clamp(0, LANE_COUNT - 1);
                 let palette = lane_note_palette(lane_for_palette);
 
-                let note_w = air_note_width(note, split_rect.w);
+                let note_w = if let Some(cache) = note_cache {
+                    split_rect.w * cache.air_width_norm
+                } else {
+                    air_note_width(note, split_rect.w)
+                };
                 let note_x = center_x - note_w * 0.5;
 
                 if note.kind == GroundNoteKind::SkyArea {
+                    if let Some((cache, sky_cache)) =
+                        note_cache.and_then(|cache| cache.skyarea.as_ref().map(|sky| (cache, sky)))
+                    {
+                        self.draw_skyarea_shape_cached(
+                            split_rect,
+                            current_ms,
+                            current_vb,
+                            judge_y,
+                            pixels_per_ms,
+                            note,
+                            cache,
+                            sky_cache,
+                            selected,
+                        );
+                        continue;
+                    }
                     if let Some(shape) = note.skyarea_shape {
                         self.draw_skyarea_shape(
                             split_rect,
@@ -165,12 +189,16 @@ impl FallingGroundEditor {
                 }
 
                 if note.has_tail() {
-                    let tail_y = self.time_to_y_from_metrics(
-                        note.end_time_ms(),
-                        current_vb,
-                        judge_y,
-                        pixels_per_ms,
-                    );
+                    let tail_y = if let Some(cache) = note_cache {
+                        judge_y - (cache.tail_vb - current_vb) * pixels_per_ms
+                    } else {
+                        self.time_to_y_from_metrics(
+                            note.end_time_ms(),
+                            current_vb,
+                            judge_y,
+                            pixels_per_ms,
+                        )
+                    };
                     let y1 = head_y.min(tail_y);
                     let y2 = head_y.max(tail_y);
                     if y2 >= rect.y && y1 <= rect.y + rect.h {
