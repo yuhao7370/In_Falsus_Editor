@@ -42,3 +42,6 @@ my.token
 /sign/
 *.jks
 *.keystore
+/__pycache__
+badapple.mp4
+ba2if.py
