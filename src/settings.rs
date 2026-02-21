@@ -42,6 +42,8 @@ pub struct AppSettings {
     #[serde(default = "default_true")]
     pub show_barlines: bool,
     #[serde(default)]
+    pub color_barlines: bool,
+    #[serde(default)]
     pub show_minimap: bool,
     #[serde(default = "default_scroll_speed")]
     pub scroll_speed: f32,
@@ -102,6 +104,7 @@ impl Default for AppSettings {
             autoplay: false,
             show_spectrum: true,
             show_barlines: true,
+            color_barlines: false,
             show_minimap: false,
             scroll_speed: default_scroll_speed(),
             snap_division: default_snap_division(),

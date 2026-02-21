@@ -10,6 +10,7 @@
   "settings_autoplay": "AutoPlay",
   "settings_show_spectrum": "显示频谱",
   "settings_show_barlines": "显示小节线",
+  "settings_color_barlines": "小节线上色",
   "settings_debug_hitbox": "Hitbox调试",
   "settings_show_minimap": "绘制 Minimap",
   "language_chinese": "中文",

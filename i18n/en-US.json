@@ -10,6 +10,7 @@
   "settings_autoplay": "AutoPlay",
   "settings_show_spectrum": "Show Spectrum",
   "settings_show_barlines": "Show Barlines",
+  "settings_color_barlines": "Colorized Barlines",
   "settings_debug_hitbox": "Hitbox Debug",
   "settings_show_minimap": "Show Minimap",
   "language_chinese": "Chinese",

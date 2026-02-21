@@ -67,11 +67,14 @@ impl FallingGroundEditor {
                 if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
                     continue;
                 }
-                let (thickness, color) = match barline.kind {
-                    BarLineKind::Measure => (2.1, Color::from_rgba(170, 205, 255, 210)),
-                    BarLineKind::Beat => (1.3, Color::from_rgba(112, 148, 192, 186)),
-                    BarLineKind::Subdivision => (0.9, Color::from_rgba(80, 108, 142, 142)),
+                let (thickness, mut color, alpha) = match barline.kind {
+                    BarLineKind::Measure => (2.1, Color::from_rgba(170, 205, 255, 210), 210),
+                    BarLineKind::Beat => (1.3, Color::from_rgba(112, 148, 192, 186), 186),
+                    BarLineKind::Subdivision => (0.9, Color::from_rgba(80, 108, 142, 142), 142),
                 };
+                if self.view.color_barlines {
+                    color = self.colorized_barline_color(barline.beat, alpha);
+                }
                 draw_line(rect.x, y, rect.x + rect.w, y, thickness, color);
                 if barline.show_measure_label
                     && y >= barline_label_min_y

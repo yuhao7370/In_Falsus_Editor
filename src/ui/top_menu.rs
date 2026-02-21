@@ -33,6 +33,7 @@ pub enum SettingsAction {
     SetAutoPlay(bool),
     SetShowSpectrum(bool),
     SetShowBarlines(bool),
+    SetColorBarlines(bool),
     SetMinimapVisible(bool),
     SetRenderScope(RenderScope),
     SetScrollSpeed(f32),

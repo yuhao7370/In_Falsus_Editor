@@ -448,6 +448,73 @@ impl FallingGroundEditor {
         }
     }
 
+    fn colorized_barline_color(&self, beat: f32, alpha: u8) -> Color {
+        // Quantize by current snap division first so color classes stay stable
+        // even when beat phase has slight offsets after BPM boundary changes.
+        let division = self.view.snap_division.max(1) as i64;
+        let snapped_units = (beat * division as f32).round() as i64;
+        let frac_units = snapped_units.rem_euclid(division);
+
+        let white = (244, 246, 250);
+        let red = (244, 126, 126);
+        let purple = (204, 178, 246);
+        let bright_blue = (150, 208, 255);
+        let gray = (192, 198, 206);
+
+        let rgb = match division {
+            // x1: only integer
+            1 => {
+                if frac_units == 0 { white } else { gray }
+            }
+            // x2: 1/2 is red
+            2 => {
+                if frac_units == 0 { white } else { red }
+            }
+            // x3: 1/3, 2/3 are purple
+            3 => {
+                if frac_units == 0 { white } else { purple }
+            }
+            // x4: 1/2 red; 1/4, 3/4 bright blue
+            4 => match frac_units {
+                0 => white,
+                2 => red,
+                1 | 3 => bright_blue,
+                _ => gray,
+            },
+            // x6: x3 positions (1/3, 2/3) purple;
+            // non-x3 positions (1/6, 1/2, 5/6) bright blue; no red in x6.
+            6 => match frac_units {
+                0 => white,
+                2 | 4 => purple,
+                1 | 3 | 5 => bright_blue,
+                _ => gray,
+            },
+            _ => {
+                // Fallback for other divisions keeps previous behavior.
+                let is_half = division % 2 == 0 && frac_units * 2 == division;
+                let is_third = division % 3 == 0
+                    && (frac_units * 3 == division || frac_units * 3 == division * 2);
+                let is_quarter = division % 4 == 0
+                    && (frac_units * 4 == division || frac_units * 4 == division * 3);
+                let is_sixth = division % 6 == 0
+                    && (frac_units * 6 == division || frac_units * 6 == division * 5);
+                if frac_units == 0 {
+                    white
+                } else if is_half {
+                    red
+                } else if is_third {
+                    purple
+                } else if is_quarter || is_sixth {
+                    bright_blue
+                } else {
+                    gray
+                }
+            }
+        };
+
+        Color::from_rgba(rgb.0, rgb.1, rgb.2, alpha)
+    }
+
     fn resolution_ui_scale(&self) -> f32 {
         crate::ui::scale::ui_scale_factor().clamp(0.7, 1.8)
     }

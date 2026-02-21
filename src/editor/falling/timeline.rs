@@ -12,6 +12,7 @@ struct BpmPoint {
 struct BarLine {
     time_ms: f32,
     visual_beat: f32,
+    beat: f32,
     kind: BarLineKind,
     measure_pos: f32,
     show_measure_label: bool,
@@ -182,11 +183,14 @@ impl BpmTimeline {
                 continue;
             }
 
-            let is_negative_bpm = point.bpm < 0.0;
             let bpm = point.bpm.abs().max(0.001);
             let beat_ms = 60_000.0 / bpm;
             let sub_ms = beat_ms / subdivision as f32;
-            let beats_per_measure = point.beats_per_measure;
+            let beats_per_measure = point.beats_per_measure.abs().max(1.0);
+            let sub_beat = 1.0 / subdivision as f32;
+            // Allow half-grid snapping tolerance so labels still resolve when
+            // BPM/event boundaries introduce fractional beat phase offsets.
+            let beat_snap_tol = (sub_beat * 0.52).max(0.001);
 
             let n_start = ((visible_start - segment_start) / sub_ms).floor() as i32 - 2;
             let n_end = ((visible_end - segment_start) / sub_ms).ceil() as i32 + 2;
@@ -200,14 +204,11 @@ impl BpmTimeline {
                     continue;
                 }
 
-                let beat = if is_negative_bpm {
-                    point.start_beat - n as f32 / subdivision as f32
-                } else {
-                    point.start_beat + n as f32 / subdivision as f32
-                };
+                // Keep beat numbering continuous even when BPM is negative.
+                let beat = point.start_beat + n as f32 / subdivision as f32;
                 let measure_phase = beat / beats_per_measure;
                 let is_measure = (measure_phase - measure_phase.round()).abs() < 0.001;
-                let is_integer_beat = (beat - beat.round()).abs() < 0.001;
+                let is_integer_beat = (beat - beat.round()).abs() <= beat_snap_tol;
                 let is_beat = n % subdivision_i == 0;
                 let kind = if is_measure || is_integer_beat {
                     BarLineKind::Measure
@@ -227,12 +228,15 @@ impl BpmTimeline {
                     1.0
                 };
                 let label_grid = (beat / label_step_beats).round();
-                let show_measure_label = (beat / label_step_beats - label_grid).abs() < 0.001;
+                let label_snap_tol = beat_snap_tol.min(label_step_beats * 0.5);
+                let show_measure_label =
+                    (beat - label_grid * label_step_beats).abs() <= label_snap_tol;
                 let measure_pos = label_grid * label_step_beats;
 
                 output.push(BarLine {
                     time_ms: line_time_ms,
                     visual_beat: 0.0, // visible_barlines 不预算 visual_beat
+                    beat,
                     kind,
                     measure_pos,
                     show_measure_label,
@@ -251,6 +255,7 @@ impl BpmTimeline {
             if let Some(last) = deduped.last_mut() {
                 if (last.time_ms - line.time_ms).abs() < 0.001 {
                     if line.kind.priority() > last.kind.priority() {
+                        last.beat = line.beat;
                         last.kind = line.kind;
                         last.measure_pos = line.measure_pos;
                         last.show_measure_label = line.show_measure_label;

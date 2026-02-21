@@ -135,6 +135,10 @@ fn handle_settings_action(
             editor.set_show_barlines(enabled);
             modify_settings(|s| s.show_barlines = enabled);
         }
+        SettingsAction::SetColorBarlines(enabled) => {
+            editor.set_color_barlines(enabled);
+            modify_settings(|s| s.color_barlines = enabled);
+        }
         SettingsAction::SetDebugHitbox(enabled) => {
             editor.set_debug_show_hitboxes(enabled);
             modify_settings(|s| s.debug_hitbox = enabled);

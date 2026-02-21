@@ -126,6 +126,7 @@ impl FallingGroundEditor {
                 autoplay_enabled: false,
                 show_spectrum: true,
                 show_barlines: true,
+                color_barlines: false,
                 show_minimap: false,
                 waveform: None,
                 waveform_error: None,
@@ -562,6 +563,15 @@ impl FallingGroundEditor {
 
     pub fn set_show_barlines(&mut self, enabled: bool) {
         self.view.show_barlines = enabled;
+    }
+
+    #[allow(dead_code)]
+    pub fn color_barlines(&self) -> bool {
+        self.view.color_barlines
+    }
+
+    pub fn set_color_barlines(&mut self, enabled: bool) {
+        self.view.color_barlines = enabled;
     }
 
     #[allow(dead_code)]

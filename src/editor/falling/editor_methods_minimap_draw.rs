@@ -271,11 +271,14 @@ impl FallingGroundEditor {
                     page_start_ms,
                     page_end_ms,
                 );
-                let (thickness, color) = match barline.kind {
-                    BarLineKind::Measure => (1.3 * ui, Color::from_rgba(168, 190, 236, 170)),
-                    BarLineKind::Beat => (1.0 * ui, Color::from_rgba(108, 128, 170, 124)),
-                    BarLineKind::Subdivision => (0.8 * ui, Color::from_rgba(76, 96, 132, 92)),
+                let (thickness, mut color, alpha) = match barline.kind {
+                    BarLineKind::Measure => (1.3 * ui, Color::from_rgba(168, 190, 236, 170), 170),
+                    BarLineKind::Beat => (1.0 * ui, Color::from_rgba(108, 128, 170, 124), 124),
+                    BarLineKind::Subdivision => (0.8 * ui, Color::from_rgba(76, 96, 132, 92), 92),
                 };
+                if self.view.color_barlines {
+                    color = self.colorized_barline_color(barline.beat, alpha);
+                }
                 draw_line(
                     group_rect.x,
                     y,

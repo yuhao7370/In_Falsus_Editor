@@ -50,6 +50,7 @@ struct ViewState {
     autoplay_enabled: bool,
     show_spectrum: bool,
     show_barlines: bool,
+    color_barlines: bool,
     show_minimap: bool,
     waveform: Option<Waveform>,
     waveform_error: Option<String>,
