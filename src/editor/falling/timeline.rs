@@ -207,8 +207,9 @@ impl BpmTimeline {
                 };
                 let measure_phase = beat / beats_per_measure;
                 let is_measure = (measure_phase - measure_phase.round()).abs() < 0.001;
+                let is_integer_beat = (beat - beat.round()).abs() < 0.001;
                 let is_beat = n % subdivision_i == 0;
-                let kind = if is_measure {
+                let kind = if is_measure || is_integer_beat {
                     BarLineKind::Measure
                 } else if is_beat {
                     BarLineKind::Beat
@@ -459,5 +460,4 @@ impl TrackTimeline {
         }
     }
 }
-
 
