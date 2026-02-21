@@ -27,6 +27,7 @@ pub fn apply_settings_to_editor(editor: &mut FallingGroundEditor, audio: &mut Au
     editor.set_x_split(s.x_split);
     editor.set_xsplit_editable(s.xsplit_editable);
     editor.set_debug_show_hitboxes(s.debug_hitbox);
+    editor.set_debug_skyarea_body_only(s.debug_skyarea_body_only);
     editor.set_i18n(i18n.clone());
     audio.set_master_volume(s.master_volume, i18n);
     audio.set_music_volume(s.music_volume, i18n);

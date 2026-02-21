@@ -55,6 +55,8 @@ pub struct AppSettings {
     pub debug_hitbox: bool,
     #[serde(default)]
     pub debug_audio: bool,
+    #[serde(default)]
+    pub debug_skyarea_body_only: bool,
     #[serde(default = "default_true")]
     pub hitsound_enabled: bool,
     #[serde(default = "default_volume")]
@@ -107,6 +109,7 @@ impl Default for AppSettings {
             xsplit_editable: false,
             debug_hitbox: false,
             debug_audio: false,
+            debug_skyarea_body_only: false,
             hitsound_enabled: true,
             hitsound_tap_volume: default_volume(),
             hitsound_arc_volume: default_volume(),

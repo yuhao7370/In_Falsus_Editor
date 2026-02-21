@@ -46,6 +46,7 @@ struct ViewState {
     scroll_speed: f32,
     render_scope: RenderScope,
     debug_show_hitboxes: bool,
+    debug_skyarea_body_only: bool,
     autoplay_enabled: bool,
     show_spectrum: bool,
     show_barlines: bool,

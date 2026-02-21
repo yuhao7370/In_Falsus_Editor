@@ -122,6 +122,7 @@ impl FallingGroundEditor {
                 scroll_speed: DEFAULT_SCROLL_SPEED,
                 render_scope: RenderScope::Both,
                 debug_show_hitboxes: false,
+                debug_skyarea_body_only: false,
                 autoplay_enabled: false,
                 show_spectrum: true,
                 show_barlines: true,
@@ -522,6 +523,15 @@ impl FallingGroundEditor {
     pub fn set_debug_show_hitboxes(&mut self, enabled: bool) {
         self.view.debug_show_hitboxes = enabled;
         self.status = format!("debug hitbox {}", if enabled { "on" } else { "off" });
+    }
+
+    #[allow(dead_code)]
+    pub fn debug_skyarea_body_only(&self) -> bool {
+        self.view.debug_skyarea_body_only
+    }
+
+    pub fn set_debug_skyarea_body_only(&mut self, enabled: bool) {
+        self.view.debug_skyarea_body_only = enabled;
     }
 
     #[allow(dead_code)]

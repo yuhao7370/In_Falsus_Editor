@@ -46,6 +46,7 @@ pub enum SettingsAction {
     SetHitsoundArcVolume(f32),
     SetHitsoundDelay(i32),
     SetDebugAudio(bool),
+    SetDebugSkyAreaBodyOnly(bool),
     SetShortcut(ShortcutAction, KeyChord),
     ResetShortcut(ShortcutAction),
 }

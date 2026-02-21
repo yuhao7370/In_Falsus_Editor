@@ -204,6 +204,10 @@ fn handle_settings_action(
         SettingsAction::SetDebugAudio(enabled) => {
             modify_settings(|s| s.debug_audio = enabled);
         }
+        SettingsAction::SetDebugSkyAreaBodyOnly(enabled) => {
+            editor.set_debug_skyarea_body_only(enabled);
+            modify_settings(|s| s.debug_skyarea_body_only = enabled);
+        }
         SettingsAction::SetShortcut(action, chord) => {
             modify_settings(|s| {
                 let _ = s.shortcuts.set_chord(action, chord);

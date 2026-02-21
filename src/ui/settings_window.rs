@@ -154,6 +154,7 @@ pub fn draw_settings_window(
     let current_hitsound_arc_volume = s.hitsound_arc_volume;
     let current_hitsound_delay_ms = s.hitsound_delay_ms;
     let current_debug_audio = s.debug_audio;
+    let current_debug_skyarea_body_only = s.debug_skyarea_body_only;
     let current_shortcuts = s.shortcuts.clone();
     drop(s);
 
@@ -470,6 +471,9 @@ pub fn draw_settings_window(
                             }
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugAudio), current_debug_audio).clicked() {
                                 action = Some(TopMenuAction::Settings(SettingsAction::SetDebugAudio(!current_debug_audio)));
+                            }
+                            if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugSkyAreaBodyOnly), current_debug_skyarea_body_only).clicked() {
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetDebugSkyAreaBodyOnly(!current_debug_skyarea_body_only)));
                             }
                         }
                     }

@@ -189,6 +189,11 @@ impl FallingGroundEditor {
                             draw_selected_note_outline(bounds.x, bounds.y, bounds.w, bounds.h);
                         }
                     } else {
+                        if note.kind == GroundNoteKind::SkyArea
+                            && self.view.debug_skyarea_body_only
+                        {
+                            continue;
+                        }
                         let head_color = match note.kind {
                             GroundNoteKind::SkyArea => AIR_SKYAREA_HEAD_COLOR,
                             _ => palette.tap,

@@ -105,13 +105,14 @@ impl FallingGroundEditor {
         let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, lane_h);
 
         let head_w = (head_right - head_left).max(2.0);
+        let render_caps = !self.view.debug_skyarea_body_only;
         // AutoPlay: head 过判定线后不再绘制
         let head_visible = if self.view.autoplay_enabled && note.time_ms <= current_ms {
             false
         } else {
             head_y >= clip_top - 18.0 && head_y <= clip_bottom + 18.0
         };
-        if head_visible {
+        if render_caps && head_visible {
             draw_rectangle(
                 head_left,
                 head_y - 8.0,
@@ -132,7 +133,7 @@ impl FallingGroundEditor {
             } else {
                 has_tail && tail_y >= clip_top - 18.0 && tail_y <= clip_bottom + 18.0
             };
-        if tail_visible {
+        if render_caps && tail_visible {
             draw_rectangle(
                 tail_left,
                 tail_y - 8.0,

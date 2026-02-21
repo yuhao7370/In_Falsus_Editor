@@ -579,7 +579,7 @@ impl FallingGroundEditor {
                     }
                 }
 
-                if note_time >= start_ms && note_time <= end_ms {
+                if !self.view.debug_skyarea_body_only && note_time >= start_ms && note_time <= end_ms {
                     let y_head_local =
                         self.minimap_segment_time_to_y(note_time, s_rect, start_ms, end_ms);
                     let head_left = s_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * s_rect.w;
@@ -592,7 +592,7 @@ impl FallingGroundEditor {
                         AIR_SKYAREA_HEAD_COLOR,
                     );
                 }
-                if note_end >= start_ms && note_end <= end_ms {
+                if !self.view.debug_skyarea_body_only && note_end >= start_ms && note_end <= end_ms {
                     let y_tail_local =
                         self.minimap_segment_time_to_y(note_end, s_rect, start_ms, end_ms);
                     let tail_left = s_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * s_rect.w;
@@ -612,20 +612,22 @@ impl FallingGroundEditor {
                 let y_tail_local =
                     self.minimap_segment_time_to_y(note_end, s_rect, start_ms, end_ms);
                 let head_w = (s_rect.w / 4.0 * 0.64).max(1.0);
-                draw_rectangle(
-                    x - head_w * 0.5,
-                    y_head_local - head_h * 0.5,
-                    head_w,
-                    head_h,
-                    AIR_SKYAREA_HEAD_COLOR,
-                );
-                draw_rectangle(
-                    x - head_w * 0.5,
-                    y_tail_local - head_h * 0.5,
-                    head_w,
-                    head_h,
-                    AIR_SKYAREA_TAIL_COLOR,
-                );
+                if !self.view.debug_skyarea_body_only {
+                    draw_rectangle(
+                        x - head_w * 0.5,
+                        y_head_local - head_h * 0.5,
+                        head_w,
+                        head_h,
+                        AIR_SKYAREA_HEAD_COLOR,
+                    );
+                    draw_rectangle(
+                        x - head_w * 0.5,
+                        y_tail_local - head_h * 0.5,
+                        head_w,
+                        head_h,
+                        AIR_SKYAREA_TAIL_COLOR,
+                    );
+                }
                 draw_line(
                     x,
                     y_head_local,
