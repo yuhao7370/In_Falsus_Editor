@@ -338,7 +338,7 @@ impl FallingGroundEditor {
                     id: self.editor_state.next_event_id,
                     kind: TimelineEventKind::Lane,
                     time_ms,
-                    label: "lane 0 on".to_owned(),
+                    label: "lane 1 on".to_owned(),
                     color: Color::from_rgba(232, 198, 124, 255),
                 });
                 self.status = format!("new lane event {:.0}ms", time_ms.round());

@@ -192,7 +192,7 @@ impl FallingGroundEditor {
                 // Parse "lane N on/off" from label
                 let parts: Vec<&str> = event.label.split_whitespace().collect();
                 if parts.len() >= 3 {
-                    let lane = parts[1].parse::<i32>().unwrap_or(0);
+                    let lane = parts[1].parse::<i32>().unwrap_or(1);
                     let enable = parts[2] == "on";
                     events.push(ChartEvent::Lane {
                         time: event.time_ms as f64,
@@ -845,7 +845,7 @@ impl FallingGroundEditor {
         let mut bpm = 120.0_f32;
         let mut beats_per_measure = 4.0_f32;
         let mut speed = 1.0_f32;
-        let mut lane = 0_i32;
+        let mut lane = 1_i32;
         let mut enable = true;
         match event.kind {
             TimelineEventKind::Bpm => {
@@ -899,7 +899,7 @@ impl FallingGroundEditor {
                 // Parse from label: "lane N on/off"
                 let parts: Vec<&str> = event.label.split_whitespace().collect();
                 if parts.len() >= 3 {
-                    lane = parts[1].parse::<i32>().unwrap_or(0);
+                    lane = parts[1].parse::<i32>().unwrap_or(1);
                     enable = parts[2] == "on";
                 }
             }
@@ -968,8 +968,9 @@ impl FallingGroundEditor {
                 }
                 TimelineEventKind::Lane => {
                     event.time_ms = data.time_ms.max(0.0);
+                    let lane = data.lane.clamp(1, 4);
                     let on_off = if data.enable { "on" } else { "off" };
-                    event.label = format!("lane {} {}", data.lane, on_off);
+                    event.label = format!("lane {} {}", lane, on_off);
                 }
             }
             Some(kind)

@@ -987,9 +987,9 @@ fn draw_event_property_editor(
         "Lane" => {
             prop_label(ui, "Lane");
             ui.horizontal(|ui| {
-                if pm_btn(ui, "-") { data.lane = (data.lane - 1).max(0); changed = true; }
-                if num_input_i32(ui, "evt_lane", &mut data.lane, 0, 5) { changed = true; }
-                if pm_btn(ui, "+") { data.lane = (data.lane + 1).min(5); changed = true; }
+                if pm_btn(ui, "-") { data.lane = (data.lane - 1).max(1); changed = true; }
+                if num_input_i32(ui, "evt_lane", &mut data.lane, 1, 4) { changed = true; }
+                if pm_btn(ui, "+") { data.lane = (data.lane + 1).min(4); changed = true; }
             });
             prop_label(ui, "Enable");
             ui.horizontal(|ui| {
