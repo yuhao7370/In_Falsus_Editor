@@ -5,8 +5,9 @@ impl FallingGroundEditor {
         &self,
         split_rect: Rect,
         current_ms: f32,
+        current_vb: f32,
         judge_y: f32,
-        lane_h: f32,
+        pixels_per_ms: f32,
         note: &GroundNote,
         shape: SkyAreaShape,
         selected: bool,
@@ -31,8 +32,8 @@ impl FallingGroundEditor {
                 let p1 = (i + 1) as f32 / seg_count as f32;
                 let t0 = note.time_ms + note.duration_ms * p0;
                 let t1 = note.time_ms + note.duration_ms * p1;
-                let y0_raw = self.time_to_y(t0, current_ms, judge_y, lane_h);
-                let y1_raw = self.time_to_y(t1, current_ms, judge_y, lane_h);
+                let y0_raw = self.time_to_y_from_metrics(t0, current_vb, judge_y, pixels_per_ms);
+                let y1_raw = self.time_to_y_from_metrics(t1, current_vb, judge_y, pixels_per_ms);
                 if (y0_raw < clip_top && y1_raw < clip_top)
                     || (y0_raw > clip_bottom && y1_raw > clip_bottom)
                 {
@@ -99,10 +100,12 @@ impl FallingGroundEditor {
 
         let head_left = split_rect.x + shape.start_left_norm.clamp(0.0, 1.0) * split_rect.w;
         let head_right = split_rect.x + shape.start_right_norm.clamp(0.0, 1.0) * split_rect.w;
-        let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, lane_h);
+        let head_y =
+            self.time_to_y_from_metrics(note.time_ms, current_vb, judge_y, pixels_per_ms);
         let tail_left = split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
         let tail_right = split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
-        let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, lane_h);
+        let tail_y =
+            self.time_to_y_from_metrics(note.end_time_ms(), current_vb, judge_y, pixels_per_ms);
 
         let head_w = (head_right - head_left).max(2.0);
         let render_caps = !self.view.debug_skyarea_body_only;

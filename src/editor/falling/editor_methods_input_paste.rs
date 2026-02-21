@@ -380,15 +380,25 @@ impl FallingGroundEditor {
         if let Some(rect) = air_rect {
             let split_rect = air_split_rect(rect);
             let judge_y = rect.y + rect.h * 0.82;
+            let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+            let pixels_per_ms = self.pixels_per_ms(rect.h);
             let flick_side_h = self.flick_side_height_px(rect.h);
             self.begin_view_clip_rect(rect);
             for note in preview.iter().filter(|n| is_air_kind(n.kind)) {
-                let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+                let head_y =
+                    self.time_to_y_from_metrics(note.time_ms, current_vb, judge_y, pixels_per_ms);
 
                 if note.kind == GroundNoteKind::SkyArea {
                     if let Some(shape) = note.skyarea_shape {
                         self.draw_skyarea_shape(
-                            split_rect, current_ms, judge_y, rect.h, note, shape, false,
+                            split_rect,
+                            current_ms,
+                            current_vb,
+                            judge_y,
+                            pixels_per_ms,
+                            note,
+                            shape,
+                            false,
                         );
                     }
                 } else if note.kind == GroundNoteKind::Flick {

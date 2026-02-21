@@ -17,11 +17,14 @@ impl FallingGroundEditor {
         if is_ground_tool(place_type) {
             let lane_w = rect.w / LANE_COUNT as f32;
             let judge_y = rect.y + rect.h * 0.82;
+            let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+            let pixels_per_ms = self.pixels_per_ms(rect.h);
             let preview_time = self.apply_snap(
                 self.pointer_to_time(my, current_ms, judge_y, rect.h)
                     .max(0.0),
             );
-            let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
+            let preview_y =
+                self.time_to_y_from_metrics(preview_time, current_vb, judge_y, pixels_per_ms);
             let lane = lane_from_x(mx, rect.x, lane_w);
             let palette = lane_note_palette(lane);
             draw_line(
@@ -38,8 +41,12 @@ impl FallingGroundEditor {
                         let lane_x = rect.x + lane_w * pending.lane as f32;
                         let note_w = lane_w * 0.94;
                         let note_x = lane_x + (lane_w - note_w) * 0.5;
-                        let start_y =
-                            self.time_to_y(pending.start_time_ms, current_ms, judge_y, rect.h);
+                        let start_y = self.time_to_y_from_metrics(
+                            pending.start_time_ms,
+                            current_vb,
+                            judge_y,
+                            pixels_per_ms,
+                        );
                         let y1 = start_y.min(preview_y);
                         let y2 = start_y.max(preview_y);
 
@@ -98,11 +105,14 @@ impl FallingGroundEditor {
                 return;
             }
             let judge_y = rect.y + rect.h * 0.82;
+            let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+            let pixels_per_ms = self.pixels_per_ms(rect.h);
             let preview_time = self.apply_snap(
                 self.pointer_to_time(my, current_ms, judge_y, rect.h)
                     .max(0.0),
             );
-            let preview_y = self.time_to_y(preview_time, current_ms, judge_y, rect.h);
+            let preview_y =
+                self.time_to_y_from_metrics(preview_time, current_vb, judge_y, pixels_per_ms);
             draw_line(
                 split_rect.x,
                 preview_y,
@@ -194,8 +204,9 @@ impl FallingGroundEditor {
                     self.draw_skyarea_shape(
                         split_rect,
                         current_ms,
+                        current_vb,
                         judge_y,
-                        rect.h,
+                        pixels_per_ms,
                         &preview_note,
                         shape,
                         false,

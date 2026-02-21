@@ -127,28 +127,31 @@ fn flick_geometry(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side
 }
 
 fn draw_flick_curve_shape(note: &GroundNote, note_x: f32, note_w: f32, head_y: f32, side_h: f32) {
+    const CURVE_STEPS: usize = 24;
     let (fill_color, edge_color) = flick_direction_shape_colors(note.flick_right);
     let geom = flick_geometry(note, note_x, note_w, head_y, side_h);
 
-    let mut top_curve = Vec::with_capacity(25);
-    for i in 0..=24 {
-        let t = i as f32 / 24.0;
+    let mut top_curve = [Vec2::new(0.0, 0.0); CURVE_STEPS + 1];
+    for (i, point) in top_curve.iter_mut().enumerate() {
+        let t = i as f32 / CURVE_STEPS as f32;
         let x = lerp(geom.x_start, geom.x_tip, t);
         let eased = ease_progress(Ease::SineOut, t);
         let y = lerp(geom.y_top, geom.y_tip_top, eased);
-        top_curve.push(Vec2::new(x, y));
+        *point = Vec2::new(x, y);
     }
 
-    let mut polygon = Vec::with_capacity(28);
-    polygon.push(Vec2::new(geom.x_start, geom.y_bottom));
-    polygon.extend_from_slice(&top_curve);
-    polygon.push(Vec2::new(geom.x_tip, geom.y_tip_bottom));
-
-    for i in 1..(polygon.len() - 1) {
-        draw_triangle(polygon[0], polygon[i], polygon[i + 1], fill_color);
+    let base = Vec2::new(geom.x_start, geom.y_bottom);
+    for i in 0..CURVE_STEPS {
+        draw_triangle(base, top_curve[i], top_curve[i + 1], fill_color);
     }
+    draw_triangle(
+        base,
+        top_curve[CURVE_STEPS],
+        Vec2::new(geom.x_tip, geom.y_tip_bottom),
+        fill_color,
+    );
 
-    for i in 0..(top_curve.len() - 1) {
+    for i in 0..CURVE_STEPS {
         let a = top_curve[i];
         let b = top_curve[i + 1];
         draw_line(a.x, a.y, b.x, b.y, geom.stroke, edge_color);

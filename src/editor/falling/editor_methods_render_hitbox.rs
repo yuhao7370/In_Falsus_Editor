@@ -7,6 +7,8 @@ impl FallingGroundEditor {
         }
         let lane_w = rect.w / LANE_COUNT as f32;
         let judge_y = rect.y + rect.h * 0.82;
+        let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+        let pixels_per_ms = self.pixels_per_ms(rect.h);
         let head_color = Color::from_rgba(84, 230, 255, 232);
         let tail_color = Color::from_rgba(255, 164, 88, 228);
         let body_color = Color::from_rgba(138, 255, 152, 218);
@@ -20,11 +22,21 @@ impl FallingGroundEditor {
             }
             let note_w = note_head_width(note, lane_w);
             let note_x = ground_note_x(note, rect.x, lane_w);
-            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let head_y =
+                self.time_to_y_from_metrics(note.time_ms, current_vb, judge_y, pixels_per_ms);
+            let tail_y = if note.has_tail() {
+                Some(self.time_to_y_from_metrics(
+                    note.end_time_ms(),
+                    current_vb,
+                    judge_y,
+                    pixels_per_ms,
+                ))
+            } else {
+                None
+            };
 
             // 屏幕外裁剪：无尾音符只看 head，有尾音符看 head+tail 范围
-            if note.has_tail() {
-                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+            if let Some(tail_y) = tail_y {
                 let y_min = head_y.min(tail_y);
                 let y_max = head_y.max(tail_y);
                 if y_max < view_top || y_min > view_bottom {
@@ -37,8 +49,7 @@ impl FallingGroundEditor {
             let head_rect = note_end_hit_rect(note_x, note_w, head_y);
             draw_debug_hitbox_rect(head_rect, rect, head_color, 1.3);
 
-            if note.has_tail() {
-                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+            if let Some(tail_y) = tail_y {
                 let tail_rect = note_end_hit_rect(note_x, note_w, tail_y);
                 draw_debug_hitbox_rect(tail_rect, rect, tail_color, 1.3);
 
@@ -78,6 +89,8 @@ impl FallingGroundEditor {
         let split_rect = air_split_rect(rect);
         let clip_rect = rect;
         let judge_y = rect.y + rect.h * 0.82;
+        let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+        let pixels_per_ms = self.pixels_per_ms(rect.h);
         let flick_side_h = self.flick_side_height_px(rect.h);
         let head_color = Color::from_rgba(116, 234, 255, 232);
         let tail_color = Color::from_rgba(246, 186, 114, 228);
@@ -91,10 +104,20 @@ impl FallingGroundEditor {
                 continue;
             }
 
-            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let head_y =
+                self.time_to_y_from_metrics(note.time_ms, current_vb, judge_y, pixels_per_ms);
+            let tail_y = if note.has_tail() {
+                Some(self.time_to_y_from_metrics(
+                    note.end_time_ms(),
+                    current_vb,
+                    judge_y,
+                    pixels_per_ms,
+                ))
+            } else {
+                None
+            };
             // 屏幕外裁剪
-            if note.has_tail() {
-                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+            if let Some(tail_y) = tail_y {
                 let y_min = head_y.min(tail_y);
                 let y_max = head_y.max(tail_y);
                 if y_max < view_top || y_min > view_bottom {
@@ -107,7 +130,6 @@ impl FallingGroundEditor {
             let center_x = split_rect.x + note.center_x_norm * split_rect.w;
             let note_w = air_note_width(note, split_rect.w);
             let note_x = center_x - note_w * 0.5;
-            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
             let mut label_rect = if note.kind == GroundNoteKind::Flick {
                 flick_rect_hitbox(note, note_x, note_w, head_y, flick_side_h)
             } else {
@@ -124,7 +146,7 @@ impl FallingGroundEditor {
                         split_rect.x + shape.end_left_norm.clamp(0.0, 1.0) * split_rect.w;
                     let tail_right =
                         split_rect.x + shape.end_right_norm.clamp(0.0, 1.0) * split_rect.w;
-                    let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                    let tail_y = tail_y.unwrap_or(head_y);
 
                     let head_rect =
                         note_end_hit_rect(head_left, (head_right - head_left).max(2.0), head_y);
@@ -145,8 +167,7 @@ impl FallingGroundEditor {
                 };
                 draw_debug_hitbox_rect(head_rect, clip_rect, head_color, 1.3);
                 label_rect = head_rect;
-                if note.has_tail() {
-                    let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                if let Some(tail_y) = tail_y {
                     let body_rect =
                         note_body_hit_rect(note_x, note_w, head_y.min(tail_y), head_y.max(tail_y));
                     draw_debug_hitbox_rect(body_rect, clip_rect, body_color, 1.2);

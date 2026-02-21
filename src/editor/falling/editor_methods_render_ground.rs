@@ -55,15 +55,15 @@ impl FallingGroundEditor {
         }
 
         let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
-        let pixels_per_ms_bl = (self.view.scroll_speed * rect.h / 1000.0).max(0.001);
+        let pixels_per_ms = self.pixels_per_ms(rect.h);
         // 计算视口对应的 visual_beat 范围（上方和下方）
-        let vb_above = (judge_y - rect.y) / pixels_per_ms_bl;
-        let vb_below = (rect.y + rect.h - judge_y) / pixels_per_ms_bl;
+        let vb_above = (judge_y - rect.y) / pixels_per_ms;
+        let vb_below = (rect.y + rect.h - judge_y) / pixels_per_ms;
         let start_vb = current_vb - vb_below - 1.0;
         let end_vb = current_vb + vb_above + 1.0;
         if self.view.show_barlines {
             for barline in self.visible_barlines_cached(start_vb, end_vb) {
-                let y = judge_y - (barline.visual_beat - current_vb) * pixels_per_ms_bl;
+                let y = judge_y - (barline.visual_beat - current_vb) * pixels_per_ms;
                 if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
                     continue;
                 }
@@ -103,12 +103,13 @@ impl FallingGroundEditor {
 
             let note_w = note_head_width(note, lane_w);
             let note_x = ground_note_x(note, rect.x, lane_w);
-            let head_y = self.time_to_y(note.time_ms, current_ms, judge_y, rect.h);
+            let head_y = self.time_to_y_from_metrics(note.time_ms, current_vb, judge_y, pixels_per_ms);
             let selected = self.selection.selected_note_ids.contains(&note.id);
             let palette = lane_note_palette(note.lane);
 
             if note.has_tail() {
-                let tail_y = self.time_to_y(note.end_time_ms(), current_ms, judge_y, rect.h);
+                let tail_y =
+                    self.time_to_y_from_metrics(note.end_time_ms(), current_vb, judge_y, pixels_per_ms);
                 let y1 = head_y.min(tail_y);
                 let y2 = head_y.max(tail_y);
                 if y2 >= rect.y && y1 <= rect.y + rect.h {

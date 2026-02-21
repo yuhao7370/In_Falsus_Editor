@@ -7,7 +7,7 @@ impl FallingGroundEditor {
 
     fn pointer_to_time(&self, mouse_y: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
         // scroll_speed 单位：屏高/秒，visual_beat 单位：毫秒等效（speed=1 时 = dt_ms）
-        let pixels_per_ms = (self.view.scroll_speed * lane_h / 1000.0).max(0.001);
+        let pixels_per_ms = self.pixels_per_ms(lane_h);
         let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
         let delta_vb = (judge_y - mouse_y) / pixels_per_ms;
         let target_vb = current_vb + delta_vb;
@@ -16,14 +16,25 @@ impl FallingGroundEditor {
             .visual_beat_to_time(target_vb)
     }
 
-    fn time_to_y(&self, note_time_ms: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
-        let pixels_per_ms = (self.view.scroll_speed * lane_h / 1000.0).max(0.001);
-        let note_vb = self
-            .editor_state
-            .track_timeline
-            .visual_beat_at(note_time_ms);
-        let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+    fn pixels_per_ms(&self, lane_h: f32) -> f32 {
+        (self.view.scroll_speed * lane_h / 1000.0).max(0.001)
+    }
+
+    fn time_to_y_from_metrics(
+        &self,
+        note_time_ms: f32,
+        current_vb: f32,
+        judge_y: f32,
+        pixels_per_ms: f32,
+    ) -> f32 {
+        let note_vb = self.editor_state.track_timeline.visual_beat_at(note_time_ms);
         judge_y - (note_vb - current_vb) * pixels_per_ms
+    }
+
+    fn time_to_y(&self, note_time_ms: f32, current_ms: f32, judge_y: f32, lane_h: f32) -> f32 {
+        let pixels_per_ms = self.pixels_per_ms(lane_h);
+        let current_vb = self.editor_state.track_timeline.visual_beat_at(current_ms);
+        self.time_to_y_from_metrics(note_time_ms, current_vb, judge_y, pixels_per_ms)
     }
 
     /// 计算当前视口中可见的时间范围（考虑 track speed 变化）。
@@ -53,7 +64,7 @@ impl FallingGroundEditor {
         judge_y: f32,
         lane_h: f32,
     ) -> f32 {
-        let pixels_per_ms = (self.view.scroll_speed * lane_h / 1000.0).max(0.001);
+        let pixels_per_ms = self.pixels_per_ms(lane_h);
         judge_y - (note_time_ms - current_ms) * pixels_per_ms
     }
 
@@ -65,7 +76,7 @@ impl FallingGroundEditor {
         _current_ms: f32,
         judge_y: f32,
     ) -> (f32, f32) {
-        let pixels_per_ms = (self.view.scroll_speed * rect_h / 1000.0).max(0.001);
+        let pixels_per_ms = self.pixels_per_ms(rect_h);
         let ahead_ms = (judge_y - rect_y) / pixels_per_ms;
         let behind_ms = (rect_y + rect_h - judge_y) / pixels_per_ms;
         (ahead_ms.max(0.0), behind_ms.max(0.0))
