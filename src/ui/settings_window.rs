@@ -143,6 +143,7 @@ pub fn draw_settings_window(
     let current_debug_hitbox = s.debug_hitbox;
     let current_autoplay = s.autoplay;
     let current_show_spectrum = s.show_spectrum;
+    let current_show_barlines = s.show_barlines;
     let current_show_minimap = s.show_minimap;
     let current_scroll_speed = s.scroll_speed;
     let current_snap_division = s.snap_division;
@@ -310,6 +311,9 @@ pub fn draw_settings_window(
                             }
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsShowSpectrum), current_show_spectrum).clicked() {
                                 action = Some(TopMenuAction::Settings(SettingsAction::SetShowSpectrum(!current_show_spectrum)));
+                            }
+                            if draw_setting_row(ui, i18n.t(TextKey::SettingsShowBarlines), current_show_barlines).clicked() {
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetShowBarlines(!current_show_barlines)));
                             }
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsShowMinimap), current_show_minimap).clicked() {
                                 action = Some(TopMenuAction::Settings(SettingsAction::SetMinimapVisible(!current_show_minimap)));

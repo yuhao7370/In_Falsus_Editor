@@ -32,6 +32,7 @@ pub enum SettingsAction {
     SetDebugHitbox(bool),
     SetAutoPlay(bool),
     SetShowSpectrum(bool),
+    SetShowBarlines(bool),
     SetMinimapVisible(bool),
     SetRenderScope(RenderScope),
     SetScrollSpeed(f32),

@@ -61,22 +61,24 @@ impl FallingGroundEditor {
         let vb_below = (rect.y + rect.h - judge_y) / pixels_per_ms_bl;
         let start_vb = current_vb - vb_below - 1.0;
         let end_vb = current_vb + vb_above + 1.0;
-        for barline in self.visible_barlines_cached(start_vb, end_vb) {
-            let y = judge_y - (barline.visual_beat - current_vb) * pixels_per_ms_bl;
-            if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
-                continue;
-            }
-            let (thickness, color) = match barline.kind {
-                BarLineKind::Measure => (2.1, Color::from_rgba(170, 205, 255, 210)),
-                BarLineKind::Beat => (1.3, Color::from_rgba(112, 148, 192, 186)),
-                BarLineKind::Subdivision => (0.9, Color::from_rgba(80, 108, 142, 142)),
-            };
-            draw_line(rect.x, y, rect.x + rect.w, y, thickness, color);
-            if barline.show_measure_label
-                && y >= barline_label_min_y
-                && y <= rect.y + rect.h - barline_label_baseline_offset
-            {
-                measure_labels.push((y, barline.measure_pos));
+        if self.view.show_barlines {
+            for barline in self.visible_barlines_cached(start_vb, end_vb) {
+                let y = judge_y - (barline.visual_beat - current_vb) * pixels_per_ms_bl;
+                if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
+                    continue;
+                }
+                let (thickness, color) = match barline.kind {
+                    BarLineKind::Measure => (2.1, Color::from_rgba(170, 205, 255, 210)),
+                    BarLineKind::Beat => (1.3, Color::from_rgba(112, 148, 192, 186)),
+                    BarLineKind::Subdivision => (0.9, Color::from_rgba(80, 108, 142, 142)),
+                };
+                draw_line(rect.x, y, rect.x + rect.w, y, thickness, color);
+                if barline.show_measure_label
+                    && y >= barline_label_min_y
+                    && y <= rect.y + rect.h - barline_label_baseline_offset
+                {
+                    measure_labels.push((y, barline.measure_pos));
+                }
             }
         }
 

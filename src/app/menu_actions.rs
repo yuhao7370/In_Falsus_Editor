@@ -131,6 +131,10 @@ fn handle_settings_action(
             editor.set_show_spectrum(enabled);
             modify_settings(|s| s.show_spectrum = enabled);
         }
+        SettingsAction::SetShowBarlines(enabled) => {
+            editor.set_show_barlines(enabled);
+            modify_settings(|s| s.show_barlines = enabled);
+        }
         SettingsAction::SetDebugHitbox(enabled) => {
             editor.set_debug_show_hitboxes(enabled);
             modify_settings(|s| s.debug_hitbox = enabled);

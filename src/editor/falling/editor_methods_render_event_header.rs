@@ -28,30 +28,32 @@ impl FallingGroundEditor {
         let (ahead_ms, behind_ms) =
             self.visible_ahead_behind_ms_linear(rect.y, rect.h, current_ms, judge_y);
 
-        for barline in self.editor_state.timeline.visible_barlines(
-            current_ms,
-            ahead_ms,
-            behind_ms,
-            self.view.snap_division,
-        ) {
-            let y = self.time_to_y_linear(barline.time_ms, current_ms, judge_y, rect.h);
-            if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
-                continue;
+        if self.view.show_barlines {
+            for barline in self.editor_state.timeline.visible_barlines(
+                current_ms,
+                ahead_ms,
+                behind_ms,
+                self.view.snap_division,
+            ) {
+                let y = self.time_to_y_linear(barline.time_ms, current_ms, judge_y, rect.h);
+                if y < rect.y - 2.0 || y > rect.y + rect.h + 2.0 {
+                    continue;
+                }
+                let (thickness, color) = match barline.kind {
+                    BarLineKind::Measure => (1.5, Color::from_rgba(102, 134, 180, 180)),
+                    BarLineKind::Beat => (1.1, Color::from_rgba(78, 104, 146, 152)),
+                    BarLineKind::Subdivision => (0.8, Color::from_rgba(58, 78, 112, 112)),
+                };
+                let margin = 6.0 * ui;
+                draw_line(
+                    rect.x + margin,
+                    y,
+                    rect.x + rect.w - margin,
+                    y,
+                    thickness,
+                    color,
+                );
             }
-            let (thickness, color) = match barline.kind {
-                BarLineKind::Measure => (1.5, Color::from_rgba(102, 134, 180, 180)),
-                BarLineKind::Beat => (1.1, Color::from_rgba(78, 104, 146, 152)),
-                BarLineKind::Subdivision => (0.8, Color::from_rgba(58, 78, 112, 112)),
-            };
-            let margin = 6.0 * ui;
-            draw_line(
-                rect.x + margin,
-                y,
-                rect.x + rect.w - margin,
-                y,
-                thickness,
-                color,
-            );
         }
 
         let start_ms = current_ms - behind_ms;

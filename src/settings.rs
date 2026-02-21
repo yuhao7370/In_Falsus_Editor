@@ -39,6 +39,8 @@ pub struct AppSettings {
     pub autoplay: bool,
     #[serde(default = "default_true")]
     pub show_spectrum: bool,
+    #[serde(default = "default_true")]
+    pub show_barlines: bool,
     #[serde(default)]
     pub show_minimap: bool,
     #[serde(default = "default_scroll_speed")]
@@ -97,6 +99,7 @@ impl Default for AppSettings {
             music_volume: default_volume(),
             autoplay: false,
             show_spectrum: true,
+            show_barlines: true,
             show_minimap: false,
             scroll_speed: default_scroll_speed(),
             snap_division: default_snap_division(),

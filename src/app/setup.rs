@@ -22,6 +22,7 @@ pub fn apply_settings_to_editor(editor: &mut FallingGroundEditor, audio: &mut Au
     editor.set_snap_division(s.snap_division);
     editor.set_autoplay_enabled(s.autoplay);
     editor.set_show_spectrum(s.show_spectrum);
+    editor.set_show_barlines(s.show_barlines);
     editor.set_show_minimap(s.show_minimap);
     editor.set_x_split(s.x_split);
     editor.set_xsplit_editable(s.xsplit_editable);

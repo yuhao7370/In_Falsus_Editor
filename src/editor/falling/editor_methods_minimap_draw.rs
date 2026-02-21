@@ -242,6 +242,9 @@ impl FallingGroundEditor {
 
 impl FallingGroundEditor {
     fn draw_minimap_barlines(&self, layout: MinimapDrawLayout) {
+        if !self.view.show_barlines {
+            return;
+        }
         let ui = layout.ui;
         for (group_rect, page_start_ms, page_end_ms) in [
             (layout.left_group_rect, 0.0_f32, layout.half_ms.max(0.001)),
