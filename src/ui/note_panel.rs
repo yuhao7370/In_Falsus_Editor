@@ -951,7 +951,7 @@ fn draw_event_property_editor(
             prop_label(ui, "BPM");
             ui.horizontal(|ui| { if num_input_f32(ui, "evt_bpm", &mut data.bpm, 0.001, 9999.0, 2) { changed = true; } });
             prop_label(ui, "BPL");
-            ui.horizontal(|ui| { if num_input_f32(ui, "evt_bpl", &mut data.beats_per_measure, 1.0, f32::MAX, 2) { changed = true; } });
+            ui.horizontal(|ui| { if num_input_f32(ui, "evt_bpl", &mut data.beats_per_measure, 0.0, f32::MAX, 2) { changed = true; } });
         }
         "Track" => {
             prop_label(ui, "Speed");

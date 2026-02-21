@@ -1099,13 +1099,22 @@ impl FallingGroundEditor {
     /// Restore the event backup without deselecting (used when selection changes during overlap cycling).
     pub fn restore_event_edit_backup(&mut self) {
         if let Some(backup) = self.selection.editing_event_backup.take() {
+            let mut restored_kind: Option<TimelineEventKind> = None;
             if let Some(event) = self
                 .editor_state
                 .timeline_events
                 .iter_mut()
                 .find(|e| e.id == backup.id)
             {
+                restored_kind = Some(backup.kind);
                 *event = backup;
+            }
+            if let Some(kind) = restored_kind {
+                match kind {
+                    TimelineEventKind::Bpm => self.rebuild_bpm_timeline_from_events(),
+                    TimelineEventKind::Track => self.rebuild_track_source_from_events(),
+                    TimelineEventKind::Lane => {}
+                }
             }
         }
     }
