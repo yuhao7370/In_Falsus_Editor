@@ -763,6 +763,8 @@ impl FallingGroundEditor {
                     shape.start_right_norm = (sc_clamped + sh).clamp(0.0, 1.0);
                     shape.end_left_norm = (ec_clamped - eh).clamp(0.0, 1.0);
                     shape.end_right_norm = (ec_clamped + eh).clamp(0.0, 1.0);
+                    shape.start_x_split = sxs;
+                    shape.end_x_split = exs;
                     shape.left_ease = Ease::from_value(data.left_ease);
                     shape.right_ease = Ease::from_value(data.right_ease);
                     shape.group_id = data.group_id.max(-1);
