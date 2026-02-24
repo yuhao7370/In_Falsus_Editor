@@ -95,7 +95,7 @@ pub fn handle_wheel(
         modify_settings(|s| s.scroll_speed = new_speed);
         info_toasts.push(format!("{}: {:.2} H/s", i18n.t(TextKey::SettingsFlowSpeed), new_speed));
     } else if !ui.egui_wants_pointer
-        && shift_down
+        && !shift_down
         && free_wheel_y.abs() > f32::EPSILON
         && !audio.is_playing()
         && audio.duration_sec() > 0.0
