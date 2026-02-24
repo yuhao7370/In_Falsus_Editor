@@ -648,9 +648,10 @@ fn draw_note_property_editor(
             if num_input_f64(ui, "flick_w", &mut w, 0.0, max_w, 0) { data.width = w as f32; changed = true; }
             if pm_btn(ui, "+") {
                 let candidate = w + 1.0;
-                if candidate <= max_w {
-                    w = candidate;
-                    data.width = w as f32;
+                if candidate <= data.x_split {
+                    let half = candidate / 2.0;
+                    data.x = data.x.clamp(half, data.x_split - half);
+                    data.width = candidate as f32;
                     changed = true;
                 }
             }
@@ -753,7 +754,15 @@ fn draw_note_property_editor(
             let max_w = flick_width_max_for_center(data.start_x, data.start_x_split);
             if pm_btn(ui, "-") { data.start_width = (data.start_width - 1.0).max(0.0); changed = true; }
             if num_input_f64(ui, "sky_sw", &mut data.start_width, 0.0, max_w, 0) { changed = true; }
-            if pm_btn(ui, "+") { data.start_width = (data.start_width + 1.0).min(max_w); changed = true; }
+            if pm_btn(ui, "+") {
+                let candidate = data.start_width + 1.0;
+                if candidate <= data.start_x_split {
+                    let half = candidate / 2.0;
+                    data.start_x = data.start_x.clamp(half, data.start_x_split - half);
+                    data.start_width = candidate;
+                    changed = true;
+                }
+            }
         });
         if xsplit_editable {
             prop_label(ui, "XSplit");
@@ -796,7 +805,15 @@ fn draw_note_property_editor(
             let max_w = flick_width_max_for_center(data.end_x, data.end_x_split);
             if pm_btn(ui, "-") { data.end_width = (data.end_width - 1.0).max(0.0); changed = true; }
             if num_input_f64(ui, "sky_ew", &mut data.end_width, 0.0, max_w, 0) { changed = true; }
-            if pm_btn(ui, "+") { data.end_width = (data.end_width + 1.0).min(max_w); changed = true; }
+            if pm_btn(ui, "+") {
+                let candidate = data.end_width + 1.0;
+                if candidate <= data.end_x_split {
+                    let half = candidate / 2.0;
+                    data.end_x = data.end_x.clamp(half, data.end_x_split - half);
+                    data.end_width = candidate;
+                    changed = true;
+                }
+            }
         });
         if xsplit_editable {
             prop_label(ui, "XSplit");
