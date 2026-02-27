@@ -1,5 +1,5 @@
 use crate::i18n::{I18n, TextKey};
-use crate::settings::settings;
+use crate::settings::{settings, SOCKET_PLAYBACK_SEND_RATE_MAX, SOCKET_PLAYBACK_SEND_RATE_MIN};
 use crate::shortcuts::{ShortcutAction, detect_key_chord};
 use crate::ui::input_state::{free_key_down, free_key_pressed};
 use crate::ui::snap_slider::draw_snap_slider;
@@ -156,6 +156,8 @@ pub fn draw_settings_window(
     let current_hitsound_delay_ms = s.hitsound_delay_ms;
     let current_debug_audio = s.debug_audio;
     let current_debug_skyarea_body_only = s.debug_skyarea_body_only;
+    let current_socket_server_enabled = s.socket_server_enabled;
+    let current_socket_playback_send_rate = s.socket_playback_send_rate;
     let current_shortcuts = s.shortcuts.clone();
     drop(s);
 
@@ -396,6 +398,27 @@ pub fn draw_settings_window(
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsXSplitEditable), current_xsplit_editable).clicked() {
                                 action = Some(TopMenuAction::Settings(SettingsAction::SetXSplitEditable(!current_xsplit_editable)));
                             }
+
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(i18n.t(TextKey::SettingsSocketPlaybackSendRate))
+                                    .color(egui::Color32::from_rgb(210, 210, 210)),
+                            );
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().slider_width = (ui.available_width() - 80.0).max(60.0);
+                                let mut send_rate = current_socket_playback_send_rate;
+                                let slider = egui::Slider::new(
+                                    &mut send_rate,
+                                    SOCKET_PLAYBACK_SEND_RATE_MIN..=SOCKET_PLAYBACK_SEND_RATE_MAX,
+                                )
+                                .show_value(true)
+                                .text("/s");
+                                if ui.add(slider).changed() {
+                                    action = Some(TopMenuAction::Settings(
+                                        SettingsAction::SetSocketPlaybackSendRate(send_rate),
+                                    ));
+                                }
+                            });
                         }
                         SettingsCategory::Shortcuts => {
                             if let Some(capturing_action) = *recording_shortcut {
@@ -478,6 +501,9 @@ pub fn draw_settings_window(
                             }
                             if draw_setting_row(ui, i18n.t(TextKey::SettingsDebugSkyAreaBodyOnly), current_debug_skyarea_body_only).clicked() {
                                 action = Some(TopMenuAction::Settings(SettingsAction::SetDebugSkyAreaBodyOnly(!current_debug_skyarea_body_only)));
+                            }
+                            if draw_setting_row(ui, i18n.t(TextKey::SettingsSocketServer), current_socket_server_enabled).clicked() {
+                                action = Some(TopMenuAction::Settings(SettingsAction::SetSocketServer(!current_socket_server_enabled)));
                             }
                         }
                     }

@@ -1,7 +1,7 @@
 use crate::audio::controller::AudioController;
 use crate::editor::falling::FallingGroundEditor;
 use crate::i18n::{I18n, TextKey};
-use crate::settings::{modify_settings, modify_settings_nosave};
+use crate::settings::{self, modify_settings, modify_settings_nosave};
 use crate::ui::info_toast::InfoToastManager;
 use crate::ui::top_menu::{EditAction, FileAction, SettingsAction, TopMenuAction};
 
@@ -211,6 +211,14 @@ fn handle_settings_action(
         SettingsAction::SetDebugSkyAreaBodyOnly(enabled) => {
             editor.set_debug_skyarea_body_only(enabled);
             modify_settings(|s| s.debug_skyarea_body_only = enabled);
+        }
+        SettingsAction::SetSocketServer(enabled) => {
+            modify_settings(|s| s.socket_server_enabled = enabled);
+        }
+        SettingsAction::SetSocketPlaybackSendRate(rate) => {
+            modify_settings(|s| {
+                s.socket_playback_send_rate = settings::AppSettings::clamp_socket_playback_send_rate(rate);
+            });
         }
         SettingsAction::SetShortcut(action, chord) => {
             modify_settings(|s| {

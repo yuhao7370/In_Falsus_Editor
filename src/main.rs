@@ -5,6 +5,7 @@ mod editor;
 mod i18n;
 mod shortcuts;
 mod settings;
+mod socket;
 mod ui;
 
 use app::constants::*;
@@ -23,6 +24,7 @@ use ui::info_toast::InfoToastManager;
 use ui::input_state::set_pointer_blocked;
 use ui::progress_bar::{TopProgressBarState, draw_top_progress_bar};
 use ui::scale::refresh_ui_scale;
+use socket::server::SocketServer;
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -45,6 +47,7 @@ async fn main() {
     let mut top_progress_state = TopProgressBarState::new();
     let mut ui = UiOrchestrator::new();
     let mut project_mgr = ProjectManager::new();
+    let mut socket_server = SocketServer::new();
     let macroquad_font = load_macroquad_cjk_font().await;
     editor.set_text_font(macroquad_font.clone());
     apply_settings_to_editor(&mut editor, &mut audio, &i18n);
@@ -142,7 +145,10 @@ async fn main() {
             audio.trigger_hitsounds(&note_heads);
         }
 
-        // 10. Toast 通知
+        // 10. WebSocket 服务器 tick
+        socket_server.tick(&editor, &audio);
+
+        // 11. Toast 通知
         info_toasts.draw(ui_scale, menu_height + top_bar_height, macroquad_font.as_ref());
 
         egui_macroquad::draw();

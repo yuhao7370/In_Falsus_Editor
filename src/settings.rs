@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
 const SETTINGS_FILE: &str = "settings.json";
+pub const SOCKET_PLAYBACK_SEND_RATE_MIN: u32 = 10;
+pub const SOCKET_PLAYBACK_SEND_RATE_MAX: u32 = 120;
 
 static SETTINGS: LazyLock<Mutex<AppSettings>> = LazyLock::new(|| {
     Mutex::new(AppSettings::load_from_file())
@@ -60,6 +62,10 @@ pub struct AppSettings {
     #[serde(default)]
     pub debug_skyarea_body_only: bool,
     #[serde(default = "default_true")]
+    pub socket_server_enabled: bool,
+    #[serde(default = "default_socket_playback_send_rate")]
+    pub socket_playback_send_rate: u32,
+    #[serde(default = "default_true")]
     pub hitsound_enabled: bool,
     #[serde(default = "default_volume")]
     pub hitsound_tap_volume: f32,
@@ -94,6 +100,9 @@ fn default_x_split() -> f64 {
 fn default_hitsound_max_voices() -> usize {
     8
 }
+fn default_socket_playback_send_rate() -> u32 {
+    SOCKET_PLAYBACK_SEND_RATE_MAX
+}
 
 impl Default for AppSettings {
     fn default() -> Self {
@@ -113,6 +122,8 @@ impl Default for AppSettings {
             debug_hitbox: false,
             debug_audio: false,
             debug_skyarea_body_only: false,
+            socket_server_enabled: true,
+            socket_playback_send_rate: default_socket_playback_send_rate(),
             hitsound_enabled: true,
             hitsound_tap_volume: default_volume(),
             hitsound_arc_volume: default_volume(),
@@ -126,7 +137,11 @@ impl Default for AppSettings {
 impl AppSettings {
     pub fn load_from_file() -> Self {
         match std::fs::read_to_string(SETTINGS_FILE) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+            Ok(content) => {
+                let mut loaded: Self = serde_json::from_str(&content).unwrap_or_default();
+                loaded.socket_playback_send_rate = Self::clamp_socket_playback_send_rate(loaded.socket_playback_send_rate);
+                loaded
+            }
             Err(_) => Self::default(),
         }
     }
@@ -144,5 +159,9 @@ impl AppSettings {
 
     pub fn set_language_from(&mut self, lang: &Language) {
         self.language = lang.code().to_ascii_lowercase();
+    }
+
+    pub fn clamp_socket_playback_send_rate(value: u32) -> u32 {
+        value.clamp(SOCKET_PLAYBACK_SEND_RATE_MIN, SOCKET_PLAYBACK_SEND_RATE_MAX)
     }
 }

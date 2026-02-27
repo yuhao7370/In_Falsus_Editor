@@ -256,6 +256,8 @@ pub enum TextKey {
     ActionSaveChartFailed,
     SettingsDebugAudio,
     SettingsDebugSkyAreaBodyOnly,
+    SettingsSocketServer,
+    SettingsSocketPlaybackSendRate,
     // ── Editor internal messages ──
     ActionLanguageSwitched,
     EditorNothingToCopy,
@@ -424,6 +426,8 @@ impl TextKey {
             TextKey::ActionSaveChartFailed => "action_save_chart_failed",
             TextKey::SettingsDebugAudio => "settings_debug_audio",
             TextKey::SettingsDebugSkyAreaBodyOnly => "settings_debug_skyarea_body_only",
+            TextKey::SettingsSocketServer => "settings_socket_server",
+            TextKey::SettingsSocketPlaybackSendRate => "settings_socket_playback_send_rate",
             // Editor internal
             TextKey::ActionLanguageSwitched => "action_language_switched",
             TextKey::EditorNothingToCopy => "editor_nothing_to_copy",

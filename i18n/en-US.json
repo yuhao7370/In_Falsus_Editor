@@ -142,6 +142,8 @@
   "action_save_chart_failed": "Failed to save chart",
   "settings_debug_audio": "Audio Debug Window",
   "settings_debug_skyarea_body_only": "SkyArea Body Only (No Head/Tail)",
+  "settings_socket_server": "Socket Server",
+  "settings_socket_playback_send_rate": "Socket Playback Send Rate",
   "action_language_switched": "Language switched to {lang}",
   "editor_nothing_to_copy": "Nothing to copy",
   "editor_copied_notes": "Copied {count} note(s)",

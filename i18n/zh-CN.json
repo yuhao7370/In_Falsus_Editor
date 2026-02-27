@@ -142,6 +142,8 @@
   "action_save_chart_failed": "保存谱面失败",
   "settings_debug_audio": "音频调试窗口",
   "settings_debug_skyarea_body_only": "SkyArea 仅渲染 Body（不渲染头尾）",
+  "settings_socket_server": "Socket 服务器",
+  "settings_socket_playback_send_rate": "Socket 播放状态发送频率",
   "action_language_switched": "语言已切换为 {lang}",
   "editor_nothing_to_copy": "没有可复制的音符",
   "editor_copied_notes": "已复制 {count} 个音符",

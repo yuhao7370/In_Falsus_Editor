@@ -48,6 +48,8 @@ pub enum SettingsAction {
     SetHitsoundDelay(i32),
     SetDebugAudio(bool),
     SetDebugSkyAreaBodyOnly(bool),
+    SetSocketServer(bool),
+    SetSocketPlaybackSendRate(u32),
     SetShortcut(ShortcutAction, KeyChord),
     ResetShortcut(ShortcutAction),
 }
@@ -499,4 +501,3 @@ pub fn draw_top_menu(
         any_popup_open,
     }
 }
-
