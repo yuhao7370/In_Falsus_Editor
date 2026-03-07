@@ -1,4 +1,4 @@
-﻿impl Chart {
+impl Chart {
 pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, String> {
     let content = fs::read_to_string(path).map_err(|e| format!("读取文件失败: {e}"))?;
     Self::parse(&content)

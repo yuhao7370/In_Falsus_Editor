@@ -117,6 +117,7 @@ impl FallingGroundEditor {
                 pending_skyarea: None,
                 editing_note_backup: None,
                 editing_event_backup: None,
+                property_panel_dirty: false,
                 box_select: None,
             },
             view: ViewState {
@@ -854,6 +855,11 @@ impl FallingGroundEditor {
         self.selection.selected_note_ids.len()
     }
 
+    /// 获取当前选中note的ID
+    pub fn selected_note_id(&self) -> Option<u64> {
+        self.selection.selected_note_id
+    }
+
     /// Returns true if the given note id is in the multi-selection set.
     #[allow(dead_code)]
     pub fn is_note_selected(&self, id: u64) -> bool {
@@ -1192,6 +1198,11 @@ impl FallingGroundEditor {
         self.selection.clear_event_selection();
         self.selection.event_overlap_cycle = None;
         self.selection.event_hover_hint = None;
+    }
+
+    /// 检查并清除属性面板脏标记
+    pub fn take_property_panel_dirty(&mut self) -> bool {
+        self.selection.take_property_panel_dirty()
     }
 
     #[allow(dead_code)]

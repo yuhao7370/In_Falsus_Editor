@@ -11,7 +11,7 @@ use crate::ui::fonts::init_egui_fonts;
 use crate::ui::info_toast::InfoToastManager;
 use crate::ui::input_state::{set_keyboard_blocked, set_pointer_blocked};
 use crate::ui::note_panel::{NOTE_PANEL_BASE_WIDTH_POINTS, PropertyEditState, draw_note_selector_panel, draw_snap_slider_panel};
-use crate::ui::scale::ui_scale_factor;
+use crate::ui::scale::{ui_scale_factor};
 use crate::ui::settings_window::{SettingsCategory, draw_settings_window};
 use crate::ui::top_menu::{FileAction, TopMenuAction, TopMenuResult, draw_top_menu};
 
@@ -20,7 +20,7 @@ use super::constants::*;
 /// egui UI 每帧绘制后的输出
 pub struct UiOutput {
     pub menu_action: Option<TopMenuAction>,
-    pub open_project: Option<(String, String)>,
+    pub open_project: Option<(String, String, f32)>,
     pub create_project: Option<CreateProjectParams>,
     pub current_project_action: Option<CurrentProjectAction>,
     pub egui_wants_pointer: bool,
@@ -91,7 +91,7 @@ impl UiOrchestrator {
         let mut top_menu_result = TopMenuResult { action: None, any_popup_open: false };
         let mut egui_wants_pointer = false;
         let mut egui_wants_keyboard = false;
-        let mut open_project_result: Option<(String, String)> = None;
+        let mut open_project_result: Option<(String, String, f32)> = None;
         let mut create_project_result: Option<CreateProjectParams> = None;
         let mut current_project_action: Option<CurrentProjectAction> = None;
 
@@ -295,7 +295,7 @@ impl UiOrchestrator {
     }
 
     /// 打开项目文件对话框，解析 .iffproj
-    fn pick_open_project(info_toasts: &mut InfoToastManager) -> Option<(String, String)> {
+    fn pick_open_project(info_toasts: &mut InfoToastManager) -> Option<(String, String, f32)> {
         if let Some(path) = rfd::FileDialog::new()
             .add_filter("IFF Project", &["iffproj"])
             .pick_file()
@@ -307,12 +307,13 @@ impl UiOrchestrator {
                         Ok(json) => {
                             let chart = json.get("chart_path").and_then(|v| v.as_str()).map(|s| s.to_string());
                             let audio_val = json.get("audio_path").and_then(|v| v.as_str()).map(|s| s.to_string());
+                            let last_music_time_ms = json.get("last_music_time_ms").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
                             if let (Some(cp_raw), Some(ap_raw)) = (chart, audio_val) {
                                 let cp_path = std::path::Path::new(&cp_raw);
                                 let ap_path = std::path::Path::new(&ap_raw);
                                 let cp = if cp_path.is_absolute() { cp_raw } else { proj_dir.join(cp_path).to_string_lossy().to_string() };
                                 let ap = if ap_path.is_absolute() { ap_raw } else { proj_dir.join(ap_path).to_string_lossy().to_string() };
-                                return Some((cp, ap));
+                                return Some((cp, ap, last_music_time_ms));
                             } else {
                                 info_toasts.push_warn("iffproj 文件缺少 chart_path 或 audio_path 字段");
                             }

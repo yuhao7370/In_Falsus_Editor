@@ -49,6 +49,7 @@ enum LoadPhase {
     OpenLoadChart {
         chart_path: String,
         audio_path: String,
+        last_music_time_ms: f32,
     },
 }
 
@@ -57,7 +58,7 @@ pub enum LoadAction {
     /// 无事发生，继续等待
     None,
     /// 请求主线程加载谱面
-    LoadChart { chart_path: String, audio_path: String },
+    LoadChart { chart_path: String, audio_path: String, last_music_time_ms: f32 },
     /// 后台解码完成，请求主线程安装已解码的 AudioClip（不阻塞）
     InstallAudio { clip: AudioClip, chart_path: String, audio_path: String },
     /// 加载出错
@@ -98,9 +99,9 @@ impl ProjectLoader {
     }
 
     /// 启动"打开项目"异步流程
-    pub fn start_open_project(&mut self, chart_path: String, audio_path: String) {
+    pub fn start_open_project(&mut self, chart_path: String, audio_path: String, last_music_time_ms: f32) {
         self.status_text = "加载谱面...".to_string();
-        self.phase = LoadPhase::OpenLoadChart { chart_path, audio_path };
+        self.phase = LoadPhase::OpenLoadChart { chart_path, audio_path, last_music_time_ms };
     }
 
     /// 每帧调用，推进状态机。返回需要主线程执行的动作。
@@ -123,7 +124,7 @@ impl ProjectLoader {
                                 chart_path: chart_path.clone(),
                                 audio_path: audio_path.clone(),
                             };
-                            LoadAction::LoadChart { chart_path, audio_path }
+                            LoadAction::LoadChart { chart_path, audio_path, last_music_time_ms: 0.0 }
                         }
                         Err(e) => {
                             self.status_text.clear();
@@ -165,10 +166,10 @@ impl ProjectLoader {
 
             // ── 打开项目 ──
 
-            LoadPhase::OpenLoadChart { chart_path, audio_path } => {
+            LoadPhase::OpenLoadChart { chart_path, audio_path, last_music_time_ms } => {
                 self.status_text = "加载谱面...".to_string();
                 self.phase = LoadPhase::Idle;
-                LoadAction::LoadChart { chart_path, audio_path }
+                LoadAction::LoadChart { chart_path, audio_path, last_music_time_ms }
             }
 
         }
@@ -245,6 +246,7 @@ fn create_project_on_disk_sync(
     let proj_json = serde_json::json!({
         "audio_path": audio_filename,
         "chart_path": chart_filename,
+        "last_music_time_ms": 0.0,
     });
     let proj_content = serde_json::to_string_pretty(&proj_json)
         .map_err(|e| format!("序列化项目文件失败: {e}"))?;

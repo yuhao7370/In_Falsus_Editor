@@ -40,6 +40,7 @@ struct SelectionState {
     pending_skyarea: Option<PendingSkyAreaPlacement>,
     editing_note_backup: Option<GroundNote>,
     editing_event_backup: Option<TimelineEvent>,
+    property_panel_dirty: bool,
     box_select: Option<BoxSelectState>,
 }
 
@@ -177,6 +178,12 @@ impl SelectionState {
         self.multi_drag_state = None;
         self.overlap_cycle = None;
         self.hover_overlap_hint = None;
+    }
+
+    fn take_property_panel_dirty(&mut self) -> bool {
+        let dirty = self.property_panel_dirty;
+        self.property_panel_dirty = false;
+        dirty
     }
 }
 

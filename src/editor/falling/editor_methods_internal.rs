@@ -473,6 +473,7 @@ impl FallingGroundEditor {
                         .t(crate::i18n::TextKey::SpectrumLoadedOk)
                         .to_owned();
                     self.push_toast(msg);
+                    self.rebuild_barline_cache();
                 }
                 Ok(Err(err)) => {
                     self.view.waveform = None;
@@ -698,10 +699,14 @@ impl FallingGroundEditor {
                     let new_start_right = 1.0 - shape.start_left_norm;
                     let new_end_left = 1.0 - shape.end_right_norm;
                     let new_end_right = 1.0 - shape.end_left_norm;
+                    let new_left_ease = shape.right_ease;
+                    let new_right_ease = shape.left_ease;
                     shape.start_left_norm = new_start_left;
                     shape.start_right_norm = new_start_right;
                     shape.end_left_norm = new_end_left;
                     shape.end_right_norm = new_end_right;
+                    shape.left_ease = new_left_ease;
+                    shape.right_ease = new_right_ease;
                 }
             }
         }
@@ -804,6 +809,18 @@ impl FallingGroundEditor {
         }
         self.sort_notes();
         self.invalidate_note_caches();
+        
+        // 更新属性面板数据（如果有选中的note正在编辑）
+        if let Some(editing_id) = self.selection.selected_note_id {
+            if self.editor_state.notes.iter().any(|n| n.id == editing_id) {
+                if self.selected_note_properties().is_some() {
+                    // 这里需要通过某种方式更新UI状态
+                    // 由于editor无法直接访问prop_state，我们需要添加一个标记
+                    self.selection.property_panel_dirty = true;
+                }
+            }
+        }
+        
         let msg = self
             .i18n
             .t(crate::i18n::TextKey::EditorMirroredNotes)

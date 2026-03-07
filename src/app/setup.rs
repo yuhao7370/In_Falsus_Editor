@@ -11,6 +11,8 @@ pub fn window_conf() -> Conf {
         window_width: BASE_WIDTH as i32,
         window_height: BASE_HEIGHT as i32,
         window_resizable: true,
+        // 高 dpi 模式下 UI 会错位 / 缩放不正确
+        // high_dpi: true,
         ..Default::default()
     }
 }

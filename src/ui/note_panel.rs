@@ -359,6 +359,18 @@ pub fn draw_note_selector_panel(
         }
     }
 
+    // 检查属性面板脏标记（镜像等操作后需要更新）
+    if editor.take_property_panel_dirty() {
+        if let Some(editing_id) = prop_state.editing_note_id {
+            // 重新获取当前选中note的属性数据
+            if editor.selected_note_id() == Some(editing_id) {
+                if let Some(props) = editor.selected_note_properties() {
+                    prop_state.note_data = Some(props);
+                }
+            }
+        }
+    }
+
     let show_note_props = prop_state.note_data.is_some();
     let show_event_props = prop_state.event_data.is_some();
 

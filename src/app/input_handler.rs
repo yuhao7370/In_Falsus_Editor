@@ -6,7 +6,7 @@ use crate::shortcuts::ShortcutAction;
 use crate::ui::info_toast::InfoToastManager;
 use crate::ui::input_state::{free_mouse_wheel, safe_key_down, safe_key_pressed, safe_mouse_wheel};
 use macroquad::prelude::*;
-
+use crate::app::project_manager::ProjectManager;
 use super::ui_orchestrator::UiOutput;
 
 /// Global keyboard shortcuts.
@@ -15,6 +15,7 @@ pub fn handle_shortcuts(
     audio: &mut AudioController,
     i18n: &I18n,
     info_toasts: &mut InfoToastManager,
+    project_mgr: &mut ProjectManager
 ) {
     let shortcut_bindings = {
         let s = settings();
@@ -23,11 +24,26 @@ pub fn handle_shortcuts(
 
     if shortcut_bindings.is_pressed(ShortcutAction::SaveChart, safe_key_pressed, safe_key_down) {
         match editor.save_chart() {
-            Ok(()) => info_toasts.push(format!(
-                "{}: {}",
-                i18n.t(TextKey::ActionSaveChartSuccess),
-                editor.chart_path()
-            )),
+            Ok(()) => {
+                info_toasts.push(format!(
+                    "{}: {}",
+                    i18n.t(TextKey::ActionSaveChartSuccess),
+                    editor.chart_path()
+                ));
+                if let Err(e) = project_mgr.save_music_time_to_project(editor, audio) {
+                    audio.status = format!(
+                        "{}: {} ({e})",
+                        i18n.t(TextKey::ActionSaveChartSuccess),
+                        editor.chart_path()
+                    );
+                } else {
+                    audio.status = format!(
+                        "{}: {}",
+                        i18n.t(TextKey::ActionSaveChartSuccess),
+                        editor.chart_path()
+                    );
+                }
+            },
             Err(e) => info_toasts.push(format!("{}: {e}", i18n.t(TextKey::ActionSaveChartFailed))),
         }
     }

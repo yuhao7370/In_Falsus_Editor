@@ -76,7 +76,7 @@ async fn main() {
         // 3. 菜单动作
         if let Some(ref action) = ui_output.menu_action {
             audio.status.clear();
-            handle_top_menu_action(action.clone(), &mut editor, &mut audio, &mut i18n, &mut info_toasts);
+            handle_top_menu_action(action.clone(), &mut editor, &mut audio, &mut i18n, &mut info_toasts, &mut project_mgr);
             if !audio.status.is_empty() {
                 info_toasts.push(audio.status.clone());
             }
@@ -88,7 +88,7 @@ async fn main() {
 
         // 5. 快捷键 & 滚轮
         if !keyboard_shortcut_blocked {
-            input_handler::handle_shortcuts(&mut editor, &mut audio, &i18n, &mut info_toasts);
+            input_handler::handle_shortcuts(&mut editor, &mut audio, &i18n, &mut info_toasts, &mut project_mgr);
         }
         input_handler::handle_wheel(&mut editor, &mut audio, &i18n, &mut info_toasts, space_consumed, &ui_output);
 

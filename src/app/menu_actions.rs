@@ -1,4 +1,5 @@
 use crate::audio::controller::AudioController;
+use crate::app::project_manager::ProjectManager;
 use crate::editor::falling::FallingGroundEditor;
 use crate::i18n::{I18n, TextKey};
 use crate::settings::{self, modify_settings, modify_settings_nosave};
@@ -11,9 +12,10 @@ pub fn handle_top_menu_action(
     audio: &mut AudioController,
     i18n: &mut I18n,
     info_toasts: &mut InfoToastManager,
+    project_manager: &ProjectManager,
 ) {
     match action {
-        TopMenuAction::File(fa) => handle_file_action(fa, editor, audio, i18n),
+        TopMenuAction::File(fa) => handle_file_action(fa, editor, audio, i18n, project_manager),
         TopMenuAction::Edit(ea) => handle_edit_action(ea, editor, audio, i18n, info_toasts),
         TopMenuAction::Settings(sa) => handle_settings_action(sa, editor, audio, i18n),
     }
@@ -24,6 +26,7 @@ fn handle_file_action(
     editor: &mut FallingGroundEditor,
     audio: &mut AudioController,
     i18n: &I18n,
+    project_manager: &ProjectManager,
 ) {
     match action {
         FileAction::CreateProject => {
@@ -35,11 +38,20 @@ fn handle_file_action(
         FileAction::SaveChart => {
             match editor.save_chart() {
                 Ok(()) => {
-                    audio.status = format!(
-                        "{}: {}",
-                        i18n.t(TextKey::ActionSaveChartSuccess),
-                        editor.chart_path()
-                    )
+                    // Save current music time to project file
+                    if let Err(e) = project_manager.save_music_time_to_project(editor, audio) {
+                        audio.status = format!(
+                            "{}: {} ({e})",
+                            i18n.t(TextKey::ActionSaveChartSuccess),
+                            editor.chart_path()
+                        );
+                    } else {
+                        audio.status = format!(
+                            "{}: {}",
+                            i18n.t(TextKey::ActionSaveChartSuccess),
+                            editor.chart_path()
+                        );
+                    }
                 }
                 Err(e) => {
                     audio.status = format!("{}: {e}", i18n.t(TextKey::ActionSaveChartFailed))
