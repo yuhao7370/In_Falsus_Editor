@@ -650,12 +650,13 @@ impl FallingGroundEditor {
     }
 
     fn begin_view_clip_rect(&self, rect: Rect) {
-        let sw = screen_width();
-        let sh = screen_height();
-        let x1 = rect.x.floor().clamp(0.0, sw);
-        let y1 = rect.y.floor().clamp(0.0, sh);
-        let x2 = (rect.x + rect.w).ceil().clamp(0.0, sw);
-        let y2 = (rect.y + rect.h).ceil().clamp(0.0, sh);
+        let dpi = macroquad::window::screen_dpi_scale();
+        let fb_sw = screen_width() * dpi;
+        let fb_sh = screen_height() * dpi;
+        let x1 = (rect.x * dpi).floor().clamp(0.0, fb_sw);
+        let y1 = (rect.y * dpi).floor().clamp(0.0, fb_sh);
+        let x2 = ((rect.x + rect.w) * dpi).ceil().clamp(0.0, fb_sw);
+        let y2 = ((rect.y + rect.h) * dpi).ceil().clamp(0.0, fb_sh);
 
         let clip = if x2 > x1 && y2 > y1 {
             Some((x1 as i32, y1 as i32, (x2 - x1) as i32, (y2 - y1) as i32))
