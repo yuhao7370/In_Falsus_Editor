@@ -8,8 +8,6 @@ pub struct CurrentProjectState {
     pub open: bool,
     pub chart_path: String,
     pub audio_path: String,
-    /// Project directory (e.g. "projects/alamode"), used for copying files into.
-    pub project_dir: String,
     /// 当用户点击加载谱面按钮时置 true，由 orchestrator 处理文件对话框。
     pub browse_chart_requested: bool,
     /// 当用户点击加载音频按钮时置 true，由 orchestrator 处理文件对话框。
@@ -31,7 +29,6 @@ impl CurrentProjectState {
             open: false,
             chart_path: String::new(),
             audio_path: String::new(),
-            project_dir: String::new(),
             browse_chart_requested: false,
             browse_audio_requested: false,
         }
@@ -212,23 +209,4 @@ pub fn draw_current_project_window(
     }
 
     result
-}
-
-/// Copy a file into the project directory, preserving its filename.
-/// Returns the destination path on success.
-pub fn copy_file_to_project(src: &str, project_dir: &str) -> Result<String, String> {
-    if project_dir.is_empty() {
-        return Err("No project directory".to_string());
-    }
-    let src_path = Path::new(src);
-    let filename = src_path
-        .file_name()
-        .ok_or_else(|| "Invalid source filename".to_string())?;
-    let dest = Path::new(project_dir).join(filename);
-    // Create project dir if needed
-    std::fs::create_dir_all(project_dir)
-        .map_err(|e| format!("Failed to create project dir: {e}"))?;
-    std::fs::copy(src, &dest)
-        .map_err(|e| format!("Failed to copy file: {e}"))?;
-    Ok(dest.to_string_lossy().to_string())
 }

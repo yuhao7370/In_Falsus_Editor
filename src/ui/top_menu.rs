@@ -7,6 +7,9 @@ use egui_macroquad::egui;
 pub enum FileAction {
     CreateProject,
     OpenProject,
+    LoadAudio,
+    LoadChart,
+    SaveProject,
     CurrentProject,
     SaveChart,
     HotReloadChart,
@@ -232,6 +235,9 @@ pub fn draw_top_menu(
                 draw_top_button_with_popup(ui, "top_menu_file", i18n.t(TextKey::MenuFile), |ui| {
                     let file_create_project = i18n.t(TextKey::FileCreateProject);
                     let file_open_project = i18n.t(TextKey::FileOpenProject);
+                    let file_load_audio = i18n.t(TextKey::CurrentProjectLoadAudio);
+                    let file_load_chart = i18n.t(TextKey::CurrentProjectLoadChart);
+                    let file_save_project = i18n.t(TextKey::FileSaveProject);
                     let file_current_project = i18n.t(TextKey::FileCurrentProject);
                     let file_save_chart = i18n.t(TextKey::FileSaveChart);
                     let file_hot_reload_chart = i18n.t(TextKey::FileHotReloadChart);
@@ -240,6 +246,9 @@ pub fn draw_top_menu(
                         &[
                             file_create_project,
                             file_open_project,
+                            file_load_audio,
+                            file_load_chart,
+                            file_save_project,
                             file_current_project,
                             file_save_chart,
                             file_hot_reload_chart,
@@ -257,6 +266,8 @@ pub fn draw_top_menu(
                         TopMenuAction::File(FileAction::OpenProject),
                         file_open_project,
                     );
+                    draw_popup_item(ui, &mut action, TopMenuAction::File(FileAction::LoadAudio), file_load_audio);
+                    draw_popup_item(ui, &mut action, TopMenuAction::File(FileAction::LoadChart), file_load_chart);
                     draw_popup_item(
                         ui,
                         &mut action,
@@ -264,6 +275,7 @@ pub fn draw_top_menu(
                         file_current_project,
                     );
                     ui.separator();
+                    draw_popup_item(ui, &mut action, TopMenuAction::File(FileAction::SaveProject), file_save_project);
                     draw_popup_item(
                         ui,
                         &mut action,

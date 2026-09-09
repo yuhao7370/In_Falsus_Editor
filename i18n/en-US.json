@@ -17,6 +17,7 @@
   "language_english": "English",
   "file_create_project": "Create Project",
   "file_open_project": "Open Project",
+  "file_save_project": "Save to Project",
   "file_save_chart": "Save Chart  Ctrl+S",
   "edit_undo": "Undo  Ctrl+Z",
   "edit_redo": "Redo  Ctrl+Y",

@@ -17,6 +17,7 @@
   "language_english": "English",
   "file_create_project": "创建项目",
   "file_open_project": "打开项目",
+  "file_save_project": "保存到项目",
   "file_save_chart": "保存谱面  Ctrl+S",
   "edit_undo": "撤销  Ctrl+Z",
   "edit_redo": "恢复  Ctrl+Y",

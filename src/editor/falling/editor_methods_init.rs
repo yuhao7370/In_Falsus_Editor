@@ -6,6 +6,15 @@ impl FallingGroundEditor {
     }
 
     pub fn from_chart_path(path: &str) -> Self {
+        Self::from_chart_result(path, Chart::from_file(path))
+    }
+
+    pub fn try_from_chart_path(path: &str) -> Result<Self, String> {
+        let chart = Chart::from_file(path)?;
+        Ok(Self::from_chart_result(path, Ok(chart)))
+    }
+
+    fn from_chart_result(path: &str, chart: Result<Chart, String>) -> Self {
         let (
             notes,
             next_note_id,
@@ -15,7 +24,7 @@ impl FallingGroundEditor {
             timeline_events,
             next_event_id,
             status,
-        ) = match Chart::from_file(path) {
+        ) = match chart {
             Ok(chart) => {
                 let extracted = extract_chart_data(&chart);
                 let bpm_tl = BpmTimeline::from_source(extracted.bpm_source);
@@ -288,9 +297,20 @@ impl FallingGroundEditor {
 
     /// Save current editor state to the .spc file.
     pub fn save_chart(&mut self) -> Result<(), String> {
+        let path = if self.chart_path.is_empty() {
+            rfd::FileDialog::new()
+                .add_filter("SPC Chart", &["spc"])
+                .set_file_name("chart.spc")
+                .save_file()
+                .ok_or("已取消保存")?
+                .to_string_lossy().into_owned()
+        } else {
+            self.chart_path.clone()
+        };
         let chart = self.to_chart();
         let content = chart.to_spc();
-        std::fs::write(&self.chart_path, content).map_err(|e| format!("写入文件失败: {e}"))?;
+        std::fs::write(&path, content).map_err(|e| format!("写入文件失败: {e}"))?;
+        self.chart_path = path;
         self.editor_state.dirty = false;
         Ok(())
     }

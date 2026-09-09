@@ -312,12 +312,12 @@ impl AudioController {
         self.seek_to(target, i18n);
     }
     /// Install a decoded AudioClip produced by a background worker.
-    pub fn install_decoded_audio(&mut self, clip: sasa::AudioClip, path: &str, i18n: &I18n) {
+    pub fn install_decoded_audio(&mut self, clip: sasa::AudioClip, path: &str, i18n: &I18n) -> Result<(), String> {
+        self.pause_if_playing(i18n);
         if let Some(p) = self.player.as_mut() {
-            let _ = p.pause();
             if let Err(e) = p.install_clip(clip, path) {
                 self.status = format_error(&e, i18n);
-                return;
+                return Err(self.status.clone());
             }
             let snap = p.snapshot();
             self.duration_sec = snap.duration_sec;
@@ -329,7 +329,10 @@ impl AudioController {
             self.status = format!("{}: {}", i18n.t(TextKey::StatusLoaded), path);
         } else {
             self.status = i18n.t(TextKey::StatusAudioUnavailable).to_owned();
+            return Err(self.status.clone());
         }
+        self.hitsound_trigger.reset(0.0);
+        Ok(())
     }
 
     pub fn handle_editor_seek(&mut self, sec: f32, i18n: &I18n) {

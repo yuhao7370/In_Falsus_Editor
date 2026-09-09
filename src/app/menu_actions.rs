@@ -12,7 +12,7 @@ pub fn handle_top_menu_action(
     audio: &mut AudioController,
     i18n: &mut I18n,
     info_toasts: &mut InfoToastManager,
-    project_manager: &ProjectManager,
+    project_manager: &mut ProjectManager,
 ) {
     match action {
         TopMenuAction::File(fa) => handle_file_action(fa, editor, audio, i18n, project_manager),
@@ -26,14 +26,24 @@ fn handle_file_action(
     editor: &mut FallingGroundEditor,
     audio: &mut AudioController,
     i18n: &I18n,
-    project_manager: &ProjectManager,
+    project_manager: &mut ProjectManager,
 ) {
     match action {
         FileAction::CreateProject => {
             audio.status = i18n.t(TextKey::ActionCreateProject).to_owned();
         }
-        FileAction::OpenProject | FileAction::CurrentProject => {
+        FileAction::OpenProject | FileAction::CurrentProject | FileAction::LoadChart | FileAction::LoadAudio => {
             audio.status.clear();
+        }
+        FileAction::SaveProject => {
+            let was_playing = audio.pause_if_playing(i18n);
+            let result = project_manager.save_project(editor, audio);
+            audio.resume_if_was_playing(was_playing, i18n);
+            match result {
+                Ok(Some(path)) => audio.status = format!("项目已保存: {path}"),
+                Ok(None) => {},
+                Err(e) => audio.status = format!("保存项目失败: {e}"),
+            }
         }
         FileAction::SaveChart => {
             match editor.save_chart() {
